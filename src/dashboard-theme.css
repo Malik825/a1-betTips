@@ -1,0 +1,53 @@
+/* Dashboard-specific composition: one open working surface, responsive by default. */
+.dashboard-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  color: var(--foreground);
+  background: var(--background);
+}
+
+.dashboard-container {
+  width: min(100% - 2rem, 1000px);
+  margin-inline: auto;
+}
+
+.dashboard-welcome {
+  padding: clamp(2.5rem, 7vw, 5.5rem) 0 clamp(2rem, 5vw, 3.5rem);
+  background: linear-gradient(135deg, var(--primary) 0%, oklch(0.55 0.16 151) 100%);
+  color: var(--primary-foreground);
+}
+
+.dashboard-eyebrow {
+  margin: 0 0 0.55rem;
+  color: color-mix(in oklab, currentColor 72%, transparent);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.dashboard-welcome h1 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+}
+
+.dashboard-welcome h1 span { color: var(--foreground); }
+.dashboard-subtitle { margin: 0.8rem 0 0; color: color-mix(in oklab, var(--primary-foreground) 78%, transparent); font-size: clamp(0.9rem, 2vw, 1rem); }
+.dashboard-main { flex: 1; padding: 1.5rem 0 5rem; }
+.dashboard-tabs { display: flex; border-bottom: 1px solid var(--border); }
+.dashboard-tab { padding: 0.9rem 0; border: 0; border-bottom: 2px solid var(--primary); color: var(--primary); background: transparent; font: inherit; font-size: 0.85rem; font-weight: 800; cursor: default; }
+.dashboard-empty-state { margin-top: 1.75rem; padding: clamp(1.25rem, 4vw, 2rem); border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--card); box-shadow: 0 1px 2px oklch(0 0 0 / 14%); }
+.dashboard-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+.dashboard-section-heading h2 { margin: 0; color: var(--card-foreground); font-size: clamp(1.05rem, 2vw, 1.3rem); font-weight: 800; letter-spacing: -0.02em; }
+.dashboard-status { flex: 0 0 auto; padding: 0.45rem 0.7rem; border-radius: 999px; color: var(--primary); background: color-mix(in oklab, var(--primary) 14%, transparent); font-size: 0.7rem; font-weight: 800; }
+.dashboard-empty-copy { display: grid; justify-items: center; padding: clamp(2.5rem, 8vw, 5rem) 1rem clamp(1.5rem, 5vw, 3rem); text-align: center; }
+.dashboard-empty-mark { display: grid; place-items: center; width: 3rem; height: 3rem; margin-bottom: 1rem; border: 1px solid color-mix(in oklab, var(--primary) 35%, transparent); border-radius: 50%; color: var(--primary); background: color-mix(in oklab, var(--primary) 12%, transparent); font-size: 1.5rem; font-weight: 400; }
+.dashboard-empty-title { margin: 0; color: var(--card-foreground); font-size: 1rem; font-weight: 800; }
+.dashboard-empty-description { max-width: 30rem; margin: 0.5rem 0 0; color: var(--muted-foreground); font-size: 0.85rem; line-height: 1.6; }
+
+@media (min-width: 640px) { .dashboard-container { width: min(100% - 3rem, 1000px); } }
+@media (max-width: 520px) { .dashboard-section-heading { flex-direction: column; gap: 0.8rem; } .dashboard-status { align-self: flex-start; } }
