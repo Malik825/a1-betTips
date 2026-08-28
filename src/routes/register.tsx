@@ -9,13 +9,13 @@ import { supabase } from "@/lib/supabase";
 export const Route = createFileRoute("/register")({
   head: () => ({
     meta: [
-      { title: "Create your account — A1 PREDICTIONS" },
+      { title: "Create your account â€” A1 PREDICTIONS" },
       {
         name: "description",
         content:
           "Sign up for A1 PREDICTIONS and get daily expert football predictions and VIP betting packages.",
       },
-      { property: "og:title", content: "Create your account — A1 PREDICTIONS" },
+      { property: "og:title", content: "Create your account â€” A1 PREDICTIONS" },
       {
         property: "og:description",
         content: "Join A1 PREDICTIONS for daily expert football predictions and VIP packages.",

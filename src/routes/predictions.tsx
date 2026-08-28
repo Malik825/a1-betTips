@@ -13,7 +13,7 @@ import { PAYSTACK_ENABLED, paystackPay } from "@/lib/paystack";
 export const Route = createFileRoute("/predictions")({
   head: () => ({
     meta: [
-      { title: "Today's Predictions — A1 PREDICTIONS" },
+      { title: "Today's Predictions â€” A1 PREDICTIONS" },
       { name: "description", content: "Expert football betting tips and predictions for today's matches." },
     ],
   }),
@@ -73,7 +73,7 @@ function PredictionsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // ── Data ──────────────────────────────────────────────────────────────────
+  // â”€â”€ Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const { data: fixtures = [], isLoading: fixturesLoading } = useQuery({
     queryKey: ["fixtures"],
     queryFn: async () => {
@@ -169,7 +169,7 @@ function PredictionsPage() {
   const freeBetStatus = (dailySettings as any)?.status || "draft";
   const freeBetCode = (dailySettings as any)?.free_booking_code || null;
 
-  // ── Derived ────────────────────────────────────────────────────────────────
+  // â”€â”€ Derived â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Prefer joined fixture data, fall back to separate fixtures query
   const resolveFixture = (sel: any) => {
     let fix = sel.fixtures ?? sel.fixture ?? fixtures.find((f: any) => f.id === sel.fixture_id) ?? null;
@@ -200,7 +200,7 @@ function PredictionsPage() {
     return product;
   };
 
-  // ── Buy mutation ──────────────────────────────────────────────────────────
+  // â”€â”€ Buy mutation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const buyMutation = useMutation({
     mutationFn: async ({ packageId, reference }: { packageId: string; reference?: string }) => {
       if (!user) throw new Error("Not logged in");
@@ -348,13 +348,13 @@ function PredictionsPage() {
                           </span>
                           {fix && (
                             <div className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-bold tracking-wide uppercase">
-                              {fix.competition} � {fix.match_time}
+                              {fix.competition} • {fix.match_time}
                             </div>
                           )}
                         </div>
                         <span className="text-[10px] sm:text-[11px] font-black text-slate-900 dark:text-white">{pred.tip}</span>
                         <span className="text-[11px] sm:text-[12px] font-black text-green-600 dark:text-green-500 hidden sm:block">
-                          {pred.odds ? Number(pred.odds).toFixed(2) : "�"}
+                          {pred.odds ? Number(pred.odds).toFixed(2) : "—"}
                         </span>
                         <div className="flex justify-end">
                           <ResultBadge result={pred.result} />
@@ -402,7 +402,7 @@ function PredictionsPage() {
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(freeBetCode);
-                        toast.success(`Booking code: ${freeBetCode} � copied!`, { duration: 6000 });
+                        toast.success(`Booking code: ${freeBetCode} — copied!`, { duration: 6000 });
                       }}
                       className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-green-500 hover:bg-green-600 text-black font-black text-[12px] uppercase tracking-wider rounded-xl transition-all hover:-translate-y-0.5 shadow-lg shadow-green-500/25 border-none cursor-pointer"
                     >
@@ -531,7 +531,7 @@ function PredictionsPage() {
                                         </div>
                                         {fix && (
                                           <div className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-semibold uppercase tracking-wide">
-                                            {fix.match_time} � {fix.competition}
+                                            {fix.match_time} • {fix.competition}
                                           </div>
                                         )}
                                         <div className="inline-flex mt-1.5 px-2 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-slate-200 dark:border-white/10 text-[10px] text-green-600 dark:text-green-400 font-black tracking-wide">
@@ -561,7 +561,7 @@ function PredictionsPage() {
                           {purchased ? (
                             <div className="p-4 bg-green-500/10 rounded-xl border border-green-500/30 text-center text-green-700 dark:text-green-400 font-black text-[13px] flex items-center justify-center gap-2">
                               <Check className="w-5 h-5" />
-                              Secured � Check Dashboard
+                              Secured — Check Dashboard
                             </div>
                           ) : (
                             <button

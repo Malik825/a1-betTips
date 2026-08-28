@@ -45,7 +45,7 @@ function AdminGamesPage() {
 
   const queryClient = useQueryClient();
 
-  // â”€â”€â”€ Queries â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Queries Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   const { data: fixtures = [] } = useQuery({
     queryKey: ["fixtures"],
     queryFn: async () => {
@@ -107,7 +107,7 @@ function AdminGamesPage() {
   });
 
   // Sync DB data into local state when query loads (replaces deprecated onSuccess)
-  // This runs whenever dailySettings changes — including on page load/refresh
+  // This runs whenever dailySettings changes â€” including on page load/refresh
   useEffect(() => {
     if (dailySettings) {
       setFreeDailyStatus((dailySettings as any).status || "draft");
@@ -372,7 +372,7 @@ function AdminGamesPage() {
     onError: (err: any) => toast.error(err.message),
   });
 
-  // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Helpers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   const computePackageResult = (pkgId: string): ResultStatus => {
     const sels = getPackageSelections(pkgId);
     if (!sels.length) return "pending";
@@ -388,7 +388,7 @@ function AdminGamesPage() {
     return "pending";
   };
 
-  // â”€â”€â”€ Shared styles (theme-aware) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Shared styles (theme-aware) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   const card: React.CSSProperties = {
     background: "var(--card)", borderRadius: 12,
     border: "1px solid var(--border)", boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
@@ -422,7 +422,7 @@ function AdminGamesPage() {
     boxShadow: "0 4px 12px rgba(34, 197, 94, 0.25)",
   };
 
-  // â”€â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Render Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   const tabs: { key: PackageTab; label: string }[] = [
     { key: "free", label: "Free Tips" },
     { key: "vip_1", label: "VIP 1" },
@@ -445,7 +445,7 @@ function AdminGamesPage() {
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 0 80px", fontFamily: "'Montserrat', sans-serif" }}>
 
-      {/* ── Page Header ───────────────────────────────────────────────────────── */}
+      {/* â”€â”€ Page Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div style={{ padding: "32px 0 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: "var(--foreground)", margin: 0 }}>Games Control</h1>
@@ -455,7 +455,7 @@ function AdminGamesPage() {
         </div>
       </div>
 
-      {/* â”€â”€ Package Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* Ã¢â€â‚¬Ã¢â€â‚¬ Package Tabs Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */}
       <div className="hide-scrollbar" style={{ display: "flex", gap: 4, marginBottom: 24, borderBottom: "1px solid var(--border)", overflowX: "auto", whiteSpace: "nowrap" }}>
         {tabs.map((t) => {
           const isActive = activeTab === t.key;
@@ -480,9 +480,9 @@ function AdminGamesPage() {
         })}
       </div>
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
           FREE PREDICTIONS TAB
-      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
       {activeTab === "free" && (() => {
         const overallResult = computeFreeResult();
         const avail = (freeDailyStatus || "draft") as AvailabilityStatus;
@@ -657,11 +657,11 @@ function AdminGamesPage() {
                                   {fix && <div style={{ fontSize: 12, color: "var(--muted-foreground)", fontWeight: 400, marginTop: 2 }}>{fix.match_time}</div>}
                                 </td>
                                 <td data-label="Competition" style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
-                                  {fix?.competition || "—"}
+                                  {fix?.competition || "â€”"}
                                 </td>
                                 <td data-label="Tip" style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>{pred.tip}</td>
                                 <td data-label="Odds" style={{ fontSize: 14, color: "var(--muted-foreground)", fontWeight: 600 }}>
-                                  {pred.odds ? Number(pred.odds).toFixed(2) : "—"}
+                                  {pred.odds ? Number(pred.odds).toFixed(2) : "â€”"}
                                 </td>
                                 <td data-label="Result">
                                   <Badge
@@ -686,7 +686,7 @@ function AdminGamesPage() {
                                           whiteSpace: "nowrap",
                                         }}
                                       >
-                                        <span>{r === "pending" ? "?" : r === "won" ? "✓" : "✕"}</span>
+                                        <span>{r === "pending" ? "?" : r === "won" ? "âœ“" : "âœ•"}</span>
                                         <span style={{ textTransform: "capitalize" }}>{r}</span>
                                       </button>
                                     ))}
@@ -709,7 +709,7 @@ function AdminGamesPage() {
                                       <div style={{ background: "var(--card)", padding: 24, paddingBottom: 40, borderTopLeftRadius: 16, borderTopRightRadius: 16, animation: "slideUp 0.2s ease", display: "flex", flexDirection: "column", gap: 12 }} onClick={e => e.stopPropagation()}>
                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                                           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Update Result</h3>
-                                          <button onClick={() => setActionDrawerId(null)} style={{ background: "transparent", border: "none", fontSize: 20, color: "var(--muted-foreground)" }}>✕</button>
+                                          <button onClick={() => setActionDrawerId(null)} style={{ background: "transparent", border: "none", fontSize: 20, color: "var(--muted-foreground)" }}>âœ•</button>
                                         </div>
                                         {(["won", "pending", "lost"] as ResultStatus[]).map((r) => (
                                           <button
@@ -725,7 +725,7 @@ function AdminGamesPage() {
                                               opacity: result === r ? 1 : 0.9,
                                             }}
                                           >
-                                            <span>{r === "pending" ? "?" : r === "won" ? "✓" : "✕"}</span>
+                                            <span>{r === "pending" ? "?" : r === "won" ? "âœ“" : "âœ•"}</span>
                                             <span style={{ textTransform: "capitalize" }}>{r}</span>
                                           </button>
                                         ))}
@@ -756,9 +756,9 @@ function AdminGamesPage() {
         );
       })()}
 
-      {/* ——————————————————————————————————————————————————————————————————————————————— 
+      {/* â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” 
           VIP PACKAGE TABS
-      —————————————————————————————————————————————————————————————————————————————————— */}
+      â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */}
       {activeTab !== "free" && activeVipPkg && (() => {
         const pkg = activeVipPkg;
         const selections = getPackageSelections(pkg.id);
@@ -924,10 +924,10 @@ function AdminGamesPage() {
                                 {fix ? `${fix.home_team} vs ${fix.away_team}` : sel.fixture_id}
                                 {fix && <div style={{ fontSize: 12, color: "var(--muted-foreground)", fontWeight: 400, marginTop: 2 }}>{fix.match_time}</div>}
                               </td>
-                              <td data-label="Competition" style={{ fontSize: 13, color: "var(--muted-foreground)" }}>{fix?.competition || "—"}</td>
+                              <td data-label="Competition" style={{ fontSize: 13, color: "var(--muted-foreground)" }}>{fix?.competition || "â€”"}</td>
                               <td data-label="Prediction" style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>{sel.prediction}</td>
                               <td data-label="Odds" style={{ fontSize: 14, fontWeight: 600, color: "var(--muted-foreground)" }}>
-                                {sel.odds ? Number(sel.odds).toFixed(2) : "—"}
+                                {sel.odds ? Number(sel.odds).toFixed(2) : "â€”"}
                               </td>
                               <td data-label="Result">
                                 <Badge label={selResult} style={{ background: RESULT_COLORS[selResult].bg, color: RESULT_COLORS[selResult].color }} />
@@ -948,7 +948,7 @@ function AdminGamesPage() {
                                         whiteSpace: "nowrap",
                                       }}
                                     >
-                                      <span>{r === "pending" ? "?" : r === "won" ? "✓" : "✕"}</span>
+                                      <span>{r === "pending" ? "?" : r === "won" ? "âœ“" : "âœ•"}</span>
                                       <span style={{ textTransform: "capitalize" }}>{r}</span>
                                     </button>
                                   ))}
@@ -969,7 +969,7 @@ function AdminGamesPage() {
                                     <div style={{ background: "var(--card)", padding: 24, paddingBottom: 40, borderTopLeftRadius: 16, borderTopRightRadius: 16, animation: "slideUp 0.2s ease", display: "flex", flexDirection: "column", gap: 12 }} onClick={e => e.stopPropagation()}>
                                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                                         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Update Result</h3>
-                                        <button onClick={() => setActionDrawerId(null)} style={{ background: "transparent", border: "none", fontSize: 20, color: "var(--muted-foreground)" }}>✕</button>
+                                        <button onClick={() => setActionDrawerId(null)} style={{ background: "transparent", border: "none", fontSize: 20, color: "var(--muted-foreground)" }}>âœ•</button>
                                       </div>
                                       {(["won", "pending", "lost"] as ResultStatus[]).map((r) => (
                                         <button
@@ -985,7 +985,7 @@ function AdminGamesPage() {
                                             opacity: selResult === r ? 1 : 0.9,
                                           }}
                                         >
-                                          <span>{r === "pending" ? "?" : r === "won" ? "✓" : "✕"}</span>
+                                          <span>{r === "pending" ? "?" : r === "won" ? "âœ“" : "âœ•"}</span>
                                           <span style={{ textTransform: "capitalize" }}>{r}</span>
                                         </button>
                                       ))}

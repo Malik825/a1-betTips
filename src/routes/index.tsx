@@ -16,9 +16,9 @@ import heroImage from "@/assets/hero-stadium.jpg";
 export const Route = createFileRoute("/")(({
   head: () => ({
     meta: [
-      { title: "A1 PREDICTIONS — Premium Football Betting Tips & Predictions" },
+      { title: "A1 PREDICTIONS â€” Premium Football Betting Tips & Predictions" },
       { name: "description", content: "Daily sports predictions plus a VIP feed. Verified results, expert analysis and premium picks from the A1 Predictions team." },
-      { property: "og:title", content: "A1 PREDICTIONS — Premium Football Betting Tips" },
+      { property: "og:title", content: "A1 PREDICTIONS â€” Premium Football Betting Tips" },
       { property: "og:description", content: "Free daily football predictions plus a VIP feed with verified results." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -30,7 +30,7 @@ export const Route = createFileRoute("/")(({
 const stats = [
   { value: "95%", label: "Win Rate", icon: Trophy },
   { value: "10K+", label: "Happy Users", icon: Star },
-  { value: "5★", label: "User Rating", icon: Zap },
+  { value: "5â˜…", label: "User Rating", icon: Zap },
 ];
 
 const features = [
@@ -43,7 +43,7 @@ const features = [
   {
     icon: TrendingUp,
     title: "Consistent Profits",
-    body: "Our track record speaks for itself — 95% accuracy with tips designed for real, sustainable returns.",
+    body: "Our track record speaks for itself â€” 95% accuracy with tips designed for real, sustainable returns.",
     accent: "#F5A623",
   },
   {
@@ -67,7 +67,7 @@ function ResultBadge({ result }: { result: string }) {
   const won = result === "won";
   return (
     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-bold text-[9px] tracking-wide ${won ? "bg-green-500/15 text-green-600 dark:text-green-400" : "bg-red-500/15 text-red-600 dark:text-red-400"}`}>
-      {won ? "✓ WON" : "✗ LOST"}
+      {won ? "âœ“ WON" : "âœ— LOST"}
     </span>
   );
 }
@@ -137,7 +137,7 @@ function HomePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Scroll-reveal refs — one per major section
+  // Scroll-reveal refs â€” one per major section
   const statsRef    = useScrollReveal();
   const featuresRef = useScrollReveal();
   const tipsRef     = useScrollReveal();
@@ -156,8 +156,8 @@ function HomePage() {
       <SiteHeader />
 
       <main className="flex-1 overflow-x-hidden">
-                {/* ??? HERO � Split Layout ??????????????????????????????????????? */}
-        {/* ??? HERO � Split Layout ??????????????????????????????????????? */}
+                {/* ??? HERO — Split Layout ??????????????????????????????????????? */}
+        {/* ??? HERO — Split Layout ??????????????????????????????????????? */}
         <section className="relative overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors min-h-[92svh] flex items-center">
           {/* subtle grid overlay */}
           <div className="absolute inset-0 opacity-[0.04] dark:opacity-[0.04]" style={{backgroundImage:'repeating-linear-gradient(0deg,currentColor 0,currentColor 1px,transparent 1px,transparent 60px),repeating-linear-gradient(90deg,currentColor 0,currentColor 1px,transparent 1px,transparent 60px)'}} />
@@ -182,7 +182,7 @@ function HomePage() {
 
               {/* sub copy */}
               <p className="text-slate-600 dark:text-slate-400 text-base sm:text-lg leading-relaxed max-w-md">
-                Expert football predictions, free daily tips, and premium VIP packages � trusted by thousands of winning bettors across Africa.
+                Expert football predictions, free daily tips, and premium VIP packages — trusted by thousands of winning bettors across Africa.
               </p>
 
               {/* mini stats row */}
@@ -233,7 +233,7 @@ function HomePage() {
               {/* glow behind image */}
               <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[520px] h-[520px] rounded-full bg-green-500/10 blur-[80px]" />
 
-              {/* image frame � NO badges inside */}
+              {/* image frame — NO badges inside */}
               <div className="relative w-full max-w-[540px] rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-2xl shadow-slate-300 dark:shadow-black/60">
                 <img
                   src={heroImage}
@@ -244,7 +244,7 @@ function HomePage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-50/70 via-transparent to-transparent dark:from-slate-950/70 dark:via-transparent dark:to-transparent" />
               </div>
 
-              {/* -- Orbital Stats Ring � sits at left-center of the image -- */}
+              {/* -- Orbital Stats Ring — sits at left-center of the image -- */}
               <style>{`
                 @keyframes orbitCW {
                   from { transform: rotate(0deg)    translateX(108px) rotate(0deg); }
@@ -305,7 +305,7 @@ function HomePage() {
           </div>
         </section>
 
-        {/* ─── STATS ────────────────────────────────────────────────────── */}
+        {/* â”€â”€â”€ STATS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {/* ??? STATS MARQUEE ??? */}
         {/* ??? STATS MARQUEE ??? */}
         <section ref={statsRef} className="py-10 bg-slate-50 dark:bg-slate-950 transition-colors overflow-hidden relative border-y border-slate-200 dark:border-white/5">
@@ -367,7 +367,7 @@ function HomePage() {
           </div>
         </section>
 
-        {/* ─── FREE TIPS ────────────────────────────────────────────────── */}
+        {/* â”€â”€â”€ FREE TIPS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <section ref={tipsRef} className="py-20 px-6 bg-slate-50 dark:bg-slate-950 transition-colors">
           <div className="w-[95%] sm:w-[92%] max-w-6xl mx-auto">
             <div className="sr sr-up text-center mb-10">
@@ -481,7 +481,7 @@ function HomePage() {
                       </div>
                       <span className="text-[10px] sm:text-[12px] font-bold text-slate-900 dark:text-white">{tip.tip}</span>
                       <span className="text-[11px] sm:text-[13px] font-extrabold text-green-600 dark:text-green-500 hidden sm:block">
-                        {tip.odds ? Number(tip.odds).toFixed(2) : "—"}
+                        {tip.odds ? Number(tip.odds).toFixed(2) : "â€”"}
                       </span>
                       <div className="flex justify-end">
                         <ResultBadge result={tip.result} />
@@ -491,7 +491,7 @@ function HomePage() {
                 )}
               </ul>
 
-              {/* ── FREE BOOKING CODE — always visible below table ─────── */}
+              {/* â”€â”€ FREE BOOKING CODE â€” always visible below table â”€â”€â”€â”€â”€â”€â”€ */}
               <div className="border-t border-slate-200 dark:border-white/10 px-4 sm:px-7 py-5 bg-green-500/5 dark:bg-green-500/5 flex flex-col sm:flex-row items-center gap-4">
                 <div className="flex-1 min-w-0">
                   <p className="font-black text-slate-800 dark:text-white text-[14px] mb-0.5">Free Booking Code</p>
@@ -546,7 +546,7 @@ function HomePage() {
           </div>
         </section>
 
-        {/* ─── FINAL CTA ────────────────────────────────────────────────── */}
+        {/* â”€â”€â”€ FINAL CTA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <section ref={ctaRef} className="py-24 px-6 bg-slate-900 dark:bg-slate-950 text-center transition-colors relative overflow-hidden">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(34,197,94,0.08)_0%,_transparent_70%)] pointer-events-none" />
           <div className="relative z-10 w-[95%] sm:w-[92%] max-w-4xl mx-auto">

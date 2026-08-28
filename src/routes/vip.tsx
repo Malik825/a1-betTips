@@ -12,7 +12,7 @@ import { PAYSTACK_ENABLED, paystackPay } from "@/lib/paystack";
 export const Route = createFileRoute("/vip")({
   head: () => ({
     meta: [
-      { title: "VIP Packages — A1 PREDICTIONS" },
+      { title: "VIP Packages â€” A1 PREDICTIONS" },
       { name: "description", content: "Premium betting packages with expert selections. Purchase to reveal the booking code." },
     ],
   }),
@@ -221,7 +221,7 @@ function VipPage() {
                     </div>
                   )}
 
-                  {/* Match list — show all matches, blur tips for non-buyers */}
+                  {/* Match list â€” show all matches, blur tips for non-buyers */}
                   <div className="mb-8 flex-1">
                     <h3 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">
                       Included Matches ({pkgSels.length})
@@ -238,7 +238,7 @@ function VipPage() {
                                 {fix && (
                                   <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 flex gap-2">
                                     <span>{fix.match_time}</span>
-                                    {fix.competition && <span>· {fix.competition}</span>}
+                                    {fix.competition && <span>Â· {fix.competition}</span>}
                                   </div>
                                 )}
                                 {/* Blur prediction for non-buyers */}
@@ -275,11 +275,11 @@ function VipPage() {
                   {purchased ? (
                     <div className="p-4 bg-green-500/10 rounded-xl border border-green-500/30 text-center text-green-700 dark:text-green-400 font-extrabold text-[12px] flex items-center justify-center gap-2">
                       <Check className="w-[18px] h-[18px]" />
-                      Secured — Check Dashboard
+                      Secured â€” Check Dashboard
                     </div>
                   ) : isExpired ? (
                     <div className="p-4 bg-green-500/10 rounded-xl border border-green-500/20 text-center text-green-700 dark:text-green-400 font-extrabold text-[12px] flex items-center justify-center gap-2">
-                      This package has expired — check back for new packages
+                      This package has expired â€” check back for new packages
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -329,7 +329,7 @@ function VipPage() {
 
       <SiteFooter />
 
-      {/* ── Success Modal ──────────────────────────────────────────────────── */}
+      {/* â”€â”€ Success Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {successPkg && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -346,7 +346,7 @@ function VipPage() {
             </div>
 
             <div>
-              <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Payment Successful! 🎉</h2>
+              <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Payment Successful! ðŸŽ‰</h2>
               <p className="text-slate-500 dark:text-slate-400 text-[13px] leading-relaxed m-0">
                 Your VIP package has been secured. Head to your <strong className="text-slate-700 dark:text-slate-300">Dashboard</strong> to view your booking code and full predictions.
               </p>

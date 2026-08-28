@@ -45,7 +45,7 @@ jobs:
           retention-days: 1
 
   # ------------------------------------------------------------------
-  # 2a. DEPLOY TO VERCEL — PRODUCTION (main branch only)
+  # 2a. DEPLOY TO VERCEL â€” PRODUCTION (main branch only)
   # ------------------------------------------------------------------
   deploy-production:
     name: Deploy to Production
@@ -77,7 +77,7 @@ jobs:
           vercel-args: '--prod'
 
   # ------------------------------------------------------------------
-  # 2b. DEPLOY TO VERCEL — PREVIEW (dev branch / PRs)
+  # 2b. DEPLOY TO VERCEL â€” PREVIEW (dev branch / PRs)
   # ------------------------------------------------------------------
   deploy-preview:
     name: Deploy Preview
