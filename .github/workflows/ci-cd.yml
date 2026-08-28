@@ -37,13 +37,6 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_PAYSTACK_PUBLIC_KEY: ${{ secrets.VITE_PAYSTACK_PUBLIC_KEY }}
 
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/
-          retention-days: 1
-
   # ------------------------------------------------------------------
   # 2a. DEPLOY TO VERCEL — PRODUCTION (main branch only)
   # ------------------------------------------------------------------
@@ -59,12 +52,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
 
       - name: Deploy to Vercel (Production)
         id: deploy
@@ -89,12 +76,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
-
       - name: Deploy Preview to Vercel
         id: preview
         uses: amondnet/vercel-action@v25
@@ -115,5 +96,6 @@ jobs:
               repo: context.repo.repo,
               body: "?? **Preview deployed!**\n\n?? ${{ steps.preview.outputs.preview-url }}"
             })
+
 
 
