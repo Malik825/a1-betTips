@@ -164,7 +164,7 @@ function DashboardPage() {
                 : null;
 
               return (
-                <div key={ticket.id} className="bg-white dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-lg dark:shadow-2xl dark:shadow-black/50 transition-colors">
+                <div key={ticket.id} className="bg-white dark:bg-slate-900/60 backdrop-blur-xl rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-lg dark:shadow-2xl dark:shadow-black/50 transition-colors">
                   {/* Card top bar */}
                   <div className={`h-1 ${result === "won" ? "bg-green-500" : result === "lost" ? "bg-red-500" : "bg-green-500"}`} />
 
@@ -257,4 +257,5 @@ function DashboardPage() {
     </div>
   );
 }
+
 

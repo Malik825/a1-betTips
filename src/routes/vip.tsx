@@ -154,7 +154,7 @@ function VipPage() {
             <>
 
         {!isLoading && visiblePackages.length === 0 && (
-          <div className="bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl rounded-3xl p-20 text-center border border-slate-200 dark:border-white/5">
+          <div className="bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl rounded-xl p-20 text-center border border-slate-200 dark:border-white/5">
             <Lock className="w-12 h-12 text-slate-400 dark:text-slate-500 mx-auto mb-5" />
             <p className="font-bold text-slate-800 dark:text-slate-200 text-lg mb-2">No packages available yet</p>
             <p className="text-slate-500 dark:text-slate-400 text-[13px] m-0">Our analysts are preparing today's VIP selections. Check back soon.</p>
@@ -175,7 +175,7 @@ function VipPage() {
             const cardOpacity = isExpired ? 0.6 : 1;
 
             return (
-              <div key={pkg.id} style={{ opacity: cardOpacity }} className="bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl rounded-3xl overflow-hidden border border-slate-200 dark:border-white/5 shadow-xl dark:shadow-2xl dark:shadow-black/50 flex flex-col relative transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-green-500/10 dark:hover:shadow-green-500/10">
+              <div key={pkg.id} style={{ opacity: cardOpacity }} className="bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl rounded-xl overflow-hidden border border-slate-200 dark:border-white/5 shadow-xl dark:shadow-2xl dark:shadow-black/50 flex flex-col relative transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-green-500/10 dark:hover:shadow-green-500/10">
                 {/* Accent glow on top edge */}
                 <div className={`absolute top-0 left-0 right-0 h-0.5 ${
                   isAvailable
@@ -337,7 +337,7 @@ function VipPage() {
           onClick={() => setSuccessPkg(null)}
         >
           <div
-            className="bg-white dark:bg-slate-900 rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-slate-200 dark:border-white/10 flex flex-col items-center text-center gap-5"
+            className="bg-white dark:bg-slate-900 rounded-xl p-8 max-w-sm w-full shadow-2xl border border-slate-200 dark:border-white/10 flex flex-col items-center text-center gap-5"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Animated checkmark */}
@@ -354,7 +354,7 @@ function VipPage() {
 
             <button
               onClick={() => { setSuccessPkg(null); navigate({ to: "/dashboard" }); }}
-              className="w-full flex items-center justify-center gap-2 p-4 bg-green-500 hover:bg-green-600 text-black font-extrabold text-[13px] rounded-2xl transition-all hover:scale-[1.02] shadow-lg shadow-green-500/30 border-none cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 p-4 bg-green-500 hover:bg-green-600 text-black font-extrabold text-[13px] rounded-xl transition-all hover:scale-[1.02] shadow-lg shadow-green-500/30 border-none cursor-pointer"
             >
               <LayoutDashboard className="w-5 h-5" /> Go to Dashboard
             </button>
@@ -371,4 +371,6 @@ function VipPage() {
     </div>
   );
 }
+
+
 

@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Save, Settings as SettingsIcon, CreditCard, MessageCircle, Share2, ShieldAlert } from "lucide-react";
+import { Save, Settings as SettingsIcon, CreditCard, MessageCircle, Share2, ShieldAlert, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/admin/settings")({
   component: AdminSettingsPage,
@@ -55,6 +56,41 @@ function AdminSettingsPage() {
       });
     }
   }, [remoteSettings]);
+
+  const { user } = useAuth();
+  const [pwForm, setPwForm] = useState({ current: "", newPw: "", confirm: "" });
+  const [pwLoading, setPwLoading] = useState(false);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pwForm.newPw !== pwForm.confirm) {
+      toast.error("New passwords do not match.");
+      return;
+    }
+    if (pwForm.newPw.length < 6) {
+      toast.error("New password must be at least 6 characters.");
+      return;
+    }
+    setPwLoading(true);
+    // Re-authenticate with current password
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: user?.email || "",
+      password: pwForm.current,
+    });
+    if (signInError) {
+      toast.error("Current password is incorrect.");
+      setPwLoading(false);
+      return;
+    }
+    const { error } = await supabase.auth.updateUser({ password: pwForm.newPw });
+    setPwLoading(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Password updated successfully!");
+      setPwForm({ current: "", newPw: "", confirm: "" });
+    }
+  };
 
   const saveSettingsMutation = useMutation({
     mutationFn: async () => {
@@ -166,7 +202,58 @@ function AdminSettingsPage() {
           </div>
         </SectionCard>
 
-        {/* Social */}
+        {/* Password */}
+        <SectionCard icon={<KeyRound size={17} />} title="Change Admin Password">
+          <form onSubmit={handleChangePassword} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <div>
+              <label className="admin-label">Current Password</label>
+              <input
+                className="admin-input"
+                type="password"
+                placeholder="Enter current password"
+                value={pwForm.current}
+                onChange={e => setPwForm(p => ({ ...p, current: e.target.value }))}
+                required
+              />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+              <div>
+                <label className="admin-label">New Password</label>
+                <input
+                  className="admin-input"
+                  type="password"
+                  placeholder="Min. 6 characters"
+                  value={pwForm.newPw}
+                  onChange={e => setPwForm(p => ({ ...p, newPw: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <label className="admin-label">Confirm New Password</label>
+                <input
+                  className="admin-input"
+                  type="password"
+                  placeholder="Repeat new password"
+                  value={pwForm.confirm}
+                  onChange={e => setPwForm(p => ({ ...p, confirm: e.target.value }))}
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <button
+                type="submit"
+                disabled={pwLoading}
+                className="admin-btn-green"
+                style={{ marginTop: "4px" }}
+              >
+                <KeyRound size={15} /> {pwLoading ? "Updating..." : "Update Password"}
+              </button>
+            </div>
+          </form>
+        </SectionCard>
+
+      {/* Social */}
         <SectionCard icon={<Share2 size={17} />} title="Social Links">
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
             {field("Telegram Channel", "telegramLink", "url", "https://t.me/...")}
@@ -178,3 +265,4 @@ function AdminSettingsPage() {
     </div>
   );
 }
+

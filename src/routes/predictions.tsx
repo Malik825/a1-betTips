@@ -214,7 +214,8 @@ function PredictionsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user_tickets"] });
-      toast.success("Package purchased! Check your Dashboard for the booking code.");
+      toast.success("Package purchased! Redirecting to your dashboard...");
+      navigate({ to: "/dashboard" });
     },
     onError: (err: any) => toast.error(err.message || "Purchase failed."),
   });
@@ -303,13 +304,13 @@ function PredictionsPage() {
             </div>
 
             {/* Free Tips Table Card */}
-            <div className="bg-white dark:bg-slate-900/50 backdrop-blur-xl rounded-3xl border border-slate-200 dark:border-white/10 shadow-2xl shadow-slate-200/50 dark:shadow-black/50 overflow-hidden">
+            <div className="bg-white dark:bg-slate-900/50 backdrop-blur-xl rounded-xl border border-slate-200 dark:border-white/10 shadow-2xl shadow-slate-200/50 dark:shadow-black/50 overflow-hidden">
               {/* Header row */}
               <div className="grid grid-cols-[2fr_1fr_80px] sm:grid-cols-[2fr_1fr_1fr_80px] bg-slate-50 dark:bg-black/20 p-4 sm:px-7 border-b border-slate-200 dark:border-white/10">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-widest">Match</span>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-widest">Tip</span>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-widest hidden sm:block">Odds</span>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-widest text-right">Result</span>
+                <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-widest">Match</span>
+                <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-widest">Tip</span>
+                <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-widest hidden sm:block">Odds</span>
+                <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-widest text-right">Result</span>
               </div>
 
               {/* Rows */}
@@ -342,17 +343,17 @@ function PredictionsPage() {
                     return (
                       <li key={pred.id} className={`grid grid-cols-[2fr_1fr_80px] sm:grid-cols-[2fr_1fr_1fr_80px] items-center p-4 sm:p-5 px-4 sm:px-7 hover:bg-slate-50/80 dark:hover:bg-white/5 transition-colors ${i < todayFreePreds.length - 1 ? 'border-b border-slate-100 dark:border-white/5' : ''}`}>
                         <div>
-                          <span className="font-bold text-slate-900 dark:text-white text-[13px] tracking-tight">
+                          <span className="font-bold text-slate-900 dark:text-white text-[11px] sm:text-[12px] tracking-tight">
                             {fix ? <>{fix.home_team} <span className="text-slate-400 font-normal mx-1">vs</span> {fix.away_team}</> : <span className="text-slate-400">Match TBC</span>}
                           </span>
                           {fix && (
-                            <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-bold tracking-wide uppercase">
+                            <div className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-bold tracking-wide uppercase">
                               {fix.competition} • {fix.match_time}
                             </div>
                           )}
                         </div>
-                        <span className="text-[12px] font-black text-slate-900 dark:text-white">{pred.tip}</span>
-                        <span className="text-[13px] font-black text-green-600 dark:text-green-500 hidden sm:block">
+                        <span className="text-[10px] sm:text-[11px] font-black text-slate-900 dark:text-white">{pred.tip}</span>
+                        <span className="text-[11px] sm:text-[12px] font-black text-green-600 dark:text-green-500 hidden sm:block">
                           {pred.odds ? Number(pred.odds).toFixed(2) : "—"}
                         </span>
                         <div className="flex justify-end">
@@ -435,7 +436,7 @@ function PredictionsPage() {
             {packagesIsLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-white/10 overflow-hidden flex flex-col shadow-xl">
+                  <div key={i} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-white/10 overflow-hidden flex flex-col shadow-xl">
                     <div className="h-1 bg-slate-200 dark:bg-white/10" />
                     <div className="p-8 flex-1 flex flex-col animate-pulse">
                       <div className="flex justify-between mb-6">
@@ -460,7 +461,7 @@ function PredictionsPage() {
 
               if (visiblePackages.length === 0) {
                 return (
-                  <div className="py-20 text-center bg-white dark:bg-slate-900/50 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm">
+                  <div className="py-20 text-center bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm">
                     <Crown className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
                     <h3 className="text-slate-900 dark:text-white font-black text-xl mb-2">No VIP Packages Right Now</h3>
                     <p className="text-slate-500 dark:text-slate-400 text-sm max-w-sm mx-auto">
@@ -483,7 +484,7 @@ function PredictionsPage() {
                       : null;
 
                     return (
-                      <div key={pkg.id} className="bg-white dark:bg-slate-900 rounded-3xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/50 flex flex-col relative transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-green-500/10 hover:border-green-500/30">
+                      <div key={pkg.id} className="bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/50 flex flex-col relative transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-green-500/10 hover:border-green-500/30">
                         {/* Accent glow on top edge */}
                         <div className={`absolute top-0 left-0 right-0 h-1 ${isAvailable ? 'bg-gradient-to-r from-green-400 to-green-600' : 'bg-slate-300 dark:bg-slate-700'}`} />
 
@@ -506,7 +507,7 @@ function PredictionsPage() {
                           {/* Combined odds */}
                           {dynamicOdds && (
                             <div className="mb-6 inline-flex items-center gap-3 px-4 py-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 shadow-inner">
-                              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-widest">Combined Odds</span>
+                              <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-widest">Combined Odds</span>
                               <span className="text-xl font-black text-green-600 dark:text-green-400">{Number(dynamicOdds).toFixed(2)}</span>
                             </div>
                           )}
@@ -529,7 +530,7 @@ function PredictionsPage() {
                                           {fix ? <>{fix.home_team} <span className="text-slate-400 font-normal text-[11px] mx-0.5">vs</span> {fix.away_team}</> : "Match TBC"}
                                         </div>
                                         {fix && (
-                                          <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-semibold uppercase tracking-wide">
+                                          <div className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-semibold uppercase tracking-wide">
                                             {fix.match_time} • {fix.competition}
                                           </div>
                                         )}
@@ -602,4 +603,7 @@ function PredictionsPage() {
     </div>
   );
 }
+
+
+
 

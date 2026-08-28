@@ -227,13 +227,14 @@ function HomePage() {
               </div>
             </div>
 
-            {/* -- RIGHT: image -- */}
+
+            {/* -- RIGHT: image + orbital stats -- */}
             <div className="relative hidden lg:flex items-center justify-end">
               {/* glow behind image */}
               <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[520px] h-[520px] rounded-full bg-green-500/10 blur-[80px]" />
 
-              {/* image frame */}
-              <div className="relative w-full max-w-[540px] rounded-3xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-2xl shadow-slate-300 dark:shadow-black/60">
+              {/* image frame — NO badges inside */}
+              <div className="relative w-full max-w-[540px] rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-2xl shadow-slate-300 dark:shadow-black/60">
                 <img
                   src={heroImage}
                   alt="Stadium"
@@ -241,31 +242,60 @@ function HomePage() {
                 />
                 {/* gradient fade at bottom */}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-50/70 via-transparent to-transparent dark:from-slate-950/70 dark:via-transparent dark:to-transparent" />
+              </div>
 
-                {/* floating badge — win rate */}
-                <div className="absolute top-5 left-5 bg-white/70 dark:bg-black/70 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-green-500/20 flex items-center justify-center">
-                    <span className="text-green-500 dark:text-green-400 text-lg">??</span>
-                  </div>
-                  <div>
-                    <p className="text-slate-900 dark:text-white font-black text-sm leading-none">87% Win Rate</p>
-                    <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider mt-0.5">Last 30 Days</p>
+              {/* -- Orbital Stats Ring — sits at left-center of the image -- */}
+              <style>{`
+                @keyframes orbitCW {
+                  from { transform: rotate(0deg)    translateX(108px) rotate(0deg); }
+                  to   { transform: rotate(360deg)  translateX(108px) rotate(-360deg); }
+                }
+                @keyframes spinRingCW  { from{transform:rotate(0deg)}   to{transform:rotate(360deg)} }
+                @keyframes spinRingCCW { from{transform:rotate(0deg)}   to{transform:rotate(-360deg)} }
+                .orbit-node-1 { animation: orbitCW 10s linear infinite; }
+                .orbit-node-2 { animation: orbitCW 10s linear infinite; animation-delay:-3.33s; }
+                .orbit-node-3 { animation: orbitCW 10s linear infinite; animation-delay:-6.66s; }
+                .ring-cw  { animation: spinRingCW  10s linear infinite; }
+                .ring-ccw { animation: spinRingCCW 16s linear infinite; }
+              `}</style>
+
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-[240px] h-[240px] flex items-center justify-center z-20 pointer-events-none">
+                {/* outer dashed ring */}
+                <div className="ring-cw  absolute w-full h-full rounded-full border border-dashed border-green-500/40" />
+                {/* inner dashed ring */}
+                <div className="ring-ccw absolute w-[160px] h-[160px] rounded-full border border-dashed border-green-500/20" />
+
+                {/* center hub */}
+                <div className="relative z-10 w-[68px] h-[68px] rounded-full bg-green-500 shadow-[0_0_36px_rgba(34,197,94,0.55)] flex flex-col items-center justify-center select-none">
+                  <span className="text-white font-black text-[18px] leading-none">A1</span>
+                  <span className="text-green-100 text-[7px] font-black uppercase tracking-widest">Stats</span>
+                </div>
+
+                {/* -- orbiting node 1: Win Rate -- */}
+                <div className="orbit-node-1 absolute w-full h-full" style={{transformOrigin:'50% 50%'}}>
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[72px] h-[72px] rounded-full bg-white dark:bg-slate-900 border-2 border-green-500/50 shadow-lg shadow-green-500/20 flex flex-col items-center justify-center text-center">
+                    <span className="text-green-500 font-black text-[15px] leading-none">87%</span>
+                    <span className="text-slate-500 dark:text-slate-400 text-[8px] font-bold uppercase tracking-wide mt-0.5 leading-tight">Win<br/>Rate</span>
                   </div>
                 </div>
 
-                {/* floating badge — members */}
-                <div className="absolute bottom-5 right-5 bg-white/70 dark:bg-black/70 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-green-500/20 flex items-center justify-center">
-                    <span className="text-green-500 dark:text-green-400 text-lg">??</span>
+                {/* -- orbiting node 2: Members -- */}
+                <div className="orbit-node-2 absolute w-full h-full" style={{transformOrigin:'50% 50%'}}>
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[72px] h-[72px] rounded-full bg-white dark:bg-slate-900 border-2 border-green-500/50 shadow-lg shadow-green-500/20 flex flex-col items-center justify-center text-center">
+                    <span className="text-green-500 font-black text-[15px] leading-none">10K+</span>
+                    <span className="text-slate-500 dark:text-slate-400 text-[8px] font-bold uppercase tracking-wide mt-0.5 leading-tight">Members</span>
                   </div>
-                  <div>
-                    <p className="text-slate-900 dark:text-white font-black text-sm leading-none">10,000+</p>
-                    <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wider mt-0.5">Active Members</p>
+                </div>
+
+                {/* -- orbiting node 3: Leagues -- */}
+                <div className="orbit-node-3 absolute w-full h-full" style={{transformOrigin:'50% 50%'}}>
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[72px] h-[72px] rounded-full bg-white dark:bg-slate-900 border-2 border-green-500/50 shadow-lg shadow-green-500/20 flex flex-col items-center justify-center text-center">
+                    <span className="text-green-500 font-black text-[15px] leading-none">40+</span>
+                    <span className="text-slate-500 dark:text-slate-400 text-[8px] font-bold uppercase tracking-wide mt-0.5 leading-tight">Leagues</span>
                   </div>
                 </div>
               </div>
             </div>
-
           </div>
 
           {/* bottom scroll cue */}
@@ -297,13 +327,13 @@ function HomePage() {
             {[...Array(4)].map((_, groupIndex) => (
               <div key={groupIndex} className="flex items-center justify-around w-[120vw] sm:w-[100vw] lg:w-[70vw]">
                 {stats.map((s, i) => (
-                  <div key={`${groupIndex}-${s.label}`} className="flex items-center gap-4 px-8">
-                    <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
-                      <s.icon className="w-6 h-6 text-green-500" />
+                  <div key={`${groupIndex}-${s.label}`} className="flex items-center gap-2 sm:gap-4 px-4 sm:px-8">
+                    <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
+                      <s.icon className="w-4 h-4 sm:w-6 sm:h-6 text-green-500" />
                     </div>
                     <div className="flex flex-col text-left">
-                      <p className="text-3xl font-black text-slate-900 dark:text-white m-0 leading-none tracking-tight">{s.value}</p>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-extrabold tracking-[0.2em] uppercase mt-1">{s.label}</p>
+                      <p className="text-xl sm:text-3xl font-black text-slate-900 dark:text-white m-0 leading-none tracking-tight">{s.value}</p>
+                      <p className="text-[8px] sm:text-[10px] text-slate-500 dark:text-slate-400 font-extrabold tracking-[0.2em] uppercase mt-1">{s.label}</p>
                     </div>
                   </div>
                 ))}
@@ -325,8 +355,8 @@ function HomePage() {
             </div>
             <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-8">
               {features.map((f, i) => (
-                <div key={f.title} className={`sr sr-up sr-delay-${i + 1} group p-8 rounded-2xl border border-slate-100 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 hover:border-green-500/30 hover:shadow-xl hover:shadow-green-500/5 transition-all duration-300 hover:-translate-y-1`}>
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-5 transition-transform group-hover:scale-110" style={{ background: `${f.accent}18`, color: f.accent }}>
+                <div key={f.title} className={`sr sr-up sr-delay-${i + 1} group p-8 rounded-xl border border-slate-100 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 hover:border-green-500/30 hover:shadow-xl hover:shadow-green-500/5 transition-all duration-300 hover:-translate-y-1`}>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5 transition-transform group-hover:scale-110" style={{ background: `${f.accent}18`, color: f.accent }}>
                     <f.icon className="w-6 h-6" />
                   </div>
                   <h3 className="font-black text-[15px] text-slate-900 dark:text-white mb-3">{f.title}</h3>
@@ -398,9 +428,9 @@ function HomePage() {
             </div>
 
             {/* Table container with Booking Code */}
-            <div className="w-full bg-white dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-lg dark:shadow-2xl dark:shadow-black/50 transition-colors mb-8">
+            <div className="w-full bg-white dark:bg-slate-900/60 backdrop-blur-xl rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-lg dark:shadow-2xl dark:shadow-black/50 transition-colors mb-8">
               {/* Header row */}
-              <div className="grid grid-cols-[2fr_1fr_80px] sm:grid-cols-[2fr_1fr_1fr_80px] bg-green-500 text-white font-extrabold text-[11px] uppercase tracking-wider py-4 px-4 sm:px-7 border-b border-green-600/20">
+              <div className="grid grid-cols-[2fr_1fr_80px] sm:grid-cols-[2fr_1fr_1fr_80px] bg-green-500 text-white font-extrabold text-[9px] sm:text-[11px] uppercase tracking-wider py-4 px-4 sm:px-7 border-b border-green-600/20">
                 <span>Match</span>
                 <span>Tip</span>
                 <span className="hidden sm:block">Odds</span>
@@ -434,7 +464,7 @@ function HomePage() {
                   tips.map((tip, i) => (
                     <li key={`${tip.match}-${i}`} className={`grid grid-cols-[2fr_1fr_80px] sm:grid-cols-[2fr_1fr_1fr_80px] items-center p-4 sm:p-5 px-4 sm:px-7 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors ${i < tips.length - 1 ? 'border-b border-slate-100 dark:border-white/5' : 'border-b border-slate-100 dark:border-white/5'}`}>
                       <div>
-                        <span className="font-bold text-slate-900 dark:text-white text-[13px]">
+                        <span className="font-bold text-slate-900 dark:text-white text-[11px] sm:text-[13px]">
                           {!!tip.match && tip.match !== "TBC" ? (
                             <>
                               {tip.match.split(" vs ")[0]} <span className="text-slate-400 font-normal">vs</span> {tip.match.split(" vs ")[1]}
@@ -444,13 +474,13 @@ function HomePage() {
                           )}
                         </span>
                         {tip.time && (
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-medium">
+                          <div className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
                             {tip.time}
                           </div>
                         )}
                       </div>
-                      <span className="text-[12px] font-bold text-slate-900 dark:text-white">{tip.tip}</span>
-                      <span className="text-[13px] font-extrabold text-green-600 dark:text-green-500 hidden sm:block">
+                      <span className="text-[10px] sm:text-[12px] font-bold text-slate-900 dark:text-white">{tip.tip}</span>
+                      <span className="text-[11px] sm:text-[13px] font-extrabold text-green-600 dark:text-green-500 hidden sm:block">
                         {tip.odds ? Number(tip.odds).toFixed(2) : "â€”"}
                       </span>
                       <div className="flex justify-end">
@@ -555,6 +585,11 @@ function HomePage() {
     </div>
   );
 }
+
+
+
+
+
 
 
 

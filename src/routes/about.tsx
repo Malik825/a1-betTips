@@ -119,7 +119,7 @@ function AboutPage() {
             </div>
             
             {/* Callout box */}
-            <div className="bg-white dark:bg-slate-900 p-10 rounded-3xl border border-slate-200 dark:border-white/10 text-center shadow-xl shadow-slate-200/50 dark:shadow-none relative overflow-hidden group">
+            <div className="bg-white dark:bg-slate-900 p-10 rounded-xl border border-slate-200 dark:border-white/10 text-center shadow-xl shadow-slate-200/50 dark:shadow-none relative overflow-hidden group">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-400 to-emerald-500" />
               <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
                 <Trophy className="w-10 h-10 text-green-500" />
@@ -148,7 +148,7 @@ function AboutPage() {
 
             <div className="grid md:grid-cols-3 gap-6">
               {missionFeatures.map((f) => (
-                <div key={f.title} className="bg-black/10 backdrop-blur-md rounded-2xl p-8 border border-black/5 hover:bg-black/15 transition-colors">
+                <div key={f.title} className="bg-black/10 backdrop-blur-md rounded-xl p-8 border border-black/5 hover:bg-black/15 transition-colors">
                   <f.icon className="w-10 h-10 text-black mb-5 mx-auto" />
                   <h3 className="text-xl font-black text-black mb-3">{f.title}</h3>
                   <p className="text-green-950 font-semibold">{f.body}</p>
@@ -172,8 +172,8 @@ function AboutPage() {
 
             <div className="grid sm:grid-cols-2 gap-8">
               {whyUs.map((f) => (
-                <div key={f.title} className="group flex gap-6 p-8 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-white/10 hover:border-green-500/30 transition-all duration-300 hover:-translate-y-1">
-                  <div className="shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3" style={{ background: `${f.accent}15`, color: f.accent }}>
+                <div key={f.title} className="group flex gap-6 p-8 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-white/10 hover:border-green-500/30 transition-all duration-300 hover:-translate-y-1">
+                  <div className="shrink-0 w-14 h-14 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3" style={{ background: `${f.accent}15`, color: f.accent }}>
                     <f.icon className="w-7 h-7" />
                   </div>
                   <div>
@@ -229,3 +229,4 @@ function AboutPage() {
     </div>
   );
 }
+
