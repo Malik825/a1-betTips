@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Save, Settings as SettingsIcon, CreditCard, MessageCircle, Share2, ShieldAlert, KeyRound } from "lucide-react";
 import { toast } from "sonner";
@@ -23,6 +23,7 @@ function SectionCard({ icon, title, children }: { icon: React.ReactNode; title: 
 
 function AdminSettingsPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [settings, setSettings] = useState({
     maintenanceMode: false,
@@ -87,7 +88,9 @@ function AdminSettingsPage() {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Password updated successfully!");
+      toast.success("Password updated successfully! Please log in again.");
+      await supabase.auth.signOut();
+      navigate({ to: "/login" });
       setPwForm({ current: "", newPw: "", confirm: "" });
     }
   };
@@ -265,4 +268,5 @@ function AdminSettingsPage() {
     </div>
   );
 }
+
 
