@@ -647,7 +647,7 @@ function AdminGamesPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {preds.map((pred: any) => {
+                          {(preds as any[]).map((pred: any) => {
                             const fix = pred.fixture || getFixtureById(pred.fixture_id);
                             const result = pred.result as ResultStatus;
                             return (
@@ -915,7 +915,7 @@ function AdminGamesPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {sels.map((sel: any) => {
+                        {(sels as any[]).map((sel: any) => {
                           const fix = sel.fixture || getFixtureById(sel.fixture_id);
                           const selResult = sel.result_status as ResultStatus;
                           return (
@@ -1018,6 +1018,7 @@ function AdminGamesPage() {
 }
 
 function BellDot() { return <span className="bell-dot" aria-hidden="true">&bull;</span>; }
+
 
 
 

@@ -87,10 +87,7 @@ function RegisterPage() {
 
   if (success) {
     return (
-      <AuthShell
-        title="Check your email"
-        subtitle="We've sent you a verification link to complete your registration."
-      >
+      <AuthShell title="Check your email" subtitle="We've sent you a verification link to complete your registration." footer={<></>}>
         <div className="flex flex-col items-center justify-center space-y-6 py-6 text-center animate-in fade-in zoom-in duration-500">
           <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-[#22c55e]/20">
             <Mail className="size-10 text-[#22c55e]" />
@@ -203,4 +200,5 @@ function RegisterPage() {
     </AuthShell>
   );
 }
+
 
