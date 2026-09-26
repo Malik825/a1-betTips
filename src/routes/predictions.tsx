@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { supabase } from "@/lib/supabase";
@@ -13,7 +13,7 @@ import { PAYSTACK_ENABLED, paystackPay } from "@/lib/paystack";
 export const Route = createFileRoute("/predictions")({
   head: () => ({
     meta: [
-      { title: "Today's Predictions â€” A1 PREDICTIONS" },
+      { title: "Today's Predictions — A1 PREDICTIONS" },
       { name: "description", content: "Expert football betting tips and predictions for today's matches." },
     ],
   }),
@@ -24,6 +24,34 @@ function getDateISO(offset: number = 0): string {
   const d = new Date();
   d.setDate(d.getDate() + offset);
   return d.toISOString().split("T")[0]!;
+}
+
+function getSmartInitialDate(dates: (string | undefined)[]): string {
+  const today = getDateISO(0);
+  const tomorrow = getDateISO(1);
+  const yesterday = getDateISO(-1);
+
+  const validDates = dates.filter(Boolean) as string[];
+  if (validDates.length === 0) return today;
+
+  // 1. If today has games, show today
+  if (validDates.includes(today)) return today;
+
+  // 2. If tomorrow has games, show tomorrow
+  if (validDates.includes(tomorrow)) return tomorrow;
+
+  // 3. If any future date has games, show earliest upcoming date
+  const futureDates = validDates.filter((d) => d > today).sort();
+  if (futureDates.length > 0) return futureDates[0]!;
+
+  // 4. If yesterday has games, show yesterday
+  if (validDates.includes(yesterday)) return yesterday;
+
+  // 5. If past dates have games, show most recent past date
+  const pastDates = validDates.filter((d) => d < today).sort().reverse();
+  if (pastDates.length > 0) return pastDates[0]!;
+
+  return today;
 }
 
 type Result = "pending" | "won" | "lost";
@@ -63,9 +91,11 @@ const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
 
 function PredictionsPage() {
   const [targetDate, setTargetDate] = useState<string>(getDateISO(0));
+  const [userSelected, setUserSelected] = useState<boolean>(false);
   const [revealCode, setRevealCode] = useState(false);
   
   const handleQuickSelect = (offset: number) => {
+    setUserSelected(true);
     setTargetDate(getDateISO(offset));
   };
 
@@ -73,7 +103,7 @@ function PredictionsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // â”€â”€ Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // —— Data ————————————————————————————————————————————————————
   const { data: fixtures = [], isLoading: fixturesLoading } = useQuery({
     queryKey: ["fixtures"],
     queryFn: async () => {
@@ -95,9 +125,32 @@ function PredictionsPage() {
     staleTime: 1000 * 60 * 5,
   });
 
-  // Filter by selected date; if selected date has none, auto-jump to nearest future date
+  // Prefer joined fixture data, fall back to separate fixtures query
+  const resolveFixture = (sel: any) => {
+    let fix = sel.fixtures ?? sel.fixture ?? fixtures.find((f: any) => f.id === sel.fixture_id) ?? null;
+    if (Array.isArray(fix)) fix = fix[0];
+    return fix;
+  };
+
+  // Auto-switch to day with games if today has none (and user hasn't explicitly clicked a tab)
+  useEffect(() => {
+    if (userSelected) return;
+    if (!allFreePredictions || allFreePredictions.length === 0) return;
+
+    const dates = allFreePredictions.map((p: any) => {
+      const fix = resolveFixture(p);
+      return fix?.match_date_iso;
+    });
+    const smartDate = getSmartInitialDate(dates);
+    if (smartDate !== targetDate) {
+      setTargetDate(smartDate);
+    }
+  }, [allFreePredictions, userSelected]);
+
+  // Filter by selected date
   const predsForDate = (date: string) => allFreePredictions.filter((p: any) => {
-    const fixtureDate = p.fixtures?.match_date_iso;
+    const fix = resolveFixture(p);
+    const fixtureDate = fix?.match_date_iso;
     if (!fixtureDate) return date === getDateISO(0);
     return fixtureDate === date;
   });
@@ -109,7 +162,7 @@ function PredictionsPage() {
     queryKey: ["vip_packages"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("secure_vip_packages")
+        .from("vip_packages")
         .select("*")
         .in("availability_status", ["available", "sold_out"])
         .order("id");
@@ -154,7 +207,7 @@ function PredictionsPage() {
     queryKey: ["daily_settings"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("secure_daily_settings")
+        .from("daily_settings")
         .select("*")
         .eq("status", "available")
         .order("date", { ascending: false })
@@ -168,14 +221,6 @@ function PredictionsPage() {
 
   const freeBetStatus = (dailySettings as any)?.status || "draft";
   const freeBetCode = (dailySettings as any)?.free_booking_code || null;
-
-  // â”€â”€ Derived â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // Prefer joined fixture data, fall back to separate fixtures query
-  const resolveFixture = (sel: any) => {
-    let fix = sel.fixtures ?? sel.fixture ?? fixtures.find((f: any) => f.id === sel.fixture_id) ?? null;
-    if (Array.isArray(fix)) fix = fix[0];
-    return fix;
-  }
 
   const todayFreePreds = freePredictions;
 
@@ -259,37 +304,52 @@ function PredictionsPage() {
               Daily Insights
             </span>
             <h1 className="text-white text-[clamp(2.4rem,5vw,4rem)] font-black leading-tight tracking-tight mb-4">
-              Today's <span className="text-green-500 drop-shadow-[0_0_20px_rgba(34,197,94,0.4)]">Predictions</span>
+              {targetDate === getDateISO(0) ? "Today's" : targetDate === getDateISO(1) ? "Tomorrow's" : targetDate === getDateISO(-1) ? "Yesterday's" : "Upcoming"}{" "}
+              <span className="text-green-500 drop-shadow-[0_0_20px_rgba(34,197,94,0.4)]">Predictions</span>
             </h1>
             <p className="text-slate-400 text-sm sm:text-base font-medium max-w-lg mx-auto mb-10">
               Expert football betting tips, free daily picks, and premium VIP packages to boost your winning rate.
             </p>
 
-            {/* Day tabs */}
-            <div className="inline-flex bg-white/5 backdrop-blur-md p-1.5 rounded-full border border-white/10 shadow-xl shadow-black/20">
-              {[-1, 0, 1].map((offset) => {
-                const dateISO = getDateISO(offset);
-                const label = offset === -1 ? "Yesterday" : offset === 0 ? "Today" : "Tomorrow";
-                const isActive = targetDate === dateISO;
-                return (
-                  <button
-                    key={offset}
-                    onClick={() => handleQuickSelect(offset)}
-                    className={`px-6 py-2.5 rounded-full border-none cursor-pointer font-bold text-[12px] transition-all duration-300 ${
-                      isActive
-                        ? "bg-green-500 text-black shadow-[0_4px_15px_rgba(34,197,94,0.3)] scale-[1.02]"
-                        : "bg-transparent text-slate-400 hover:text-white hover:bg-white/5"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+            {/* Day tabs + custom datepicker */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <div className="inline-flex bg-white/5 backdrop-blur-md p-1.5 rounded-full border border-white/10 shadow-xl shadow-black/20">
+                {[-1, 0, 1].map((offset) => {
+                  const dateISO = getDateISO(offset);
+                  const label = offset === -1 ? "Yesterday" : offset === 0 ? "Today" : "Tomorrow";
+                  const isActive = targetDate === dateISO;
+                  return (
+                    <button
+                      key={offset}
+                      onClick={() => handleQuickSelect(offset)}
+                      className={`px-6 py-2.5 rounded-full border-none cursor-pointer font-bold text-[12px] transition-all duration-300 ${
+                        isActive
+                          ? "bg-green-500 text-black shadow-[0_4px_15px_rgba(34,197,94,0.3)] scale-[1.02]"
+                          : "bg-transparent text-slate-400 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="relative">
+                <input
+                  type="date"
+                  value={targetDate}
+                  onChange={(e) => {
+                    setUserSelected(true);
+                    setTargetDate(e.target.value);
+                  }}
+                  className="px-4 py-2 rounded-full border border-white/10 text-green-400 bg-white/5 backdrop-blur-md font-bold text-[12px] focus:outline-none focus:ring-2 focus:ring-green-500/50 cursor-pointer shadow-xl shadow-black/20 transition-all hover:bg-white/10"
+                />
+              </div>
             </div>
           </div>
         </section>
 
-        {/* ??? FREE TIPS ??? */}
+        {/* ─── FREE TIPS ─── */}
         <section className="py-20 px-6">
           <div className="w-[95%] sm:w-[92%] max-w-5xl mx-auto">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
@@ -332,9 +392,15 @@ function PredictionsPage() {
                     <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-200 dark:border-white/10 shadow-inner">
                       <Clock className="w-8 h-8 text-slate-400" />
                     </div>
-                    <h3 className="text-slate-900 dark:text-white font-black text-lg mb-1">No Tips Yet</h3>
+                    <h3 className="text-slate-900 dark:text-white font-black text-lg mb-1">
+                      {targetDate === getDateISO(0) ? "No Tips Yet Today" : targetDate === getDateISO(1) ? "No Tips for Tomorrow Yet" : "No Tips for this Date"}
+                    </h3>
                     <p className="text-slate-500 dark:text-slate-400 text-sm font-medium max-w-[280px] mx-auto m-0">
-                      Our analysts are currently finalizing today's selections. Check back shortly!
+                      {targetDate === getDateISO(0)
+                        ? "Our analysts are currently finalizing today's selections. Check back shortly!"
+                        : targetDate === getDateISO(1)
+                        ? "Tomorrow's selections will be posted as soon as analysis is complete."
+                        : "No predictions found for this date. Check today's or tomorrow's tips!"}
                     </p>
                   </div>
                 ) : (

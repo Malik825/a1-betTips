@@ -657,11 +657,11 @@ function AdminGamesPage() {
                                   {fix && <div style={{ fontSize: 12, color: "var(--muted-foreground)", fontWeight: 400, marginTop: 2 }}>{fix.match_time}</div>}
                                 </td>
                                 <td data-label="Competition" style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
-                                  {fix?.competition || "â€”"}
+                                  {fix?.competition || "—"}
                                 </td>
                                 <td data-label="Tip" style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>{pred.tip}</td>
                                 <td data-label="Odds" style={{ fontSize: 14, color: "var(--muted-foreground)", fontWeight: 600 }}>
-                                  {pred.odds ? Number(pred.odds).toFixed(2) : "â€”"}
+                                  {pred.odds ? Number(pred.odds).toFixed(2) : "—"}
                                 </td>
                                 <td data-label="Result">
                                   <Badge
@@ -686,7 +686,7 @@ function AdminGamesPage() {
                                           whiteSpace: "nowrap",
                                         }}
                                       >
-                                        <span>{r === "pending" ? "?" : r === "won" ? "âœ“" : "âœ•"}</span>
+                                        <span>{r === "pending" ? "?" : r === "won" ? "✓" : "✗"}</span>
                                         <span style={{ textTransform: "capitalize" }}>{r}</span>
                                       </button>
                                     ))}
@@ -709,7 +709,7 @@ function AdminGamesPage() {
                                       <div style={{ background: "var(--card)", padding: 24, paddingBottom: 40, borderTopLeftRadius: 16, borderTopRightRadius: 16, animation: "slideUp 0.2s ease", display: "flex", flexDirection: "column", gap: 12 }} onClick={e => e.stopPropagation()}>
                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                                           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Update Result</h3>
-                                          <button onClick={() => setActionDrawerId(null)} style={{ background: "transparent", border: "none", fontSize: 20, color: "var(--muted-foreground)" }}>âœ•</button>
+                                          <button onClick={() => setActionDrawerId(null)} style={{ background: "transparent", border: "none", fontSize: 20, color: "var(--muted-foreground)" }}>✗</button>
                                         </div>
                                         {(["won", "pending", "lost"] as ResultStatus[]).map((r) => (
                                           <button
@@ -725,7 +725,7 @@ function AdminGamesPage() {
                                               opacity: result === r ? 1 : 0.9,
                                             }}
                                           >
-                                            <span>{r === "pending" ? "?" : r === "won" ? "âœ“" : "âœ•"}</span>
+                                            <span>{r === "pending" ? "?" : r === "won" ? "✓" : "✗"}</span>
                                             <span style={{ textTransform: "capitalize" }}>{r}</span>
                                           </button>
                                         ))}
@@ -924,10 +924,10 @@ function AdminGamesPage() {
                                 {fix ? `${fix.home_team} vs ${fix.away_team}` : sel.fixture_id}
                                 {fix && <div style={{ fontSize: 12, color: "var(--muted-foreground)", fontWeight: 400, marginTop: 2 }}>{fix.match_time}</div>}
                               </td>
-                              <td data-label="Competition" style={{ fontSize: 13, color: "var(--muted-foreground)" }}>{fix?.competition || "â€”"}</td>
+                              <td data-label="Competition" style={{ fontSize: 13, color: "var(--muted-foreground)" }}>{fix?.competition || "—"}</td>
                               <td data-label="Prediction" style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>{sel.prediction}</td>
                               <td data-label="Odds" style={{ fontSize: 14, fontWeight: 600, color: "var(--muted-foreground)" }}>
-                                {sel.odds ? Number(sel.odds).toFixed(2) : "â€”"}
+                                {sel.odds ? Number(sel.odds).toFixed(2) : "—"}
                               </td>
                               <td data-label="Result">
                                 <Badge label={selResult} style={{ background: RESULT_COLORS[selResult].bg, color: RESULT_COLORS[selResult].color }} />
@@ -948,7 +948,7 @@ function AdminGamesPage() {
                                         whiteSpace: "nowrap",
                                       }}
                                     >
-                                      <span>{r === "pending" ? "?" : r === "won" ? "âœ“" : "âœ•"}</span>
+                                      <span>{r === "pending" ? "?" : r === "won" ? "✓" : "✗"}</span>
                                       <span style={{ textTransform: "capitalize" }}>{r}</span>
                                     </button>
                                   ))}
@@ -969,7 +969,7 @@ function AdminGamesPage() {
                                     <div style={{ background: "var(--card)", padding: 24, paddingBottom: 40, borderTopLeftRadius: 16, borderTopRightRadius: 16, animation: "slideUp 0.2s ease", display: "flex", flexDirection: "column", gap: 12 }} onClick={e => e.stopPropagation()}>
                                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                                         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Update Result</h3>
-                                        <button onClick={() => setActionDrawerId(null)} style={{ background: "transparent", border: "none", fontSize: 20, color: "var(--muted-foreground)" }}>âœ•</button>
+                                        <button onClick={() => setActionDrawerId(null)} style={{ background: "transparent", border: "none", fontSize: 20, color: "var(--muted-foreground)" }}>✗</button>
                                       </div>
                                       {(["won", "pending", "lost"] as ResultStatus[]).map((r) => (
                                         <button
@@ -985,7 +985,7 @@ function AdminGamesPage() {
                                             opacity: selResult === r ? 1 : 0.9,
                                           }}
                                         >
-                                          <span>{r === "pending" ? "?" : r === "won" ? "âœ“" : "âœ•"}</span>
+                                          <span>{r === "pending" ? "?" : r === "won" ? "✓" : "✗"}</span>
                                           <span style={{ textTransform: "capitalize" }}>{r}</span>
                                         </button>
                                       ))}
@@ -1018,6 +1018,7 @@ function AdminGamesPage() {
 }
 
 function BellDot() { return <span className="bell-dot" aria-hidden="true">&bull;</span>; }
+
 
 
 

@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { Crown, MessageCircle, Send, ShieldCheck, Target, TrendingUp, Lock, Copy, Check, ArrowRight, Zap, Star, Trophy, Clock } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -13,24 +13,24 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import heroImage from "@/assets/hero-stadium.jpg";
 
-export const Route = createFileRoute("/")(({
+export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "A1 PREDICTIONS â€” Premium Football Betting Tips & Predictions" },
+      { title: "A1 PREDICTIONS — Premium Football Betting Tips & Predictions" },
       { name: "description", content: "Daily sports predictions plus a VIP feed. Verified results, expert analysis and premium picks from the A1 Predictions team." },
-      { property: "og:title", content: "A1 PREDICTIONS â€” Premium Football Betting Tips" },
+      { property: "og:title", content: "A1 PREDICTIONS — Premium Football Betting Tips" },
       { property: "og:description", content: "Free daily football predictions plus a VIP feed with verified results." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: HomePage,
-}));
+});
 
 const stats = [
   { value: "95%", label: "Win Rate", icon: Trophy },
   { value: "10K+", label: "Happy Users", icon: Star },
-  { value: "5â˜…", label: "User Rating", icon: Zap },
+  { value: "5★", label: "User Rating", icon: Zap },
 ];
 
 const features = [
@@ -43,7 +43,7 @@ const features = [
   {
     icon: TrendingUp,
     title: "Consistent Profits",
-    body: "Our track record speaks for itself â€” 95% accuracy with tips designed for real, sustainable returns.",
+    body: "Our track record speaks for itself — 95% accuracy with tips designed for real, sustainable returns.",
     accent: "#F5A623",
   },
   {
@@ -60,6 +60,34 @@ function getDateISO(offset: number = 0): string {
   return d.toISOString().split("T")[0]!;
 }
 
+function getSmartInitialDate(dates: (string | undefined)[]): string {
+  const today = getDateISO(0);
+  const tomorrow = getDateISO(1);
+  const yesterday = getDateISO(-1);
+
+  const validDates = dates.filter(Boolean) as string[];
+  if (validDates.length === 0) return today;
+
+  // 1. If today has games, show today
+  if (validDates.includes(today)) return today;
+
+  // 2. If tomorrow has games, show tomorrow
+  if (validDates.includes(tomorrow)) return tomorrow;
+
+  // 3. If any future date has games, show earliest upcoming date
+  const futureDates = validDates.filter((d) => d > today).sort();
+  if (futureDates.length > 0) return futureDates[0]!;
+
+  // 4. If yesterday has games, show yesterday
+  if (validDates.includes(yesterday)) return yesterday;
+
+  // 5. If past dates have games, show most recent past date
+  const pastDates = validDates.filter((d) => d < today).sort().reverse();
+  if (pastDates.length > 0) return pastDates[0]!;
+
+  return today;
+}
+
 function ResultBadge({ result }: { result: string }) {
   if (result === "pending" || !result) {
     return <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-green-500/15 text-green-600 dark:text-green-400 font-bold text-[9px] tracking-wide">LIVE</span>;
@@ -67,7 +95,7 @@ function ResultBadge({ result }: { result: string }) {
   const won = result === "won";
   return (
     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-bold text-[9px] tracking-wide ${won ? "bg-green-500/15 text-green-600 dark:text-green-400" : "bg-red-500/15 text-red-600 dark:text-red-400"}`}>
-      {won ? "âœ“ WON" : "âœ— LOST"}
+      {won ? "✓ WON" : "✗ LOST"}
     </span>
   );
 }
@@ -75,8 +103,10 @@ function ResultBadge({ result }: { result: string }) {
 function HomePage() {
   const links = useContactLinks();
   const [targetDate, setTargetDate] = useState<string>(getDateISO(0));
+  const [userSelected, setUserSelected] = useState<boolean>(false);
 
   const handleQuickSelect = (offset: number) => {
+    setUserSelected(true);
     setTargetDate(getDateISO(offset));
   };
 
@@ -90,21 +120,36 @@ function HomePage() {
       if (error) throw error;
 
       return (data || []).map((p: any) => {
-        const fix = Array.isArray(p.fixtures) ? p.fixtures[0] : p.fixtures;
+        let fix = p.fixtures ?? p.fixture;
+        if (Array.isArray(fix)) fix = fix[0];
         return {
-          match: fix ? `${fix.home_team} vs ${fix.away_team}` : "TBC",
+          id: p.id,
+          match: fix ? `${fix.home_team} vs ${fix.away_team}` : "Match TBC",
           tip: p.tip as string,
           result: (p.result || "pending") as string,
           odds: p.odds as number | undefined,
           time: fix?.match_time as string | undefined,
           date: fix?.match_date_iso as string | undefined,
+          competition: fix?.competition as string | undefined,
         };
       });
     },
     staleTime: 1000 * 60 * 5,
   });
 
-  // Filter by selected date; if today has none, auto-jump to nearest future date with predictions
+  // Auto-switch to day with games if today has none (and user hasn't explicitly clicked a tab)
+  useEffect(() => {
+    if (userSelected) return;
+    if (!allTips || allTips.length === 0) return;
+
+    const dates = allTips.map((t: any) => t.date);
+    const smartDate = getSmartInitialDate(dates);
+    if (smartDate !== targetDate) {
+      setTargetDate(smartDate);
+    }
+  }, [allTips, userSelected]);
+
+  // Filter by selected date
   const tipsForDate = (date: string) => allTips.filter(t => {
     if (!t.date) return date === getDateISO(0);
     return t.date === date;
@@ -117,7 +162,7 @@ function HomePage() {
     queryKey: ["daily_settings"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("secure_daily_settings")
+        .from("daily_settings")
         .select("*")
         .eq("status", "available")
         .order("date", { ascending: false })
@@ -159,10 +204,7 @@ function HomePage() {
                 {/* ??? HERO — Split Layout ??????????????????????????????????????? */}
         {/* ??? HERO — Split Layout ??????????????????????????????????????? */}
         <section className="relative overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors min-h-[92svh] flex items-center">
-          {/* subtle grid overlay */}
-          <div className="absolute inset-0 opacity-[0.04] dark:opacity-[0.04]" style={{backgroundImage:'repeating-linear-gradient(0deg,currentColor 0,currentColor 1px,transparent 1px,transparent 60px),repeating-linear-gradient(90deg,currentColor 0,currentColor 1px,transparent 1px,transparent 60px)'}} />
-          {/* green glow top-left */}
-          <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-green-500/10 blur-[120px] pointer-events-none" />
+
 
           <div className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 py-24 lg:py-0 grid lg:grid-cols-2 gap-12 lg:gap-0 items-center">
 
@@ -230,8 +272,7 @@ function HomePage() {
 
             {/* -- RIGHT: image + orbital stats -- */}
             <div className="relative hidden lg:flex items-center justify-end">
-              {/* glow behind image */}
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[520px] h-[520px] rounded-full bg-green-500/10 blur-[80px]" />
+
 
               {/* image frame — NO badges inside */}
               <div className="relative w-full max-w-[540px] rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-2xl shadow-slate-300 dark:shadow-black/60">
@@ -240,8 +281,7 @@ function HomePage() {
                   alt="Stadium"
                   className="w-full h-[540px] object-cover object-center"
                 />
-                {/* gradient fade at bottom */}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-50/70 via-transparent to-transparent dark:from-slate-950/70 dark:via-transparent dark:to-transparent" />
+
               </div>
 
               {/* -- Orbital Stats Ring — sits at left-center of the image -- */}
@@ -301,7 +341,7 @@ function HomePage() {
           {/* bottom scroll cue */}
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-40">
             <span className="text-slate-500 dark:text-white text-[10px] font-bold uppercase tracking-widest">Scroll</span>
-            <div className="w-px h-8 bg-gradient-to-b from-slate-500 dark:from-white to-transparent" />
+            <div className="w-px h-8 bg-slate-400 dark:bg-white" />
           </div>
         </section>
 
@@ -420,7 +460,10 @@ function HomePage() {
                   <input
                     type="date"
                     value={targetDate}
-                    onChange={(e) => setTargetDate(e.target.value)}
+                    onChange={(e) => {
+                      setUserSelected(true);
+                      setTargetDate(e.target.value);
+                    }}
                     className="px-4 py-2 rounded-xl border-2 border-green-500 text-green-600 dark:text-green-400 bg-white dark:bg-slate-900 font-bold text-[13px] focus:outline-none focus:ring-4 focus:ring-green-500/20 cursor-pointer shadow-sm transition-all hover:border-green-400"
                   />
                 </div>
@@ -455,9 +498,13 @@ function HomePage() {
                     <div className="w-16 h-16 bg-slate-200/50 dark:bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Clock className="w-8 h-8 text-slate-400 dark:text-slate-500" />
                     </div>
-                    <h3 className="text-slate-700 dark:text-slate-300 font-bold text-[15px] mb-2">No Free Tips Today</h3>
+                    <h3 className="text-slate-700 dark:text-slate-300 font-bold text-[15px] mb-2">
+                      {targetDate === getDateISO(0) ? "No Free Tips Today" : targetDate === getDateISO(1) ? "No Free Tips for Tomorrow" : "No Free Tips"}
+                    </h3>
                     <p className="text-slate-500 dark:text-slate-400 text-[13px] font-medium max-w-[280px] mx-auto m-0">
-                      Our analysts are still cooking up today's free selections. Check back later!
+                      {targetDate === getDateISO(0)
+                        ? "Our analysts are still cooking up today's free selections. Check back later!"
+                        : "Our analysts have not published tips for this date yet. Check back soon!"}
                     </p>
                   </div>
                 ) : (
@@ -465,12 +512,12 @@ function HomePage() {
                     <li key={`${tip.match}-${i}`} className={`grid grid-cols-[2fr_1fr_80px] sm:grid-cols-[2fr_1fr_1fr_80px] items-center p-4 sm:p-5 px-4 sm:px-7 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors ${i < tips.length - 1 ? 'border-b border-slate-100 dark:border-white/5' : 'border-b border-slate-100 dark:border-white/5'}`}>
                       <div>
                         <span className="font-bold text-slate-900 dark:text-white text-[11px] sm:text-[13px]">
-                          {!!tip.match && tip.match !== "TBC" ? (
+                          {!!tip.match && tip.match !== "TBC" && tip.match.includes(" vs ") ? (
                             <>
                               {tip.match.split(" vs ")[0]} <span className="text-slate-400 font-normal">vs</span> {tip.match.split(" vs ")[1]}
                             </>
                           ) : (
-                            <span className="text-slate-400">Match TBC</span>
+                            <span className={tip.match === "Match TBC" || tip.match === "TBC" ? "text-slate-400" : ""}>{tip.match || "Match TBC"}</span>
                           )}
                         </span>
                         {tip.time && (
@@ -481,7 +528,7 @@ function HomePage() {
                       </div>
                       <span className="text-[10px] sm:text-[12px] font-bold text-slate-900 dark:text-white">{tip.tip}</span>
                       <span className="text-[11px] sm:text-[13px] font-extrabold text-green-600 dark:text-green-500 hidden sm:block">
-                        {tip.odds ? Number(tip.odds).toFixed(2) : "â€”"}
+                        {tip.odds ? Number(tip.odds).toFixed(2) : "—"}
                       </span>
                       <div className="flex justify-end">
                         <ResultBadge result={tip.result} />
@@ -491,7 +538,7 @@ function HomePage() {
                 )}
               </ul>
 
-              {/* â”€â”€ FREE BOOKING CODE â€” always visible below table â”€â”€â”€â”€â”€â”€â”€ */}
+              {/* ─── FREE BOOKING CODE — always visible below table ─── */}
               <div className="border-t border-slate-200 dark:border-white/10 px-4 sm:px-7 py-5 bg-green-500/5 dark:bg-green-500/5 flex flex-col sm:flex-row items-center gap-4">
                 <div className="flex-1 min-w-0">
                   <p className="font-black text-slate-800 dark:text-white text-[14px] mb-0.5">Free Booking Code</p>
