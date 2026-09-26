@@ -96,3 +96,20 @@ CREATE TABLE IF NOT EXISTS user_tickets (
 );
 
 ALTER TABLE user_tickets DISABLE ROW LEVEL SECURITY;
+
+-- payment_ref column (added later, safe to re-run)
+ALTER TABLE user_tickets ADD COLUMN IF NOT EXISTS payment_ref TEXT;
+
+
+-- ============================================================
+-- 6. DAILY SETTINGS
+--    Admin-controlled per-day status and free booking code.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS daily_settings (
+  date              DATE PRIMARY KEY,            -- e.g. 2024-09-26
+  status            TEXT NOT NULL DEFAULT 'draft', -- draft | available | sold_out
+  free_booking_code TEXT,
+  updated_at        TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE daily_settings DISABLE ROW LEVEL SECURITY;

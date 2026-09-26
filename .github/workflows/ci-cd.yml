@@ -44,7 +44,7 @@ jobs:
     name: Deploy to Production
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && secrets.VERCEL_TOKEN != ''
     environment:
       name: production
       url: ${{ steps.deploy.outputs.preview-url }}
@@ -70,7 +70,7 @@ jobs:
     name: Deploy Preview
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/dev' || github.event_name == 'pull_request'
+    if: (github.ref == 'refs/heads/dev' || github.event_name == 'pull_request') && secrets.VERCEL_TOKEN != ''
 
     steps:
       - name: Checkout code
@@ -94,7 +94,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: "?? **Preview deployed!**\n\n?? ${{ steps.preview.outputs.preview-url }}"
+              body: "🚀 **Preview deployed!**\n\n🔗 ${{ steps.preview.outputs.preview-url }}"
             })
 
 
