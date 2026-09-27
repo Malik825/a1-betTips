@@ -49,7 +49,7 @@ const features = [
   {
     icon: ShieldCheck,
     title: "Trusted by Thousands",
-    body: "Join a thriving community of successful bettors who rely on A1 GROUP INSIGHTS daily for their edge.",
+    body: "Join a thriving community of successful sports enthusiasts who rely on A1 GROUP INSIGHTS daily for their edge.",
     accent: "#60a5fa",
   },
 ];

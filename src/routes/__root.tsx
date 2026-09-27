@@ -87,14 +87,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content: "Daily free and VIP sports analytics with expert analysis.",
       },
       { name: "author", content: "A1 GROUP INSIGHTS" },
-      { property: "og:title", content: "A1 GROUP INSIGHTS — Premium Football Predictions" },
+      { property: "og:title", content: "A1 GROUP INSIGHTS — Premium Sports Analytics" },
       {
         property: "og:description",
         content: "Daily free and VIP sports analytics with expert analysis.",
       },
+      { property: "og:image", content: "/og-image.jpg" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@A1Predictions" },
+      { name: "twitter:site", content: "@A1GroupInsights" },
+      { name: "twitter:image", content: "/og-image.jpg" },
     ],
     links: [
       {
@@ -105,7 +107,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: dashboardCss,
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon.jpg", type: "image/jpeg" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {

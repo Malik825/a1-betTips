@@ -440,23 +440,14 @@ function PredictionsPage() {
                   <div>
                     <p className="font-black text-slate-900 dark:text-white text-sm mb-0.5 tracking-tight">Free Booking Code</p>
                     <p className="text-slate-500 dark:text-slate-400 text-[11px] font-medium m-0 leading-tight">
-                      {!user
-                        ? "Log in to unlock today's Sportybet code."
-                        : freeBetCode && freeBetStatus === "available"
-                        ? "Load this directly on Sportybet."
+                      {freeBetCode && freeBetStatus === "available"
+                        ? "Load this code directly on your preferred platform."
                         : "Code is not yet available."}
                     </p>
                   </div>
                 </div>
 
-                {!user ? (
-                  <button
-                    onClick={() => navigate({ to: "/login" })}
-                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-gray-100 text-white dark:text-black font-black text-[12px] uppercase tracking-wider rounded-xl transition-all hover:-translate-y-0.5 shadow-lg shadow-black/20 dark:shadow-white/10 border-none cursor-pointer"
-                  >
-                    Log In to Reveal
-                  </button>
-                ) : freeBetCode && freeBetStatus === "available" ? (
+                {freeBetCode && freeBetStatus === "available" ? (
                   !revealCode ? (
                     <button
                       onClick={() => setRevealCode(true)}
