@@ -265,8 +265,8 @@ function HomePage() {
             </div>
 
 
-            {/* -- RIGHT: image + orbital stats -- */}
-            <div className="relative flex items-center justify-center lg:justify-end w-full mt-12 lg:mt-0 pb-16 lg:pb-0">
+            {/* -- RIGHT: image + orbital stats — hidden on mobile -- */}
+            <div className="relative hidden sm:flex items-center justify-center lg:justify-end w-full mt-12 lg:mt-0 pb-16 lg:pb-0">
               {/* image frame — NO badges inside */}
               <div className="relative w-full max-w-[540px] rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-2xl shadow-slate-300 dark:shadow-black/60">
                 <img
