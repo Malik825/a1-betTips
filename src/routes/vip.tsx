@@ -12,8 +12,8 @@ import { PAYSTACK_ENABLED, paystackPay } from "@/lib/paystack";
 export const Route = createFileRoute("/vip")({
   head: () => ({
     meta: [
-      { title: "VIP Packages â€” A1 PREDICTIONS" },
-      { name: "description", content: "Premium betting packages with expert selections. Purchase to reveal the booking code." },
+      { title: "VIP Packages — A1 GROUP INSIGHTS" },
+      { name: "description", content: "Premium VIP prediction packages with expert selections. Purchase to reveal the booking code." },
     ],
   }),
   component: VipPage,
@@ -134,7 +134,7 @@ function VipPage() {
           VIP <span className="text-green-600 dark:text-green-500">Packages</span>
         </h1>
         <p className="mx-auto text-slate-600 dark:text-slate-400 text-base font-medium w-[95%] sm:w-[92%] max-w-4xl leading-relaxed">
-          Premium multi-match betting packages with our highest confidence ratings. Purchase to instantly unlock the booking code.
+          Premium multi-match prediction packages with our highest confidence ratings. Purchase to instantly unlock the booking code.
         </p>
       </div>
 

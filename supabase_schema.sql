@@ -29,7 +29,7 @@ ALTER TABLE fixtures DISABLE ROW LEVEL SECURITY;
 
 -- ============================================================
 -- 2. VIP PACKAGES
---    Admin-controlled; three fixed rows seeded below.
+--    Admin-controlled; fixed rows seeded below.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS vip_packages (
   id                  TEXT PRIMARY KEY,
@@ -44,13 +44,15 @@ CREATE TABLE IF NOT EXISTS vip_packages (
 
 ALTER TABLE vip_packages DISABLE ROW LEVEL SECURITY;
 
--- Seed the three fixed VIP packages (safe to re-run)
+-- Seed the five fixed VIP packages (safe to re-run)
 INSERT INTO vip_packages (id, name, price, availability_status, result_status, is_published)
 VALUES
   ('vip_1', 'VIP 1', 0, 'draft', 'pending', false),
   ('vip_2', 'VIP 2', 0, 'draft', 'pending', false),
-  ('vip_3', 'VIP 3', 0, 'draft', 'pending', false)
-ON CONFLICT (id) DO NOTHING;
+  ('vvip_1', 'VVIP 1', 0, 'draft', 'pending', false),
+  ('vvip_2', 'VVIP 2', 0, 'draft', 'pending', false),
+  ('supreme_vvip', 'SUPREME VVIP 👑', 0, 'draft', 'pending', false)
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
 
 
 -- ============================================================

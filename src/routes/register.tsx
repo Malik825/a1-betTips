@@ -9,16 +9,16 @@ import { supabase } from "@/lib/supabase";
 export const Route = createFileRoute("/register")({
   head: () => ({
     meta: [
-      { title: "Create your account â€” A1 PREDICTIONS" },
+      { title: "Create your account — A1 GROUP INSIGHTS" },
       {
         name: "description",
         content:
-          "Sign up for A1 PREDICTIONS and get daily expert football predictions and VIP betting packages.",
+          "Sign up for A1 GROUP INSIGHTS and get daily expert sports analytics and VIP packages.",
       },
-      { property: "og:title", content: "Create your account â€” A1 PREDICTIONS" },
+      { property: "og:title", content: "Create your account — A1 GROUP INSIGHTS" },
       {
         property: "og:description",
-        content: "Join A1 PREDICTIONS for daily expert football predictions and VIP packages.",
+        content: "Join A1 GROUP INSIGHTS for daily expert sports analytics and VIP packages.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -118,7 +118,7 @@ function RegisterPage() {
   return (
     <AuthShell
       title="Create account"
-      subtitle="Join A1 PREDICTIONS and start winning with expert daily predictions."
+      subtitle="Join A1 GROUP INSIGHTS and start winning with expert daily insights."
       footer={
         <>
           Already have an account?{" "}

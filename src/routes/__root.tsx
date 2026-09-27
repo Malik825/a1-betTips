@@ -81,16 +81,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" },
-      { title: "A1 PREDICTIONS — Premium Football Betting Tips & Predictions" },
+      { title: "A1 GROUP INSIGHTS — Premium Sports Analytics & Match Insights" },
       {
         name: "description",
-        content: "Daily free and VIP football predictions with expert analysis.",
+        content: "Daily free and VIP sports analytics with expert analysis.",
       },
-      { name: "author", content: "A1 PREDICTIONS" },
-      { property: "og:title", content: "A1 PREDICTIONS — Premium Football Betting Tips" },
+      { name: "author", content: "A1 GROUP INSIGHTS" },
+      { property: "og:title", content: "A1 GROUP INSIGHTS — Premium Football Predictions" },
       {
         property: "og:description",
-        content: "Daily free and VIP football predictions with expert analysis.",
+        content: "Daily free and VIP sports analytics with expert analysis.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

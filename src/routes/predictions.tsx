@@ -13,8 +13,8 @@ import { PAYSTACK_ENABLED, paystackPay } from "@/lib/paystack";
 export const Route = createFileRoute("/predictions")({
   head: () => ({
     meta: [
-      { title: "Today's Predictions — A1 PREDICTIONS" },
-      { name: "description", content: "Expert football betting tips and predictions for today's matches." },
+      { title: "Today's Predictions — A1 GROUP INSIGHTS" },
+      { name: "description", content: "Expert football analytics data and predictions for today's matches." },
     ],
   }),
   component: PredictionsPage,
@@ -308,7 +308,7 @@ function PredictionsPage() {
               <span className="text-green-500 drop-shadow-[0_0_20px_rgba(34,197,94,0.4)]">Predictions</span>
             </h1>
             <p className="text-slate-400 text-sm sm:text-base font-medium max-w-lg mx-auto mb-10">
-              Expert football betting tips, free daily picks, and premium VIP packages to boost your winning rate.
+              Expert football analytics data, free daily picks, and premium VIP packages to boost your winning rate.
             </p>
 
             {/* Day tabs + custom datepicker */}

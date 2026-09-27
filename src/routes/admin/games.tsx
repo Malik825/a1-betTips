@@ -7,7 +7,7 @@ import { Edit2, Upload, Plus, ChevronDown } from "lucide-react";
 
 export const Route = createFileRoute("/admin/games")({ component: AdminGamesPage });
 
-type PackageTab = "free" | "vip_1" | "vip_2" | "vip_3";
+type PackageTab = "free" | "vip_1" | "vip_2" | "vvip_1" | "vvip_2" | "supreme_vvip";
 type ResultStatus = "pending" | "won" | "lost";
 type AvailabilityStatus = "draft" | "available" | "sold_out";
 
@@ -427,7 +427,9 @@ function AdminGamesPage() {
     { key: "free", label: "Free Tips" },
     { key: "vip_1", label: "VIP 1" },
     { key: "vip_2", label: "VIP 2" },
-    { key: "vip_3", label: "VIP 3" },
+    { key: "vvip_1", label: "VVIP 1" },
+    { key: "vvip_2", label: "VVIP 2" },
+    { key: "supreme_vvip", label: "SUPREME VVIP 👑" },
   ];
 
   const activeVipPkg = vipPackages.find((p) => p.id === activeTab);

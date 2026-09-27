@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import logo from "@/assets/logo.png";
 import { useState, useEffect } from "react";
+import { Logo } from "@/components/logo";
 import { LogOut, ChevronDown, User, LayoutDashboard, Settings, Home, Target, Crown, Info } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
@@ -17,9 +17,10 @@ import {
 
 const nav = [
   { label: "Home", to: "/" },
-  { label: "Predictions", to: "/predictions" },
+  { label: "Analytics", to: "/predictions" },
   { label: "VIP Access", to: "/vip" },
   { label: "About Us", to: "/about" },
+  { label: "Contact", to: "/contact" },
 ] as const;
 
 export function SiteHeader() {
@@ -58,7 +59,7 @@ export function SiteHeader() {
       <header ref={headerRef} className="sticky top-0 z-[999] transition-all duration-300 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-black/5 dark:border-white/5 shadow-sm">
         <div className="relative z-10 mx-auto flex h-16 max-w-7xl items-center justify-between px-6 md:px-10 lg:px-12">
           <Link to="/" className="flex items-center gap-1">
-            <img src={logo} alt="A1 Predictions" className="h-10 w-auto object-contain transition-all" />
+            <Logo className="h-9" />
           </Link>
 
           <nav className="hidden flex-1 items-center justify-center gap-8 md:flex">

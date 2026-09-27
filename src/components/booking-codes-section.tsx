@@ -94,10 +94,10 @@ export function BookingCodesSection({ hideWhenEmpty = false, freeBetCode, freeBe
             <Crown className="w-3.5 h-3.5 md:w-4 md:h-4" /> Today's Booking Codes
           </div>
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-[2.6rem] font-black text-slate-900 dark:text-white mb-3 md:mb-4 tracking-tight leading-tight">
-            Your Sportybet <span className="text-green-500">Booking Codes</span>
+            Your <span className="text-green-500">Booking Codes</span>
           </h2>
           <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-[13px] max-w-[520px] mx-auto font-medium leading-relaxed px-2">
-            Purchase a VIP package to instantly unlock the Sportybet booking code.
+            Purchase a VIP package to instantly unlock the booking code.
             Free codes available for logged-in users.
           </p>
         </div>
@@ -177,7 +177,7 @@ export function BookingCodesSection({ hideWhenEmpty = false, freeBetCode, freeBe
                       </div>
                     )}
                     
-                    <p className="text-[9px] text-slate-600 text-center">Tap to copy · Valid on Sportybet</p>
+                    <p className="text-[9px] text-slate-600 text-center">Tap to copy · Use on your platform</p>
                   </div>
                 </div>
               </div>
@@ -243,7 +243,7 @@ export function BookingCodesSection({ hideWhenEmpty = false, freeBetCode, freeBe
                             {copiedId === pkg.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                           </span>
                         </div>
-                        <p className="text-[9px] text-slate-600 text-center">Tap to copy · Valid on Sportybet</p>
+                        <p className="text-[9px] text-slate-600 text-center">Tap to copy · Use on your platform</p>
                       </div>
                     )}
                   </div>
