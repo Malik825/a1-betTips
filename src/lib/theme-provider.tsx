@@ -22,8 +22,8 @@ const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
 export function ThemeProvider({
   children,
-  defaultTheme = "system",
-  storageKey = "oddsking-ui-theme-v2",
+  defaultTheme = "light",
+  storageKey = "a1-theme-v1",
   ...props
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(
