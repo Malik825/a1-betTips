@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { LayoutDashboard, Gamepad2, Users, Bell, MessageSquare, Settings, Sun, Moon, Monitor, Menu, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTheme } from "@/lib/theme-provider";
 import { useState, useEffect } from "react";
-import logo from "@/assets/logo-horizontal.jpg";
+import { Logo } from "@/components/logo";
 
 export const Route = createFileRoute("/admin")({
   component: AdminLayout,
@@ -180,7 +180,7 @@ function AdminLayout() {
         }}>
           {!collapsed && (
             <Link to="/" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
-              <img src={logo} alt="A1 PREDICTIONS" className="dark:invert transition-all" style={{ height: 32, width: "auto", objectFit: "contain", borderRadius: 4 }} />
+              <Logo className="h-8" />
             </Link>
           )}
           <button
@@ -251,7 +251,7 @@ function AdminLayout() {
         {/* Header */}
         <div style={{ padding: "20px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <Link to="/" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
-            <img src={logo} alt="A1 PREDICTIONS" className="dark:invert transition-all" style={{ height: 32, width: "auto", objectFit: "contain", borderRadius: 4 }} />
+            <Logo className="h-8" />
           </Link>
           <button onClick={() => setMobileOpen(false)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--sidebar-foreground)", padding: 4, display: "flex" }}>
             <X size={18} />

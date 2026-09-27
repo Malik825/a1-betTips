@@ -7,16 +7,16 @@ import { useContactLinks } from "@/lib/contact-links";
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "About A1 PREDICTIONS — Our Betting Analysts & Method" },
+      { title: "About A1 GROUP INSIGHTS — Our Expert Analysts & Method" },
       {
         name: "description",
         content:
-          "Meet the A1 PREDICTIONS team: data-led football analysts publishing transparent, verified betting predictions since 2018.",
+          "Meet the A1 GROUP INSIGHTS team: data-led football analysts publishing transparent, verified sports predictions since 2018.",
       },
-      { property: "og:title", content: "About A1 PREDICTIONS — Our Betting Analysts & Method" },
+      { property: "og:title", content: "About A1 GROUP INSIGHTS — Our Expert Analysts & Method" },
       {
         property: "og:description",
-        content: "Data-led football analysts publishing transparent, verified betting predictions.",
+        content: "Data-led football analysts publishing transparent, verified sports predictions.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -34,7 +34,7 @@ const missionFeatures = [
   {
     icon: ShieldCheck,
     title: "Trusted Tips",
-    body: "Our tips are backed by years of betting experience and proven winning strategies.",
+    body: "Our tips are backed by years of sports analytics experience and proven winning strategies.",
   },
   {
     icon: Clock,
@@ -53,19 +53,19 @@ const whyUs = [
   {
     icon: TrendingUp,
     title: "Expert Analysis",
-    body: "Deep sports knowledge and market analysis for profitable betting opportunities",
+    body: "Deep sports knowledge and market analysis for profitable prediction opportunities",
     accent: "#3b82f6",
   },
   {
     icon: ShieldCheck,
     title: "Transparent",
-    body: "Complete transparency with detailed betting analysis and winning strategies",
+    body: "Complete transparency with detailed sports analysis and winning strategies",
     accent: "#f59e0b",
   },
   {
     icon: Heart,
     title: "Profit-Focused",
-    body: "Your betting profits are our success. We're committed to your winning journey",
+    body: "Your sports prediction success is our goal. We're committed to your winning journey",
     accent: "#ec4899",
   },
 ];
@@ -88,10 +88,10 @@ function AboutPage() {
         {/* ── Hero ─────────────────────────────────────────────────────── */}
         <section className="bg-slate-900 dark:bg-black py-24 px-6 text-center border-b border-white/10 transition-colors">
           <h1 className="text-[clamp(2.5rem,5vw,3.5rem)] font-black text-white mb-6 tracking-tight">
-            About <span className="text-green-500">A1 PREDICTIONS</span>
+            About <span className="text-green-500">A1 GROUP INSIGHTS</span>
           </h1>
           <p className="text-slate-400 text-lg md:text-xl font-medium max-w-[600px] mx-auto leading-relaxed">
-            Your trusted partner in sports betting success. We combine years of betting expertise,
+            Your trusted partner in sports prediction success. We combine years of analytics expertise,
             market analysis, and insider knowledge to deliver winning tips.
           </p>
         </section>
@@ -105,14 +105,14 @@ function AboutPage() {
               </h2>
               <div className="space-y-4 text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
                 <p>
-                  <strong className="text-green-500">A1 PREDICTIONS</strong> was founded by a
-                  team of professional bettors who spent years studying sports markets, analyzing team
-                  performance, and understanding the nuances of betting. We know what it takes to win
-                  consistently in sports betting.
+                  <strong className="text-green-500">A1 GROUP INSIGHTS</strong> was founded by a
+                  team of professional analysts who spent years studying sports markets, analyzing team
+                  performance, and understanding the nuances of sports predictions. We know what it takes to win
+                  consistently in sports analytics.
                 </p>
                 <p>
                   Our team includes former professional sports analysts, experienced tipsters, and
-                  successful bettors who have made millions from betting. We share our knowledge and
+                  successful winners who have achieved incredible success. We share our knowledge and
                   winning strategies with our community.
                 </p>
               </div>
@@ -129,7 +129,7 @@ function AboutPage() {
               </h3>
               <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
                 Our consistent winning performance speaks for itself. Join thousands of successful
-                bettors who trust A1 PREDICTIONS for profitable betting.
+                winners who trust A1 GROUP INSIGHTS for profitable sports predictions.
               </p>
             </div>
           </div>
@@ -142,7 +142,7 @@ function AboutPage() {
               Our Mission
             </h2>
             <p className="text-green-950 text-lg md:text-xl font-bold max-w-[700px] mx-auto leading-relaxed mb-16">
-              To provide every sports bettor with winning tips, insider knowledge, and proven betting
+              To provide every sports fan with winning tips, insider knowledge, and proven prediction
               strategies that generate consistent profits.
             </p>
 
@@ -166,7 +166,7 @@ function AboutPage() {
                 Why Choose <span className="text-green-500">Us?</span>
               </h2>
               <p className="text-slate-500 dark:text-slate-400 font-medium max-w-[500px] mx-auto">
-                We're committed to helping our community beat the bookies through data-driven analysis.
+                We're committed to helping our community stay ahead through data-driven analysis.
               </p>
             </div>
 
@@ -204,7 +204,7 @@ function AboutPage() {
             Ready to Start Winning?
           </h2>
           <p className="text-slate-500 dark:text-slate-400 font-medium max-w-[500px] mx-auto mb-10">
-            Join our community of successful bettors and start making consistent profits with A1 PREDICTIONS.
+            Join our community of successful winners and start making consistent profits with A1 GROUP INSIGHTS.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4">
             <Link

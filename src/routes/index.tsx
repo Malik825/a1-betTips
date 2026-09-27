@@ -16,9 +16,9 @@ import heroImage from "@/assets/hero-stadium.jpg";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "A1 PREDICTIONS — Premium Football Betting Tips & Predictions" },
-      { name: "description", content: "Daily sports predictions plus a VIP feed. Verified results, expert analysis and premium picks from the A1 Predictions team." },
-      { property: "og:title", content: "A1 PREDICTIONS — Premium Football Betting Tips" },
+      { title: "A1 GROUP INSIGHTS — Premium Sports Analytics & Predictions" },
+      { name: "description", content: "Daily sports predictions plus a VIP feed. Verified results, expert analysis and premium picks from the A1 Group Insights team." },
+      { property: "og:title", content: "A1 GROUP INSIGHTS — Premium Sports Analytics" },
       { property: "og:description", content: "Free daily football predictions plus a VIP feed with verified results." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -49,7 +49,7 @@ const features = [
   {
     icon: ShieldCheck,
     title: "Trusted by Thousands",
-    body: "Join a thriving community of successful bettors who rely on A1 PREDICTIONS daily for their edge.",
+    body: "Join a thriving community of successful bettors who rely on A1 GROUP INSIGHTS daily for their edge.",
     accent: "#60a5fa",
   },
 ];
@@ -213,18 +213,18 @@ function HomePage() {
               {/* brand pill */}
               <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 text-xs font-extrabold tracking-[0.18em] uppercase">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 dark:bg-green-400 animate-pulse" />
-                A1 Predictions
+                A1 Group Insights
               </span>
 
               {/* headline */}
               <h1 className="text-slate-900 dark:text-white text-[clamp(2.4rem,5.5vw,5rem)] font-black leading-[1.05] tracking-tight">
-                Bet Smarter.<br />
+                Analyze Smarter.<br />
                 <span className="text-green-500 dark:text-green-400 drop-shadow-[0_0_30px_rgba(34,197,94,0.5)]">Win More.</span>
               </h1>
 
               {/* sub copy */}
               <p className="text-slate-600 dark:text-slate-400 text-base sm:text-lg leading-relaxed max-w-md">
-                Expert football predictions, free daily tips, and premium VIP packages — trusted by thousands of winning bettors across Africa.
+                Expert sports analytics, free daily insights, and premium VIP data packages — trusted by thousands of winners across Africa.
               </p>
 
               {/* mini stats row */}
@@ -261,27 +261,19 @@ function HomePage() {
                   <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 496 512" className="w-3 h-3" xmlns="http://www.w3.org/2000/svg"><path d="M248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm121.8 169.9l-40.7 191.8c-3 13.6-11.1 16.9-22.4 10.5l-62-45.7-29.9 28.8c-3.3 3.3-6.1 6.1-12.5 6.1l4.4-63.1 114.9-103.8c5-4.4-1.1-6.9-7.7-2.5l-142 89.4-61.2-19.1c-13.3-4.2-13.6-13.3 2.8-19.7l239.1-92.2c11.1-4 20.8 2.7 17.2 19.5z"></path></svg>
                   Telegram
                 </a>
-                <a target="_blank" rel="noopener noreferrer" href="https://chat.whatsapp.com/H5RANClGdOJIfHXTYH1S2n?s=cl&p=i&mlu=4"
-                  className="flex items-center gap-1.5 bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 text-[#25D366] font-bold text-xs px-3 py-1.5 rounded-full transition-colors">
-                  <MessageCircle className="w-3 h-3" />
-                  WhatsApp
-                </a>
               </div>
             </div>
 
 
             {/* -- RIGHT: image + orbital stats -- */}
-            <div className="relative hidden lg:flex items-center justify-end">
-
-
+            <div className="relative flex items-center justify-center lg:justify-end w-full mt-12 lg:mt-0 pb-16 lg:pb-0">
               {/* image frame — NO badges inside */}
               <div className="relative w-full max-w-[540px] rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-2xl shadow-slate-300 dark:shadow-black/60">
                 <img
                   src={heroImage}
                   alt="Stadium"
-                  className="w-full h-[540px] object-cover object-center"
+                  className="w-full h-[320px] sm:h-[400px] lg:h-[540px] object-cover object-center"
                 />
-
               </div>
 
               {/* -- Orbital Stats Ring — sits at left-center of the image -- */}
@@ -299,7 +291,7 @@ function HomePage() {
                 .ring-ccw { animation: spinRingCCW 16s linear infinite; }
               `}</style>
 
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-[240px] h-[240px] flex items-center justify-center z-20 pointer-events-none">
+              <div className="absolute left-1/2 lg:left-0 top-[10%] lg:top-1/2 -translate-y-1/2 -translate-x-1/2 w-[180px] h-[180px] lg:w-[240px] lg:h-[240px] flex items-center justify-center z-20 pointer-events-none scale-75 sm:scale-100 lg:scale-100">
                 {/* outer dashed ring */}
                 <div className="ring-cw  absolute w-full h-full rounded-full border border-dashed border-green-500/40" />
                 {/* inner dashed ring */}
@@ -387,10 +379,10 @@ function HomePage() {
           <div className="w-[95%] sm:w-[92%] max-w-6xl mx-auto">
             <div className="sr sr-up text-center mb-14">
               <h2 className="text-[clamp(1.8rem,4vw,2.6rem)] font-black text-slate-900 dark:text-white mb-3 tracking-tight">
-                Why Choose <span className="text-green-500">A1 PREDICTIONS?</span>
+                Why Choose <span className="text-green-500">A1 GROUP INSIGHTS?</span>
               </h2>
               <p className="text-slate-500 dark:text-slate-400 text-[13px] font-medium max-w-[480px] mx-auto">
-                We provide the most accurate and profitable betting tips in the industry
+                We provide the most accurate and profitable analytics data in the industry
               </p>
             </div>
             <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-8">
@@ -544,9 +536,9 @@ function HomePage() {
                   <p className="font-black text-slate-800 dark:text-white text-[14px] mb-0.5">Free Booking Code</p>
                   <p className="text-slate-500 dark:text-slate-400 text-[12px] m-0">
                     {!user
-                      ? "Log in to access today's free Sportybet booking code."
+                      ? "Log in to access today's free booking code."
                       : freeBetCode && freeBetStatus === "available"
-                      ? "Copy the code below and load it directly on Sportybet."
+                      ? "Copy the code below and load it directly."
                       : "The free booking code for this day hasn't been published yet. Check back soon!"}
                   </p>
                 </div>
@@ -606,7 +598,7 @@ function HomePage() {
               Ready to Start <span className="text-green-400">Winning?</span>
             </h2>
             <p className="sr sr-up sr-delay-2 text-slate-400 text-[13px] leading-relaxed mb-10 font-medium">
-              Join A1 PREDICTIONS today and get access to our premium betting tips, exclusive booking codes, and expert analysis.
+              Join A1 GROUP INSIGHTS today and get access to our premium analytics data, exclusive booking codes, and expert analysis.
             </p>
             <div className="sr sr-up sr-delay-3 flex flex-wrap items-center justify-center gap-4">
               <Link

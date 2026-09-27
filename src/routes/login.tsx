@@ -9,15 +9,15 @@ import { supabase } from "@/lib/supabase";
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Log in — A1 PREDICTIONS" },
+      { title: "Log in — A1 GROUP INSIGHTS" },
       {
         name: "description",
-        content: "Log in to your A1 PREDICTIONS account to access daily VIP football predictions.",
+        content: "Log in to your A1 GROUP INSIGHTS account to access daily VIP sports analytics.",
       },
-      { property: "og:title", content: "Log in — A1 PREDICTIONS" },
+      { property: "og:title", content: "Log in — A1 GROUP INSIGHTS" },
       {
         property: "og:description",
-        content: "Access your A1 PREDICTIONS dashboard and today's expert football tips.",
+        content: "Access your A1 GROUP INSIGHTS dashboard and today's expert football tips.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

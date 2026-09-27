@@ -7,15 +7,15 @@ import { AuthShell, AuthField } from "@/components/auth-shell";
 export const Route = createFileRoute("/forgot-password")({
   head: () => ({
     meta: [
-      { title: "Reset your password — A1 PREDICTIONS" },
+      { title: "Reset your password — A1 GROUP INSIGHTS" },
       {
         name: "description",
-        content: "Request a password reset link for your A1 PREDICTIONS account.",
+        content: "Request a password reset link for your A1 GROUP INSIGHTS account.",
       },
-      { property: "og:title", content: "Reset your password — A1 PREDICTIONS" },
+      { property: "og:title", content: "Reset your password — A1 GROUP INSIGHTS" },
       {
         property: "og:description",
-        content: "Request a password reset link for your A1 PREDICTIONS account.",
+        content: "Request a password reset link for your A1 GROUP INSIGHTS account.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
