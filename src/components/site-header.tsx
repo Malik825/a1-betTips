@@ -56,7 +56,7 @@ export function SiteHeader() {
 
   return (
     <>
-      <header ref={headerRef} className="sticky top-0 z-[999] transition-all duration-300 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-black/5 dark:border-white/5 shadow-sm">
+      <header ref={headerRef} className="sticky top-0 z-[999] transition-colors duration-200 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-black/5 dark:border-white/5 shadow-sm">
         <div className="relative z-10 mx-auto flex h-16 max-w-7xl items-center justify-between px-6 md:px-10 lg:px-12">
           <Link to="/" className="flex items-center gap-1">
             <Logo className="h-9" />
