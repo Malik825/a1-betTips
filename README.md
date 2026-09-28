@@ -1,4 +1,4 @@
-# A1 Predictions
+# A1 Group Insights
 
 > Expert football predictions, free daily tips, and premium VIP packages � trusted by thousands of winning bettors across Africa.
 

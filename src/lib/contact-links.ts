@@ -12,8 +12,8 @@ export const defaultContactLinks: ContactLinks = {
   vip: "",
 };
 
-const STORAGE_KEY = "a1predictions.contact-links";
-const EVENT = "a1predictions:contact-links";
+const STORAGE_KEY = "a1groupinsights.contact-links";
+const EVENT = "a1groupinsights:contact-links";
 
 export function readContactLinks(): ContactLinks {
   if (typeof window === "undefined") return defaultContactLinks;
