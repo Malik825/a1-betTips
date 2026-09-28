@@ -92,13 +92,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         property: "og:description",
         content: "Daily free and VIP sports analytics with expert analysis.",
       },
-      { property: "og:image", content: "/og-image.jpg" },
+      { property: "og:image", content: "https://a1-groupinsights.com/og-image.jpg" },
+      { property: "og:url", content: "https://a1-groupinsights.com" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@A1GroupInsights" },
-      { name: "twitter:image", content: "/og-image.jpg" },
+      { name: "twitter:image", content: "https://a1-groupinsights.com/og-image.jpg" },
     ],
     links: [
+      { rel: "canonical", href: "https://a1-groupinsights.com" },
       {
         rel: "stylesheet",
         href: appCss,

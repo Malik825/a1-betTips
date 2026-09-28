@@ -29,8 +29,8 @@ const m = (id: string, match: string, tip: string, status: MatchStatus = "pendin
 // No hardcoded packages — all data comes from Supabase
 export const defaultVipPackages: VipPackage[] = [];
 
-const STORAGE_KEY = "oddsking.vip-packages";
-const EVENT = "oddsking:vip-packages";
+const STORAGE_KEY = "a1groupinsights.vip-packages";
+const EVENT = "a1groupinsights:vip-packages";
 
 export function readVipPackages(): VipPackage[] {
   if (typeof window === "undefined") return defaultVipPackages;

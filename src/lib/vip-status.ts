@@ -10,8 +10,8 @@ const defaultVipStatus: VipStatus = {
   vip3: "sold_out",
 };
 
-const STORAGE_KEY = "oddsking.vip-status";
-const EVENT = "oddsking:vip-status";
+const STORAGE_KEY = "a1groupinsights.vip-status";
+const EVENT = "a1groupinsights:vip-status";
 
 export function readVipStatus(): VipStatus {
   if (typeof window === "undefined") return defaultVipStatus;
