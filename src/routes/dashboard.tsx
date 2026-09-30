@@ -10,7 +10,7 @@ import { Check, X, Ticket, ExternalLink, Clock } from "lucide-react";
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
-      { title: "My Dashboard — A1 GROUP INSIGHTS" },
+      { title: "My Dashboard — A1-TIPSDECK" },
       { name: "description", content: "View your purchased VIP packages and booking codes." },
     ],
   }),

@@ -10,13 +10,14 @@ const defaultVipStatus: VipStatus = {
   vip3: "sold_out",
 };
 
-const STORAGE_KEY = "a1groupinsights.vip-status";
-const EVENT = "a1groupinsights:vip-status";
+const STORAGE_KEY = "a1tipsdeck.vip-status";
+const OLD_STORAGE_KEY = "a1groupinsights.vip-status";
+const EVENT = "a1tipsdeck:vip-status";
 
 export function readVipStatus(): VipStatus {
   if (typeof window === "undefined") return defaultVipStatus;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(STORAGE_KEY) || window.localStorage.getItem(OLD_STORAGE_KEY);
     if (!raw) return defaultVipStatus;
     return { ...defaultVipStatus, ...(JSON.parse(raw) as Partial<VipStatus>) };
   } catch {

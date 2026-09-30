@@ -1,4 +1,4 @@
-# A1 Group Insights
+# A1-TipsDeck
 
 > Expert football predictions, free daily tips, and premium VIP packages � trusted by thousands of winning bettors across Africa.
 

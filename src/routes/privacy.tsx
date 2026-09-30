@@ -28,7 +28,7 @@ function PrivacyPage() {
           <p>We take reasonable measures to help protect information about you from loss, theft, misuse, and unauthorized access, disclosure, alteration, and destruction.</p>
 
           <h2 className="text-2xl font-bold mt-8 mb-4">5. Contact Us</h2>
-          <p>If you have any questions about this Privacy Policy, please contact us at <strong>support@a1-groupinsights.com</strong>.</p>
+          <p>If you have any questions about this Privacy Policy, please contact us at <strong>support@a1-tipsdeck.com</strong>.</p>
         </div>
       </main>
       <SiteFooter />

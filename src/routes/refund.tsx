@@ -16,7 +16,7 @@ function RefundPage() {
           <p><strong>Effective Date:</strong> January 1, 2024</p>
 
           <h2 className="text-2xl font-bold mt-8 mb-4">Digital Goods and Final Sales</h2>
-          <p>A1 Group Insights provides digital sports analytics, data, and expert insights. Due to the nature of our digital products and the immediate delivery of proprietary information upon purchase, <strong>all sales are final.</strong></p>
+          <p>A1-TipsDeck provides digital sports analytics, data, and expert insights. Due to the nature of our digital products and the immediate delivery of proprietary information upon purchase, <strong>all sales are final.</strong></p>
           <p>We do not offer refunds, returns, or exchanges for any digital goods or VIP packages once payment has been successfully processed and access has been granted.</p>
 
           <h2 className="text-2xl font-bold mt-8 mb-4">Disputes and Payment Issues</h2>
@@ -24,7 +24,7 @@ function RefundPage() {
           <p>Filing a chargeback with your bank or payment provider (like Paystack) without contacting us first may result in immediate suspension or termination of your account.</p>
 
           <h2 className="text-2xl font-bold mt-8 mb-4">Contacting Us for Support</h2>
-          <p>We want you to be satisfied with our service. If you are experiencing technical difficulties accessing your purchased insights, please reach out to our support team at <strong>support@a1-groupinsights.com</strong> so we can assist you promptly.</p>
+          <p>We want you to be satisfied with our service. If you are experiencing technical difficulties accessing your purchased insights, please reach out to our support team at <strong>support@a1-tipsdeck.com</strong> so we can assist you promptly.</p>
         </div>
       </main>
       <SiteFooter />

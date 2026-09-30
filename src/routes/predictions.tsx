@@ -13,7 +13,7 @@ import { PAYSTACK_ENABLED, paystackPay } from "@/lib/paystack";
 export const Route = createFileRoute("/predictions")({
   head: () => ({
     meta: [
-      { title: "Today's Predictions — A1 GROUP INSIGHTS" },
+      { title: "Today's Predictions — A1-TIPSDECK" },
       { name: "description", content: "Expert football analytics data and predictions for today's matches." },
     ],
   }),

@@ -27,9 +27,9 @@ function AdminSettingsPage() {
 
   const [settings, setSettings] = useState({
     maintenanceMode: false,
-    siteName: "A1 Group Insights",
+    siteName: "A1-TipsDeck",
     whatsappNumber: "+233551234567",
-    supportEmail: "support@a1-groupinsights.com",
+    supportEmail: "support@a1-tipsdeck.com",
     paystackPublicKey: "",
     telegramLink: "",
     twitterLink: "",
@@ -201,7 +201,7 @@ function AdminSettingsPage() {
         <SectionCard icon={<MessageCircle size={17} />} title="Support Contacts">
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
             {field("WhatsApp Number", "whatsappNumber", "tel", "+233550000000")}
-            {field("Support Email", "supportEmail", "email", "support@a1-groupinsights.com")}
+            {field("Support Email", "supportEmail", "email", "support@a1-tipsdeck.com")}
           </div>
         </SectionCard>
 

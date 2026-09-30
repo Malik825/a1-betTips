@@ -24,10 +24,10 @@ export function Logo({ className = "" }: { className?: string }) {
       {/* Brand Text */}
       <div className="flex flex-col justify-center">
         <span className="text-slate-900 dark:text-white font-black text-[18px] leading-tight tracking-tight uppercase">
-          A1 Group
+          A1
         </span>
         <span className="text-green-600 dark:text-green-500 font-extrabold text-[11px] leading-tight tracking-widest uppercase">
-          Insights
+          TipsDeck
         </span>
       </div>
     </div>

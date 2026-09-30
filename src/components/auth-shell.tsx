@@ -26,7 +26,7 @@ export function AuthShell({
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/30" />
         <div className="relative flex h-full flex-col justify-between p-10">
-          <Link to="/" aria-label="A1 GROUP INSIGHTS home" className="inline-block">
+          <Link to="/" aria-label="A1-TipsDeck home" className="inline-block">
             <Logo className="h-9" />
           </Link>
           <div className="flex flex-col items-center text-center w-full">
@@ -45,7 +45,7 @@ export function AuthShell({
                 Join thousands of <span className="text-primary">successful winners</span>
               </p>
               <p className="text-gray-300 text-[10px] lg:text-xs font-bold uppercase italic tracking-wide drop-shadow-md">
-                before you. Trust A1 GROUP INSIGHTS for <span className="text-primary">winning strategies.</span>
+                before you. Trust A1-TIPSDECK for <span className="text-primary">winning strategies.</span>
               </p>
             </div>
             <dl className="mt-10 grid grid-cols-3 gap-8 text-center">
@@ -67,7 +67,7 @@ export function AuthShell({
       {/* Form side */}
       <section className="flex items-center justify-center bg-background px-4 py-12">
         <div className="w-full max-w-md">
-          <Link to="/" aria-label="A1 GROUP INSIGHTS home" className="inline-block">
+          <Link to="/" aria-label="A1-TipsDeck home" className="inline-block">
             <Logo className="h-10" />
           </Link>
           <h1 className="mt-6 font-display text-3xl uppercase text-foreground lg:mt-0">{title}</h1>

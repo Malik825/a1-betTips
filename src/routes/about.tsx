@@ -7,13 +7,13 @@ import { useContactLinks } from "@/lib/contact-links";
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "About A1 GROUP INSIGHTS — Our Expert Analysts & Method" },
+      { title: "About A1-TIPSDECK — Our Expert Analysts & Method" },
       {
         name: "description",
         content:
-          "Meet the A1 GROUP INSIGHTS team: data-led football analysts publishing transparent, verified sports predictions since 2018.",
+          "Meet the A1-TIPSDECK team: data-led football analysts publishing transparent, verified sports predictions since 2018.",
       },
-      { property: "og:title", content: "About A1 GROUP INSIGHTS — Our Expert Analysts & Method" },
+      { property: "og:title", content: "About A1-TIPSDECK — Our Expert Analysts & Method" },
       {
         property: "og:description",
         content: "Data-led football analysts publishing transparent, verified sports predictions.",
@@ -88,7 +88,7 @@ function AboutPage() {
         {/* ── Hero ─────────────────────────────────────────────────────── */}
         <section className="bg-slate-900 dark:bg-black py-24 px-6 text-center border-b border-white/10 transition-colors">
           <h1 className="text-[clamp(2.5rem,5vw,3.5rem)] font-black text-white mb-6 tracking-tight">
-            About <span className="text-green-500">A1 GROUP INSIGHTS</span>
+            About <span className="text-green-500">A1-TIPSDECK</span>
           </h1>
           <p className="text-slate-400 text-lg md:text-xl font-medium max-w-[600px] mx-auto leading-relaxed">
             Your trusted partner in sports prediction success. We combine years of analytics expertise,
@@ -105,7 +105,7 @@ function AboutPage() {
               </h2>
               <div className="space-y-4 text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
                 <p>
-                  <strong className="text-green-500">A1 GROUP INSIGHTS</strong> was founded by a
+                  <strong className="text-green-500">A1-TIPSDECK</strong> was founded by a
                   team of professional analysts who spent years studying sports markets, analyzing team
                   performance, and understanding the nuances of sports predictions. We know what it takes to win
                   consistently in sports analytics.
@@ -129,7 +129,7 @@ function AboutPage() {
               </h3>
               <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
                 Our consistent winning performance speaks for itself. Join thousands of successful
-                winners who trust A1 GROUP INSIGHTS for profitable sports predictions.
+                winners who trust A1-TIPSDECK for profitable sports predictions.
               </p>
             </div>
           </div>
@@ -204,7 +204,7 @@ function AboutPage() {
             Ready to Start Winning?
           </h2>
           <p className="text-slate-500 dark:text-slate-400 font-medium max-w-[500px] mx-auto mb-10">
-            Join our community of successful winners and start making consistent profits with A1 GROUP INSIGHTS.
+            Join our community of successful winners and start making consistent profits with A1-TIPSDECK.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4">
             <Link

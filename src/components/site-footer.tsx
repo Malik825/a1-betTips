@@ -10,7 +10,7 @@ export function SiteFooter() {
 
         {/* Brand column */}
         <div>
-          <Link to="/" aria-label="A1 Group Insights home" className="inline-block">
+          <Link to="/" aria-label="A1-TipsDeck home" className="inline-block">
             <Logo className="h-10" />
           </Link>
           <p style={{ marginTop: 12, fontSize: 14, lineHeight: 1.7, color: "var(--muted-foreground)", maxWidth: 280 }}>
@@ -106,10 +106,10 @@ export function SiteFooter() {
               For support, reach us at:
             </p>
             <a
-              href="mailto:support@a1-groupinsights.com"
+              href="mailto:support@a1-tipsdeck.com"
               style={{ fontSize: 13, color: "var(--primary)", textDecoration: "none", fontWeight: 600 }}
             >
-              support@a1-groupinsights.com
+              support@a1-tipsdeck.com
             </a>
           </div>
         </div>
@@ -130,7 +130,7 @@ export function SiteFooter() {
         }}
       >
         <span style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
-          © {new Date().getFullYear()} A1 Group Insights. All rights reserved.
+          © {new Date().getFullYear()} A1-TipsDeck. All rights reserved.
         </span>
         <span style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
           For Entertainment Purposes Only • 18+

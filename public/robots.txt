@@ -13,4 +13,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://a1-groupinsights.com/sitemap.xml
+Sitemap: https://a1-tipsdeck.com/sitemap.xml

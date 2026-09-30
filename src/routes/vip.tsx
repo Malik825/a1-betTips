@@ -12,7 +12,7 @@ import { PAYSTACK_ENABLED, paystackPay } from "@/lib/paystack";
 export const Route = createFileRoute("/vip")({
   head: () => ({
     meta: [
-      { title: "VIP Packages — A1 GROUP INSIGHTS" },
+      { title: "VIP Packages — A1-TIPSDECK" },
       { name: "description", content: "Premium VIP prediction packages with expert selections. Purchase to reveal the booking code." },
     ],
   }),

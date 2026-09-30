@@ -29,13 +29,14 @@ const m = (id: string, match: string, tip: string, status: MatchStatus = "pendin
 // No hardcoded packages — all data comes from Supabase
 export const defaultVipPackages: VipPackage[] = [];
 
-const STORAGE_KEY = "a1groupinsights.vip-packages";
-const EVENT = "a1groupinsights:vip-packages";
+const STORAGE_KEY = "a1tipsdeck.vip-packages";
+const OLD_STORAGE_KEY = "a1groupinsights.vip-packages";
+const EVENT = "a1tipsdeck:vip-packages";
 
 export function readVipPackages(): VipPackage[] {
   if (typeof window === "undefined") return defaultVipPackages;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(STORAGE_KEY) || window.localStorage.getItem(OLD_STORAGE_KEY);
     if (!raw) return defaultVipPackages;
     const parsed = JSON.parse(raw) as VipPackage[];
     if (!Array.isArray(parsed) || parsed.length === 0) return defaultVipPackages;

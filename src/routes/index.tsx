@@ -16,9 +16,9 @@ import heroImage from "@/assets/hero-stadium.jpg";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "A1 GROUP INSIGHTS — Premium Sports Analytics & Predictions" },
-      { name: "description", content: "Daily sports predictions plus a VIP feed. Verified results, expert analysis and premium picks from the A1 Group Insights team." },
-      { property: "og:title", content: "A1 GROUP INSIGHTS — Premium Sports Analytics" },
+      { title: "A1-TIPSDECK — Premium Sports Analytics & Predictions" },
+      { name: "description", content: "Daily sports predictions plus a VIP feed. Verified results, expert analysis and premium picks from the A1-TipsDeck team." },
+      { property: "og:title", content: "A1-TIPSDECK — Premium Sports Analytics" },
       { property: "og:description", content: "Free daily football predictions plus a VIP feed with verified results." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -49,7 +49,7 @@ const features = [
   {
     icon: ShieldCheck,
     title: "Trusted by Thousands",
-    body: "Join a thriving community of successful sports enthusiasts who rely on A1 GROUP INSIGHTS daily for their edge.",
+    body: "Join a thriving community of successful sports enthusiasts who rely on A1-TIPSDECK daily for their edge.",
     accent: "#60a5fa",
   },
 ];
@@ -213,7 +213,7 @@ function HomePage() {
               {/* brand pill */}
               <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 text-xs font-extrabold tracking-[0.18em] uppercase">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 dark:bg-green-400 animate-pulse" />
-                A1 Group Insights
+                A1-TipsDeck
               </span>
 
               {/* headline */}
@@ -379,7 +379,7 @@ function HomePage() {
           <div className="w-[95%] sm:w-[92%] max-w-6xl mx-auto">
             <div className="sr sr-up text-center mb-14">
               <h2 className="text-[clamp(1.8rem,4vw,2.6rem)] font-black text-slate-900 dark:text-white mb-3 tracking-tight">
-                Why Choose <span className="text-green-500">A1 GROUP INSIGHTS?</span>
+                Why Choose <span className="text-green-500">A1-TIPSDECK?</span>
               </h2>
               <p className="text-slate-500 dark:text-slate-400 text-[13px] font-medium max-w-[480px] mx-auto">
                 We provide the most accurate and profitable analytics data in the industry
@@ -598,7 +598,7 @@ function HomePage() {
               Ready to Start <span className="text-green-400">Winning?</span>
             </h2>
             <p className="sr sr-up sr-delay-2 text-slate-400 text-[13px] leading-relaxed mb-10 font-medium">
-              Join A1 GROUP INSIGHTS today and get access to our premium analytics data, exclusive booking codes, and expert analysis.
+              Join A1-TIPSDECK today and get access to our premium analytics data, exclusive booking codes, and expert analysis.
             </p>
             <div className="sr sr-up sr-delay-3 flex flex-wrap items-center justify-center gap-4">
               <Link

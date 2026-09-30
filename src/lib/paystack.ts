@@ -36,7 +36,7 @@ export async function paystackPay(
   onSuccess: (reference: string) => void
 ) {
   if (!PAYSTACK_ENABLED) {
-    toast("Payment coming soon — contact us at support@a1-groupinsights.com", { icon: "🔒" });
+    toast("Payment coming soon — contact us at support@a1-tipsdeck.com", { icon: "🔒" });
     return;
   }
 

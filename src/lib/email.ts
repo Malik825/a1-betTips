@@ -12,7 +12,7 @@ export const sendContactEmail = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const apiKey = process.env.RESEND_API_KEY;
     const recipient = process.env.CONTACT_NOTIFICATION_EMAIL || "aone1group00@gmail.com";
-    const from = process.env.RESEND_FROM_EMAIL || "A1 Group Insights <onboarding@resend.dev>";
+    const from = process.env.RESEND_FROM_EMAIL || "A1-TipsDeck <onboarding@resend.dev>";
 
     if (!apiKey) {
       console.warn("[Resend] RESEND_API_KEY is not configured yet in .env. Message logged locally.");
@@ -26,7 +26,7 @@ export const sendContactEmail = createServerFn({ method: "POST" })
     const htmlContent = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
         <div style="border-bottom: 2px solid #22c55e; padding-bottom: 16px; margin-bottom: 20px;">
-          <h2 style="color: #0f172a; margin: 0; font-size: 20px; font-weight: 800;">A1 GROUP INSIGHTS</h2>
+          <h2 style="color: #0f172a; margin: 0; font-size: 20px; font-weight: 800;">A1-TIPSDECK</h2>
           <p style="color: #64748b; font-size: 13px; margin: 4px 0 0;">New inquiry received from website contact form</p>
         </div>
 
@@ -44,7 +44,7 @@ ${data.message}
         </div>
 
         <div style="border-top: 1px solid #e2e8f0; padding-top: 16px; font-size: 12px; color: #94a3b8; text-align: center;">
-          Sent to <strong>${recipient}</strong> via A1 Group Insights Contact Form &bull; Reply directly to this email to respond to ${data.name}.
+          Sent to <strong>${recipient}</strong> via A1-TipsDeck Contact Form &bull; Reply directly to this email to respond to ${data.name}.
         </div>
       </div>
     `;

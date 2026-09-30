@@ -12,13 +12,14 @@ export const defaultContactLinks: ContactLinks = {
   vip: "",
 };
 
-const STORAGE_KEY = "a1groupinsights.contact-links";
-const EVENT = "a1groupinsights:contact-links";
+const STORAGE_KEY = "a1tipsdeck.contact-links";
+const OLD_STORAGE_KEY = "a1groupinsights.contact-links";
+const EVENT = "a1tipsdeck:contact-links";
 
 export function readContactLinks(): ContactLinks {
   if (typeof window === "undefined") return defaultContactLinks;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(STORAGE_KEY) || window.localStorage.getItem(OLD_STORAGE_KEY);
     if (!raw) return defaultContactLinks;
     return { ...defaultContactLinks, ...(JSON.parse(raw) as Partial<ContactLinks>) };
   } catch {

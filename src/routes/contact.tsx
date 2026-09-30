@@ -9,10 +9,10 @@ import { supabase } from "@/lib/supabase";
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Contact Us — A1 GROUP INSIGHTS" },
+      { title: "Contact Us — A1-TIPSDECK" },
       {
         name: "description",
-        content: "Get in touch with the A1 GROUP INSIGHTS team. We're here to help with VIP packages, billing, and sports analytics questions.",
+        content: "Get in touch with the A1-TIPSDECK team. We're here to help with VIP packages, billing, and sports analytics questions.",
       },
     ],
   }),
@@ -98,8 +98,8 @@ function ContactPage() {
                   </div>
                   <div>
                     <p className="text-sm font-bold text-slate-900 dark:text-white mb-1">Email Support</p>
-                    <a href="mailto:support@a1-groupinsights.com" className="text-slate-500 dark:text-slate-400 hover:text-green-500 text-sm transition-colors">
-                      support@a1-groupinsights.com
+                    <a href="mailto:support@a1-tipsdeck.com" className="text-slate-500 dark:text-slate-400 hover:text-green-500 text-sm transition-colors">
+                      support@a1-tipsdeck.com
                     </a>
                   </div>
                 </div>
