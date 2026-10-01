@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { supabase } from "@/lib/supabase";
@@ -22,6 +23,7 @@ function VipPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [initializingPkg, setInitializingPkg] = useState<string | null>(null);
 
   const { data: vipPackages = [], isLoading } = useQuery({
     queryKey: ["vip_packages"],
@@ -97,7 +99,7 @@ function VipPage() {
     onError: (err: any) => toast.error(err.message || "Purchase failed."),
   });
 
-  const handleBuy = (pkgId: string) => {
+  const handleBuy = async (pkgId: string) => {
     if (!user) {
       toast.error("Please log in to secure this package.");
       navigate({ to: "/login" });
@@ -112,9 +114,23 @@ function VipPage() {
       return;
     }
 
-    paystackPay(user.email || "", Number(pkg.price), pkgId, (reference) => {
-      buyMutation.mutate({ packageId: pkgId, reference });
-    });
+    setInitializingPkg(pkgId);
+    const opened = await paystackPay(
+      user.email || "",
+      Number(pkg.price),
+      pkgId,
+      (reference) => {
+        setInitializingPkg(null);
+        buyMutation.mutate({ packageId: pkgId, reference });
+      },
+      () => {
+        setInitializingPkg(null);
+      }
+    );
+    
+    if (!opened) {
+      setInitializingPkg(null);
+    }
   };
 
   return (
@@ -284,10 +300,10 @@ function VipPage() {
                   ) : (
                     <div className="space-y-2">
                       <button
-                        disabled={!isAvailable || buyMutation.isPending || (!isFree && !PAYSTACK_ENABLED)}
+                        disabled={!isAvailable || buyMutation.isPending || (!isFree && !PAYSTACK_ENABLED) || initializingPkg === pkg.id}
                         onClick={() => handleBuy(pkg.id)}
                         className={`w-full p-4 rounded-xl border-none font-extrabold text-[13px] flex items-center justify-center gap-2 transition-all shadow-lg ${
-                          buyMutation.isPending || !isAvailable || (!isFree && !PAYSTACK_ENABLED)
+                          buyMutation.isPending || !isAvailable || (!isFree && !PAYSTACK_ENABLED) || initializingPkg === pkg.id
                             ? "bg-slate-200 dark:bg-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none opacity-50"
                             : isFree
                               ? "bg-green-600 text-white cursor-pointer hover:scale-[1.02] hover:shadow-green-500/30"
@@ -296,6 +312,8 @@ function VipPage() {
                       >
                         {buyMutation.isPending ? (
                           "Processing..."
+                        ) : initializingPkg === pkg.id ? (
+                          "Opening secure checkout..."
                         ) : !isAvailable ? (
                           "Sold Out"
                         ) : (!isFree && !PAYSTACK_ENABLED) ? (
@@ -311,7 +329,7 @@ function VipPage() {
                         ) : (
                           <>
                             <ShoppingCart className="w-[18px] h-[18px]" />
-                            Buy Ticket Now <ArrowRight className="w-4 h-4" />
+                            Buy Now GHS {pkg.price} <ArrowRight className="w-4 h-4" />
                           </>
                         )}
                       </button>

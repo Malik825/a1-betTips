@@ -33,24 +33,28 @@ export async function paystackPay(
   email: string,
   amount: number,
   packageId: string,
-  onSuccess: (reference: string) => void
-) {
+  onSuccess: (reference: string) => void,
+  onClose?: () => void
+): Promise<boolean> {
   if (!PAYSTACK_ENABLED) {
     toast("Payment coming soon — contact us at support@a1-tipsdeck.com", { icon: "🔒" });
-    return;
+    return false;
   }
 
   try {
     await loadPaystackScript();
   } catch {
     toast.error("Payment gateway could not be loaded. Please check your connection or disable your adblocker.");
-    return;
+    return false;
   }
 
   if (typeof window.PaystackPop === "undefined") {
     toast.error("Payment gateway could not be loaded. Please refresh and try again.");
-    return;
+    return false;
   }
+
+  // Allow React to paint the "Opening secure checkout..." loading state
+  await new Promise(res => setTimeout(res, 800));
 
   // PaystackPop.setup() is the correct static method — no 'new' needed
   const handler = window.PaystackPop.setup({
@@ -64,8 +68,10 @@ export async function paystackPay(
     },
     onClose: () => {
       toast("Payment cancelled");
+      onClose?.();
     },
   });
 
   handler.openIframe();
+  return true;
 }

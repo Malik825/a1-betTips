@@ -95,6 +95,7 @@ function PredictionsPage() {
   const [revealCode, setRevealCode] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLeague, setSelectedLeague] = useState("ALL");
+  const [initializingPkg, setInitializingPkg] = useState<string | null>(null);
 
   const handleQuickSelect = (offset: number) => {
     setUserSelected(true);
@@ -306,7 +307,7 @@ function PredictionsPage() {
     onError: (err: any) => toast.error(err.message || "Purchase failed."),
   });
 
-  const handleBuy = (packageId: string) => {
+  const handleBuy = async (packageId: string) => {
     if (!user) {
       toast.error("Please log in to purchase this package.");
       navigate({ to: "/login" });
@@ -321,9 +322,23 @@ function PredictionsPage() {
       return;
     }
 
-    paystackPay(user.email || "", Number(pkg.price), packageId, (reference) => {
-      buyMutation.mutate({ packageId, reference });
-    });
+    setInitializingPkg(packageId);
+    const opened = await paystackPay(
+      user.email || "",
+      Number(pkg.price),
+      packageId,
+      (reference) => {
+        setInitializingPkg(null);
+        buyMutation.mutate({ packageId, reference });
+      },
+      () => {
+        setInitializingPkg(null);
+      }
+    );
+    
+    if (!opened) {
+      setInitializingPkg(null);
+    }
   };
 
   return (
@@ -784,15 +799,17 @@ function PredictionsPage() {
                             </div>
                           ) : (
                             <button
-                              disabled={!isAvailable || buyMutation.isPending || (!isFree && !PAYSTACK_ENABLED)}
+                              disabled={!isAvailable || buyMutation.isPending || (!isFree && !PAYSTACK_ENABLED) || initializingPkg === pkg.id}
                               onClick={() => handleBuy(pkg.id)}
-                              className={`w-full p-4 rounded-xl border-none font-black text-[13px] flex items-center justify-center gap-2 transition-all shadow-xl uppercase tracking-wider ${buyMutation.isPending || !isAvailable || (!isFree && !PAYSTACK_ENABLED)
+                              className={`w-full p-4 rounded-xl border-none font-black text-[13px] flex items-center justify-center gap-2 transition-all shadow-xl uppercase tracking-wider ${buyMutation.isPending || !isAvailable || (!isFree && !PAYSTACK_ENABLED) || initializingPkg === pkg.id
                                 ? "bg-slate-200 dark:bg-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none"
                                 : "bg-green-500 text-black cursor-pointer hover:-translate-y-0.5 hover:shadow-green-500/30"
                                 }`}
                             >
                               {buyMutation.isPending ? (
                                 "Processing..."
+                              ) : initializingPkg === pkg.id ? (
+                                "Opening secure checkout..."
                               ) : !isAvailable ? (
                                 "Sold Out"
                               ) : (!isFree && !PAYSTACK_ENABLED) ? (
@@ -801,7 +818,7 @@ function PredictionsPage() {
                                 </>
                               ) : (
                                 <>
-                                  <ShoppingCart className="w-5 h-5" /> Secure Package
+                                  <ShoppingCart className="w-5 h-5" /> Buy Now GHS {pkg.price}
                                 </>
                               )}
                             </button>
