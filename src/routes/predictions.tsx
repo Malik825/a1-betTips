@@ -801,7 +801,7 @@ function PredictionsPage() {
                                 </>
                               ) : (
                                 <>
-                                  <ShoppingCart className="w-5 h-5" /> Secure Package
+                                  <ShoppingCart className="w-5 h-5" /> Buy Now GHS {pkg.price}
                                 </>
                               )}
                             </button>

@@ -311,7 +311,7 @@ function VipPage() {
                         ) : (
                           <>
                             <ShoppingCart className="w-[18px] h-[18px]" />
-                            Buy Ticket Now <ArrowRight className="w-4 h-4" />
+                            Buy Now GHS {pkg.price} <ArrowRight className="w-4 h-4" />
                           </>
                         )}
                       </button>
