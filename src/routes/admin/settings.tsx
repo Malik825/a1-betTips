@@ -181,7 +181,7 @@ function AdminSettingsPage() {
                     display: "flex", alignItems: "center", gap: "6px",
                   }}>
                     <ShieldAlert size={15} />
-                    {settings.maintenanceMode ? "Active â€” site locked" : "Off"}
+                    {settings.maintenanceMode ? "Active - site locked" : "Off"}
                   </div>
                   <div style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "2px" }}>
                     Blocks access for non-admin users

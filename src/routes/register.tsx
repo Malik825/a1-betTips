@@ -71,9 +71,14 @@ function RegisterPage() {
         password: parsed.data.password,
         options: { data: { name: parsed.data.name } },
       })
-      .then(({ error }) => {
+      .then(({ data, error }) => {
         if (error) throw error;
-        setSuccess(true);
+        if (data?.session) {
+          toast.success("Account created successfully! Welcome to A1-TIPSDECK.");
+          navigate({ to: "/welcome" });
+        } else {
+          setSuccess(true);
+        }
       })
       .catch((err: any) => {
         setErrors({ form: err?.message || "Unable to create your account" });
@@ -83,7 +88,7 @@ function RegisterPage() {
   }
 
   const inputClass =
-    "w-full rounded-md border border-border bg-card px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-[#22c55e]";
+    "w-full rounded-lg border border-border bg-card px-4 py-3.5 text-base text-foreground outline-none placeholder:text-base placeholder:text-muted-foreground/60 transition-all focus:border-[#22c55e] focus:ring-2 focus:ring-[#22c55e]/20";
 
   if (success) {
     return (
@@ -106,7 +111,7 @@ function RegisterPage() {
 
           <Link
             to="/login"
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-md bg-card border border-border px-4 py-3 text-sm font-bold uppercase tracking-wide text-foreground transition-colors hover:bg-muted"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-card border border-border px-5 py-3.5 text-base font-extrabold uppercase tracking-wide text-foreground transition-all hover:bg-muted"
           >
             Return to Log in
           </Link>
@@ -155,15 +160,15 @@ function RegisterPage() {
               type={show ? "text" : "password"}
               autoComplete="new-password"
               placeholder="At least 8 characters"
-              className={`${inputClass} pr-10`}
+              className={`${inputClass} pr-12`}
             />
             <button
               type="button"
               onClick={() => setShow((v) => !v)}
               aria-label={show ? "Hide password" : "Show password"}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
             >
-              {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              {show ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
             </button>
           </div>
         </AuthField>
@@ -178,22 +183,22 @@ function RegisterPage() {
           />
         </AuthField>
 
-        <div>
-          <label className="flex items-start gap-2 text-sm text-muted-foreground">
-            <input type="checkbox" name="terms" className="mt-0.5 size-4 accent-[#22c55e]" />
+        <div className="pt-1">
+          <label className="flex items-start gap-2.5 text-sm font-medium text-muted-foreground cursor-pointer select-none">
+            <input type="checkbox" name="terms" className="mt-0.5 size-4.5 accent-[#22c55e] rounded shrink-0" />
             <span>I agree to the Terms of Service and confirm I am 18 years or older.</span>
           </label>
           {errors["terms"] ? (
-            <p className="mt-1 text-xs text-destructive">{errors["terms"]}</p>
+            <p className="mt-1.5 text-xs font-semibold text-destructive">{errors["terms"]}</p>
           ) : null}
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className="flex w-full items-center justify-center gap-2 rounded-md bg-[#22c55e] px-4 py-3 text-sm font-bold uppercase tracking-wide text-black transition-transform hover:-translate-y-0.5 disabled:opacity-70"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#22c55e] px-5 py-3.5 text-base font-extrabold uppercase tracking-wide text-black transition-all hover:bg-[#16a34a] hover:scale-[1.01] active:scale-[0.99] disabled:opacity-70 cursor-pointer shadow-lg shadow-[#22c55e]/20"
         >
-          {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+          {loading ? <Loader2 className="size-5 animate-spin" /> : null}
           Create account
         </button>
       </form>

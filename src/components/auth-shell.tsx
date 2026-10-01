@@ -91,11 +91,11 @@ export function AuthField({
 }) {
   return (
     <div className="space-y-2">
-      <label className="text-xs font-semibold uppercase tracking-wider text-foreground">
+      <label className="text-sm font-bold uppercase tracking-wider text-foreground">
         {label}
       </label>
       {children}
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {error ? <p className="text-xs font-semibold text-destructive">{error}</p> : null}
     </div>
   );
 }
