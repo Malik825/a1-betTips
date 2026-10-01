@@ -115,10 +115,22 @@ function VipPage() {
     }
 
     setInitializingPkg(pkgId);
-    await paystackPay(user.email || "", Number(pkg.price), pkgId, (reference) => {
-      buyMutation.mutate({ packageId: pkgId, reference });
-    });
-    setInitializingPkg(null);
+    const opened = await paystackPay(
+      user.email || "",
+      Number(pkg.price),
+      pkgId,
+      (reference) => {
+        setInitializingPkg(null);
+        buyMutation.mutate({ packageId: pkgId, reference });
+      },
+      () => {
+        setInitializingPkg(null);
+      }
+    );
+    
+    if (!opened) {
+      setInitializingPkg(null);
+    }
   };
 
   return (

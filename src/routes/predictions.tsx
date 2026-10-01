@@ -323,10 +323,22 @@ function PredictionsPage() {
     }
 
     setInitializingPkg(packageId);
-    await paystackPay(user.email || "", Number(pkg.price), packageId, (reference) => {
-      buyMutation.mutate({ packageId, reference });
-    });
-    setInitializingPkg(null);
+    const opened = await paystackPay(
+      user.email || "",
+      Number(pkg.price),
+      packageId,
+      (reference) => {
+        setInitializingPkg(null);
+        buyMutation.mutate({ packageId, reference });
+      },
+      () => {
+        setInitializingPkg(null);
+      }
+    );
+    
+    if (!opened) {
+      setInitializingPkg(null);
+    }
   };
 
   return (
