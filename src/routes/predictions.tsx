@@ -5,7 +5,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { supabase } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Lock, ShoppingCart, Clock, Crown, Check, Copy, Eye, EyeOff } from "lucide-react";
+import { Lock, ShoppingCart, Clock, Crown, Check, Copy, Eye, EyeOff, Search, Trophy, Filter, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { PAYSTACK_ENABLED, paystackPay } from "@/lib/paystack";
 
@@ -85,18 +85,22 @@ function ResultBadge({ result, score }: { result: Result; score?: string | undef
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   available: { bg: "#dcfce7", color: "#166534" },
-  sold_out:  { bg: "#fee2e2", color: "#991b1b" },
-  draft:     { bg: "#f1f5f9", color: "#64748b" },
+  sold_out: { bg: "#fee2e2", color: "#991b1b" },
+  draft: { bg: "#f1f5f9", color: "#64748b" },
 };
 
 function PredictionsPage() {
   const [targetDate, setTargetDate] = useState<string>(getDateISO(0));
   const [userSelected, setUserSelected] = useState<boolean>(false);
   const [revealCode, setRevealCode] = useState(false);
-  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedLeague, setSelectedLeague] = useState("ALL");
+
   const handleQuickSelect = (offset: number) => {
     setUserSelected(true);
     setTargetDate(getDateISO(offset));
+    setSearchQuery("");
+    setSelectedLeague("ALL");
   };
 
   const queryClient = useQueryClient();
@@ -224,6 +228,43 @@ function PredictionsPage() {
 
   const todayFreePreds = freePredictions;
 
+  // Extract unique leagues for current date
+  const uniqueLeagues = Array.from(
+    new Set(
+      todayFreePreds
+        .map((p: any) => resolveFixture(p)?.competition || "Other Matches")
+        .filter(Boolean)
+    )
+  ).sort() as string[];
+
+  // Filter by search query & selected league
+  const filteredFreePreds = todayFreePreds.filter((pred: any) => {
+    const fix = resolveFixture(pred);
+    const comp = fix?.competition || "Other Matches";
+    const home = fix?.home_team || "";
+    const away = fix?.away_team || "";
+    const tip = pred.tip || "";
+
+    const matchesLeague = selectedLeague === "ALL" || comp === selectedLeague;
+    const matchesSearch =
+      !searchQuery.trim() ||
+      home.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      away.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      comp.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tip.toLowerCase().includes(searchQuery.toLowerCase());
+
+    return matchesLeague && matchesSearch;
+  });
+
+  // Group filtered predictions by competition
+  const groupedFreePreds = filteredFreePreds.reduce((acc: Record<string, any[]>, pred: any) => {
+    const fix = resolveFixture(pred);
+    const comp = fix?.competition || "Other Matches";
+    if (!acc[comp]) acc[comp] = [];
+    acc[comp].push(pred);
+    return acc;
+  }, {});
+
   const hasPurchased = (pkgId: string) =>
     userTickets.some((t) => t.package_id === pkgId);
 
@@ -290,14 +331,14 @@ function PredictionsPage() {
       <SiteHeader />
 
       <main className="flex-1 overflow-x-hidden">
-        
+
         {/* ??? HERO ??? */}
         <section className="relative overflow-hidden bg-slate-900 dark:bg-slate-950 transition-colors pt-32 pb-20 px-6 flex flex-col items-center justify-center text-center">
           {/* subtle grid overlay */}
-          <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.02] pointer-events-none" style={{backgroundImage:'repeating-linear-gradient(0deg,currentColor 0,currentColor 1px,transparent 1px,transparent 60px),repeating-linear-gradient(90deg,currentColor 0,currentColor 1px,transparent 1px,transparent 60px)'}} />
-          
+          <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.02] pointer-events-none" style={{ backgroundImage: 'repeating-linear-gradient(0deg,currentColor 0,currentColor 1px,transparent 1px,transparent 60px),repeating-linear-gradient(90deg,currentColor 0,currentColor 1px,transparent 1px,transparent 60px)' }} />
+
           <div className="absolute -top-40 right-0 w-[500px] h-[500px] rounded-full bg-green-500/10 blur-[120px] pointer-events-none" />
-          
+
           <div className="relative z-10 max-w-4xl mx-auto">
             <span className="inline-flex items-center gap-2 px-3 py-1 mb-6 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-[10px] font-extrabold tracking-[0.2em] uppercase shadow-lg shadow-green-500/10">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
@@ -322,11 +363,10 @@ function PredictionsPage() {
                     <button
                       key={offset}
                       onClick={() => handleQuickSelect(offset)}
-                      className={`px-6 py-2.5 rounded-full border-none cursor-pointer font-bold text-[12px] transition-all duration-300 ${
-                        isActive
-                          ? "bg-green-500 text-black shadow-[0_4px_15px_rgba(34,197,94,0.3)] scale-[1.02]"
-                          : "bg-transparent text-slate-400 hover:text-white hover:bg-white/5"
-                      }`}
+                      className={`px-6 py-2.5 rounded-full border-none cursor-pointer font-bold text-[12px] transition-all duration-300 ${isActive
+                        ? "bg-green-500 text-black shadow-[0_4px_15px_rgba(34,197,94,0.3)] scale-[1.02]"
+                        : "bg-transparent text-slate-400 hover:text-white hover:bg-white/5"
+                        }`}
                     >
                       {label}
                     </button>
@@ -350,34 +390,87 @@ function PredictionsPage() {
         </section>
 
         {/* ─── FREE TIPS ─── */}
-        <section className="py-20 px-6">
+        <section className="py-16 px-6">
           <div className="w-[95%] sm:w-[92%] max-w-5xl mx-auto">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+
+            {/* Header & Controls */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
               <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 font-extrabold text-[10px] uppercase tracking-widest mb-2">
+                  <Sparkles className="w-3 h-3 text-green-500" /> Daily Analytics
+                </div>
                 <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight m-0">Free Daily Picks</h2>
-                <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 mb-0 font-medium">Expert analysis updated daily across 40+ leagues</p>
+                <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 mb-0 font-medium">Expert analysis updated daily across top leagues</p>
               </div>
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-slate-600 dark:text-slate-300 font-bold text-xs shadow-sm">
-                <Clock className="w-3.5 h-3.5 text-green-500" />
-                Updated 2 hours ago
+
+              {/* Search & Status Controls */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search teams or league..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full sm:w-64 pl-10 pr-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 font-medium outline-none focus:ring-2 focus:ring-green-500/50 shadow-sm"
+                  />
+                </div>
+
+                <div className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-slate-600 dark:text-slate-300 font-bold text-xs shadow-sm">
+                  <Clock className="w-3.5 h-3.5 text-green-500" />
+                  Updated Recently
+                </div>
               </div>
             </div>
 
+            {/* Competition Filter Pills (if multiple leagues exist) */}
+            {uniqueLeagues.length > 1 && (
+              <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-6 scrollbar-none">
+                <button
+                  onClick={() => setSelectedLeague("ALL")}
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${selectedLeague === "ALL"
+                    ? "bg-green-500 text-black shadow-lg shadow-green-500/20"
+                    : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/10 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                >
+                  All Leagues ({todayFreePreds.length})
+                </button>
+
+                {uniqueLeagues.map((league) => {
+                  const count = todayFreePreds.filter((p: any) => (resolveFixture(p)?.competition || "Other Matches") === league).length;
+                  return (
+                    <button
+                      key={league}
+                      onClick={() => setSelectedLeague(league)}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${selectedLeague === league
+                        ? "bg-green-500 text-black shadow-lg shadow-green-500/20 font-black"
+                        : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/10 hover:text-slate-900 dark:hover:text-white"
+                        }`}
+                    >
+                      <Trophy className="w-3 h-3 text-amber-500" />
+                      {league} <span className="text-[10px] opacity-70">({count})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Free Tips Table Card */}
-            <div className="bg-white dark:bg-slate-900/50 backdrop-blur-xl rounded-xl border border-slate-200 dark:border-white/10 shadow-2xl shadow-slate-200/50 dark:shadow-black/50 overflow-hidden">
-              {/* Header row */}
-              <div className="grid grid-cols-[2fr_1fr_80px] sm:grid-cols-[2fr_1fr_1fr_80px] bg-slate-50 dark:bg-black/20 p-4 sm:px-7 border-b border-slate-200 dark:border-white/10">
-                <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-widest">Match</span>
+            <div className="bg-white dark:bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl shadow-slate-200/50 dark:shadow-black/50 overflow-hidden">
+
+              {/* Table Column Headers */}
+              <div className="grid grid-cols-[2fr_1fr_80px] sm:grid-cols-[2fr_1fr_1fr_80px] bg-slate-100/80 dark:bg-black/40 p-4 sm:px-7 border-b border-slate-200 dark:border-white/10">
+                <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-widest">Match / League</span>
                 <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-widest">Tip</span>
                 <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-widest hidden sm:block">Odds</span>
                 <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-widest text-right">Result</span>
               </div>
 
-              {/* Rows */}
-              <ul className="m-0 p-0 list-none">
+              {/* Rows Grouped By Competition */}
+              <div className="divide-y divide-slate-100 dark:divide-white/5">
                 {freeIsLoading ? (
                   Array.from({ length: 3 }).map((_, i) => (
-                    <li key={i} className="grid grid-cols-[2fr_1fr_80px] sm:grid-cols-[2fr_1fr_1fr_80px] items-center p-4 sm:p-5 px-4 sm:px-7 border-b border-slate-100 dark:border-white/5 gap-4">
+                    <div key={i} className="grid grid-cols-[2fr_1fr_80px] sm:grid-cols-[2fr_1fr_1fr_80px] items-center p-4 sm:p-5 px-4 sm:px-7 gap-4">
                       <div className="animate-pulse">
                         <div className="h-4 bg-slate-200 dark:bg-white/10 rounded w-[80%] mb-2" />
                         <div className="h-3 bg-slate-200 dark:bg-white/10 rounded w-[50%]" />
@@ -385,51 +478,114 @@ function PredictionsPage() {
                       <div className="animate-pulse h-4 bg-slate-200 dark:bg-white/10 rounded w-[60%]" />
                       <div className="animate-pulse h-4 bg-slate-200 dark:bg-white/10 rounded w-[40%] hidden sm:block" />
                       <div className="animate-pulse h-[30px] w-[30px] bg-slate-200 dark:bg-white/10 rounded-full ml-auto" />
-                    </li>
+                    </div>
                   ))
-                ) : todayFreePreds.length === 0 ? (
-                  <div className="py-20 px-5 text-center">
-                    <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-200 dark:border-white/10 shadow-inner">
-                      <Clock className="w-8 h-8 text-slate-400" />
+                ) : filteredFreePreds.length === 0 ? (
+                  <div className="py-16 px-5 text-center flex flex-col items-center">
+                    <div className="w-16 h-16 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-4 border border-slate-200 dark:border-white/10 shadow-inner">
+                      {searchQuery ? <Filter className="w-8 h-8 text-slate-400" /> : <Clock className="w-8 h-8 text-slate-400" />}
                     </div>
                     <h3 className="text-slate-900 dark:text-white font-black text-lg mb-1">
-                      {targetDate === getDateISO(0) ? "No Tips Yet Today" : targetDate === getDateISO(1) ? "No Tips for Tomorrow Yet" : "No Tips for this Date"}
+                      {searchQuery || selectedLeague !== "ALL"
+                        ? "No matching games found"
+                        : targetDate === getDateISO(0)
+                          ? "No Tips Yet Today"
+                          : targetDate === getDateISO(1)
+                            ? "No Tips for Tomorrow Yet"
+                            : "No Tips for this Date"}
                     </h3>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm font-medium max-w-[280px] mx-auto m-0">
-                      {targetDate === getDateISO(0)
-                        ? "Our analysts are currently finalizing today's selections. Check back shortly!"
-                        : targetDate === getDateISO(1)
-                        ? "Tomorrow's selections will be posted as soon as analysis is complete."
-                        : "No predictions found for this date. Check today's or tomorrow's tips!"}
+                    <p className="text-slate-500 dark:text-slate-400 text-sm font-medium max-w-[340px] mb-6 leading-relaxed">
+                      {searchQuery || selectedLeague !== "ALL"
+                        ? `No predictions match your current search or league filter. Try clearing filters to see all available picks.`
+                        : targetDate === getDateISO(0)
+                          ? "Our analysts are currently finalizing today's selections. Check back shortly or explore VIP packages below!"
+                          : "No predictions found for this date. Check today's or tomorrow's tips!"}
                     </p>
+
+                    {/* Action buttons */}
+                    <div className="flex flex-wrap items-center justify-center gap-3">
+                      {(searchQuery || selectedLeague !== "ALL") && (
+                        <button
+                          onClick={() => {
+                            setSearchQuery("");
+                            setSelectedLeague("ALL");
+                          }}
+                          className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-black font-extrabold text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer border-none"
+                        >
+                          Clear Filters
+                        </button>
+                      )}
+
+                      {targetDate !== getDateISO(0) && (
+                        <button
+                          onClick={() => handleQuickSelect(0)}
+                          className="px-5 py-2.5 rounded-xl bg-green-500 hover:bg-green-400 text-black font-extrabold text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer border-none"
+                        >
+                          View Today's Predictions
+                        </button>
+                      )}
+
+                      <a
+                        href="#vip-packages"
+                        className="px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-800 dark:text-white font-bold text-xs uppercase tracking-wider transition-all border border-slate-200 dark:border-white/10 no-underline inline-flex items-center gap-1.5"
+                      >
+                        <Crown className="w-3.5 h-3.5 text-yellow-500" /> Explore VIP Packages
+                      </a>
+                    </div>
                   </div>
                 ) : (
-                  todayFreePreds.map((pred: any, i: number) => {
-                    const fix = resolveFixture(pred);
-                    return (
-                      <li key={pred.id} className={`grid grid-cols-[2fr_1fr_80px] sm:grid-cols-[2fr_1fr_1fr_80px] items-center p-4 sm:p-5 px-4 sm:px-7 hover:bg-slate-50/80 dark:hover:bg-white/5 transition-colors ${i < todayFreePreds.length - 1 ? 'border-b border-slate-100 dark:border-white/5' : ''}`}>
-                        <div>
-                          <span className="font-bold text-slate-900 dark:text-white text-[11px] sm:text-[12px] tracking-tight">
-                            {fix ? <>{fix.home_team} <span className="text-slate-400 font-normal mx-1">vs</span> {fix.away_team}</> : <span className="text-slate-400">Match TBC</span>}
+                  Object.entries(groupedFreePreds).map(([leagueName, preds]: [string, any]) => (
+                    <div key={leagueName} className="flex flex-col">
+                      {/* Competition Group Header */}
+                      <div className="bg-slate-50/90 dark:bg-slate-800/40 px-4 sm:px-7 py-2.5 flex items-center justify-between border-y border-slate-200/60 dark:border-white/5">
+                        <div className="flex items-center gap-2">
+                          <Trophy className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span className="font-black text-[11px] sm:text-xs text-slate-900 dark:text-white uppercase tracking-wider">
+                            {leagueName}
                           </span>
-                          {fix && (
-                            <div className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-bold tracking-wide uppercase">
-                              {fix.competition} • {fix.match_time}
-                            </div>
-                          )}
                         </div>
-                        <span className="text-[10px] sm:text-[11px] font-black text-slate-900 dark:text-white">{pred.tip}</span>
-                        <span className="text-[11px] sm:text-[12px] font-black text-green-600 dark:text-green-500 hidden sm:block">
-                          {pred.odds ? Number(pred.odds).toFixed(2) : "—"}
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-200/80 dark:bg-white/10 text-slate-700 dark:text-slate-300">
+                          {preds.length} {preds.length === 1 ? "match" : "matches"}
                         </span>
-                        <div className="flex justify-end">
-                          <ResultBadge result={pred.result} />
-                        </div>
-                      </li>
-                    );
-                  })
+                      </div>
+
+                      {/* Matches in this competition */}
+                      <ul className="m-0 p-0 list-none divide-y divide-slate-100 dark:divide-white/5">
+                        {preds.map((pred: any) => {
+                          const fix = resolveFixture(pred);
+                          return (
+                            <li key={pred.id} className="grid grid-cols-[2fr_1fr_80px] sm:grid-cols-[2fr_1fr_1fr_80px] items-center p-4 sm:p-5 px-4 sm:px-7 hover:bg-slate-50/80 dark:hover:bg-white/5 transition-colors">
+                              <div>
+                                <span className="font-extrabold text-slate-900 dark:text-white text-[12px] sm:text-[13px] tracking-tight">
+                                  {fix ? (
+                                    <>
+                                      {fix.home_team} <span className="text-slate-400 font-normal mx-1">vs</span> {fix.away_team}
+                                    </>
+                                  ) : (
+                                    <span className="text-slate-400">Match TBC</span>
+                                  )}
+                                </span>
+                                {fix && (
+                                  <div className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-semibold tracking-wide uppercase flex items-center gap-2">
+                                    <span>{fix.match_time}</span>
+                                  </div>
+                                )}
+                              </div>
+                              <span className="text-[10px] sm:text-[11px] font-black text-slate-900 dark:text-white">{pred.tip}</span>
+                              <span className="text-[11px] sm:text-[12px] font-black text-green-600 dark:text-green-500 hidden sm:block">
+                                {pred.odds ? Number(pred.odds).toFixed(2) : "—"}
+                              </span>
+                              <div className="flex justify-end">
+                                <ResultBadge result={pred.result} />
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ))
                 )}
-              </ul>
+              </div>
 
               {/* Free Booking Code Vault Bar */}
               <div className="bg-slate-50 dark:bg-black/30 border-t border-slate-200 dark:border-white/10 px-6 py-5 flex flex-col sm:flex-row items-center gap-5 justify-between">
@@ -476,9 +632,9 @@ function PredictionsPage() {
           </div>
         </section>
 
-        {/* ??? VIP PACKAGES ??? */}
-        <section className="py-12 px-6 bg-slate-100 dark:bg-slate-950 transition-colors border-t border-slate-200 dark:border-white/5 relative">
-          
+        {/* VIP PACKAGES */}
+        <section id="vip-packages" className="py-12 px-6 bg-slate-100 dark:bg-slate-950 transition-colors border-t border-slate-200 dark:border-white/5 relative">
+
           <div className="w-[95%] sm:w-[92%] max-w-6xl mx-auto">
             <div className="text-center mb-12">
               <span className="inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-full bg-slate-200 dark:bg-white/10 border border-slate-300 dark:border-white/10 text-slate-700 dark:text-slate-300 text-[10px] font-extrabold tracking-[0.2em] uppercase">
@@ -511,7 +667,7 @@ function PredictionsPage() {
               const visiblePackages = vipPackages.filter((pkg) => {
                 const pkgSels = vipSelections.filter((s) => s.package_id === pkg.id);
                 const purchased = hasPurchased(pkg.id);
-                
+
                 // Show if it has fixtures OR it's a drafted one that user already bought
                 return pkgSels.length > 0 || purchased;
               });
@@ -546,7 +702,7 @@ function PredictionsPage() {
                         <div className={`absolute top-0 left-0 right-0 h-1 ${isAvailable ? 'bg-gradient-to-r from-green-400 to-green-600' : 'bg-slate-300 dark:bg-slate-700'}`} />
 
                         <div className="p-8 flex-1 flex flex-col">
-                          
+
                           {/* Title + status */}
                           <div className="flex justify-between items-start mb-6">
                             <h2 className="text-2xl font-black m-0 text-slate-900 dark:text-white tracking-tight">{pkg.name}</h2>
@@ -561,8 +717,8 @@ function PredictionsPage() {
                             <span className="text-[44px] font-black text-slate-900 dark:text-white leading-none tracking-tighter">{Number(pkg.price).toFixed(2)}</span>
                           </div>
 
-                          {/* Combined odds */}
-                          {dynamicOdds && (
+                          {/* Combined odds — only visible to buyers */}
+                          {dynamicOdds && purchased && (
                             <div className="mb-6 inline-flex items-center gap-3 px-4 py-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 shadow-inner">
                               <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-widest">Combined Odds</span>
                               <span className="text-xl font-black text-green-600 dark:text-green-400">{Number(dynamicOdds).toFixed(2)}</span>
@@ -572,7 +728,7 @@ function PredictionsPage() {
                           {/* Match list */}
                           <div className="mb-8 flex-1">
                             <h3 className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                              Included Matches 
+                              Included Matches
                               <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center text-[9px] text-slate-700 dark:text-slate-300">{pkgSels.length}</span>
                             </h3>
                             {pkgSels.length > 0 ? (
@@ -591,9 +747,15 @@ function PredictionsPage() {
                                             {fix.match_time} • {fix.competition}
                                           </div>
                                         )}
-                                        <div className="inline-flex mt-1.5 px-2 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-slate-200 dark:border-white/10 text-[10px] text-green-600 dark:text-green-400 font-black tracking-wide">
-                                          {sel.prediction}{sel.odds ? ` @ ${Number(sel.odds).toFixed(2)}` : ""}
-                                        </div>
+                                        {purchased ? (
+                                          <div className="inline-flex mt-1.5 px-2 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-slate-200 dark:border-white/10 text-[10px] text-green-600 dark:text-green-400 font-black tracking-wide">
+                                            {sel.prediction}{sel.odds ? ` @ ${Number(sel.odds).toFixed(2)}` : ""}
+                                          </div>
+                                        ) : (
+                                          <div className="inline-flex mt-1.5 items-center gap-1 px-2 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-dashed border-slate-300 dark:border-white/10 text-[10px] text-slate-400 dark:text-slate-500 font-bold">
+                                            <Lock size={9} /> Locked
+                                          </div>
+                                        )}
                                       </div>
                                     </li>
                                   );
@@ -618,17 +780,16 @@ function PredictionsPage() {
                           {purchased ? (
                             <div className="p-4 bg-green-500/10 rounded-xl border border-green-500/30 text-center text-green-700 dark:text-green-400 font-black text-[13px] flex items-center justify-center gap-2">
                               <Check className="w-5 h-5" />
-                              Secured — Check Dashboard
+                              Secured - Check Dashboard
                             </div>
                           ) : (
                             <button
                               disabled={!isAvailable || buyMutation.isPending || (!isFree && !PAYSTACK_ENABLED)}
                               onClick={() => handleBuy(pkg.id)}
-                              className={`w-full p-4 rounded-xl border-none font-black text-[13px] flex items-center justify-center gap-2 transition-all shadow-xl uppercase tracking-wider ${
-                                buyMutation.isPending || !isAvailable || (!isFree && !PAYSTACK_ENABLED)
-                                  ? "bg-slate-200 dark:bg-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none"
-                                  : "bg-green-500 text-black cursor-pointer hover:-translate-y-0.5 hover:shadow-green-500/30"
-                              }`}
+                              className={`w-full p-4 rounded-xl border-none font-black text-[13px] flex items-center justify-center gap-2 transition-all shadow-xl uppercase tracking-wider ${buyMutation.isPending || !isAvailable || (!isFree && !PAYSTACK_ENABLED)
+                                ? "bg-slate-200 dark:bg-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none"
+                                : "bg-green-500 text-black cursor-pointer hover:-translate-y-0.5 hover:shadow-green-500/30"
+                                }`}
                             >
                               {buyMutation.isPending ? (
                                 "Processing..."

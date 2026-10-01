@@ -213,8 +213,8 @@ function VipPage() {
                     )}
                   </div>
 
-                  {/* Combined odds */}
-                  {dynamicOdds && (
+                  {/* Combined odds — only visible to buyers */}
+                  {dynamicOdds && purchased && (
                     <div className="mb-6 inline-flex items-center gap-3 px-4 py-3 bg-slate-100 dark:bg-black/30 rounded-xl border border-slate-200 dark:border-white/5">
                       <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wide">Combined Odds</span>
                       <span className="text-lg font-black text-green-600 dark:text-green-400">{Number(dynamicOdds).toFixed(2)}</span>
@@ -238,17 +238,18 @@ function VipPage() {
                                 {fix && (
                                   <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 flex gap-2">
                                     <span>{fix.match_time}</span>
-                                    {fix.competition && <span>Â· {fix.competition}</span>}
+                                    {fix.competition && <span>• {fix.competition}</span>}
                                   </div>
                                 )}
-                                {/* Blur prediction for non-buyers */}
-                                <div className={`text-[9px] font-semibold mt-0.5 select-none ${
-                                  purchased
-                                    ? "text-green-600 dark:text-green-400"
-                                    : "text-transparent blur-[4px] bg-green-500/10 rounded px-1 pointer-events-none"
-                                }`}>
-                                  {sel.prediction}{sel.odds ? ` @ ${Number(sel.odds).toFixed(2)}` : ""}
-                                </div>
+                                {purchased ? (
+                                  <div className="text-[9px] font-semibold mt-0.5 text-green-600 dark:text-green-400">
+                                    {sel.prediction}{sel.odds ? ` @ ${Number(sel.odds).toFixed(2)}` : ""}
+                                  </div>
+                                ) : (
+                                  <div className="inline-flex mt-1 items-center gap-1 px-1.5 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-dashed border-slate-300 dark:border-white/10 text-[9px] text-slate-400 dark:text-slate-500 font-bold">
+                                    <Lock size={9} /> Locked
+                                  </div>
+                                )}
                               </div>
                             </li>
                           );
@@ -275,11 +276,11 @@ function VipPage() {
                   {purchased ? (
                     <div className="p-4 bg-green-500/10 rounded-xl border border-green-500/30 text-center text-green-700 dark:text-green-400 font-extrabold text-[12px] flex items-center justify-center gap-2">
                       <Check className="w-[18px] h-[18px]" />
-                      Secured â€” Check Dashboard
+                      Secured - Check Dashboard
                     </div>
                   ) : isExpired ? (
                     <div className="p-4 bg-green-500/10 rounded-xl border border-green-500/20 text-center text-green-700 dark:text-green-400 font-extrabold text-[12px] flex items-center justify-center gap-2">
-                      This package has expired â€” check back for new packages
+                      This package has expired - check back for new packages
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -346,7 +347,7 @@ function VipPage() {
             </div>
 
             <div>
-              <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Payment Successful! ðŸŽ‰</h2>
+              <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Payment Successful! 🎉</h2>
               <p className="text-slate-500 dark:text-slate-400 text-[13px] leading-relaxed m-0">
                 Your VIP package has been secured. Head to your <strong className="text-slate-700 dark:text-slate-300">Dashboard</strong> to view your booking code and full predictions.
               </p>

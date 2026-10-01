@@ -78,15 +78,15 @@ function ForgotPasswordPage() {
               type="email"
               autoComplete="email"
               placeholder="you@example.com"
-              className="w-full rounded-md border border-border bg-card px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-[#22c55e]"
+              className="w-full rounded-lg border border-border bg-card px-4 py-3.5 text-base text-foreground outline-none placeholder:text-base placeholder:text-muted-foreground/60 transition-all focus:border-[#22c55e] focus:ring-2 focus:ring-[#22c55e]/20"
             />
           </AuthField>
           <button
             type="submit"
             disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-md bg-[#22c55e] px-4 py-3 text-sm font-bold uppercase tracking-wide text-black transition-transform hover:-translate-y-0.5 disabled:opacity-70"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#22c55e] px-5 py-3.5 text-base font-extrabold uppercase tracking-wide text-black transition-all hover:bg-[#16a34a] hover:scale-[1.01] active:scale-[0.99] disabled:opacity-70 cursor-pointer shadow-lg shadow-[#22c55e]/20"
           >
-            {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+            {loading ? <Loader2 className="size-5 animate-spin" /> : null}
             Send reset link
           </button>
         </form>

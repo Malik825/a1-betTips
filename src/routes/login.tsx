@@ -98,7 +98,7 @@ function LoginPage() {
             type="email"
             autoComplete="email"
             placeholder="you@example.com"
-            className="w-full rounded-md border border-border bg-card px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-[#22c55e]"
+            className="w-full rounded-lg border border-border bg-card px-4 py-3.5 text-base text-foreground outline-none placeholder:text-base placeholder:text-muted-foreground/60 transition-all focus:border-[#22c55e] focus:ring-2 focus:ring-[#22c55e]/20"
           />
         </AuthField>
 
@@ -109,27 +109,27 @@ function LoginPage() {
               type={show ? "text" : "password"}
               autoComplete="current-password"
               placeholder="••••••••"
-              className="w-full rounded-md border border-border bg-card px-3 py-2.5 pr-10 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-[#22c55e]"
+              className="w-full rounded-lg border border-border bg-card px-4 py-3.5 pr-12 text-base text-foreground outline-none placeholder:text-base placeholder:text-muted-foreground/60 transition-all focus:border-[#22c55e] focus:ring-2 focus:ring-[#22c55e]/20"
             />
             <button
               type="button"
               onClick={() => setShow((v) => !v)}
               aria-label={show ? "Hide password" : "Show password"}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
             >
-              {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              {show ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
             </button>
           </div>
         </AuthField>
 
-        <div className="flex items-center justify-between">
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            <input type="checkbox" name="remember" className="size-4 accent-[#22c55e]" />
+        <div className="flex items-center justify-between pt-1">
+          <label className="flex items-center gap-2.5 text-sm font-medium text-muted-foreground cursor-pointer select-none">
+            <input type="checkbox" name="remember" className="size-4.5 accent-[#22c55e] rounded" />
             Remember me
           </label>
           <Link
             to="/forgot-password"
-            className="text-sm font-semibold text-[#22c55e] hover:underline"
+            className="text-sm font-bold text-[#22c55e] hover:underline"
           >
             Forgot password?
           </Link>
@@ -138,9 +138,9 @@ function LoginPage() {
         <button
           type="submit"
           disabled={loading}
-          className="flex w-full items-center justify-center gap-2 rounded-md bg-[#22c55e] px-4 py-3 text-sm font-bold uppercase tracking-wide text-black transition-transform hover:-translate-y-0.5 disabled:opacity-70"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#22c55e] px-5 py-3.5 text-base font-extrabold uppercase tracking-wide text-black transition-all hover:bg-[#16a34a] hover:scale-[1.01] active:scale-[0.99] disabled:opacity-70 cursor-pointer shadow-lg shadow-[#22c55e]/20"
         >
-          {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+          {loading ? <Loader2 className="size-5 animate-spin" /> : null}
           Log in
         </button>
       </form>

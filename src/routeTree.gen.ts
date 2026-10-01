@@ -22,6 +22,7 @@ import { Route as RefundRouteImport } from './routes/refund'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as VipRouteImport } from './routes/vip'
+import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminEditPackageRouteImport } from './routes/admin/edit-package'
 import { Route as AdminGamesRouteImport } from './routes/admin/games'
@@ -95,6 +96,11 @@ const VipRoute = VipRouteImport.update({
   path: '/vip',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -145,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/terms': typeof TermsRoute
   '/vip': typeof VipRoute
+  '/welcome': typeof WelcomeRoute
   '/admin/edit-package': typeof AdminEditPackageRoute
   '/admin/games': typeof AdminGamesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
@@ -166,6 +173,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/terms': typeof TermsRoute
   '/vip': typeof VipRoute
+  '/welcome': typeof WelcomeRoute
   '/admin/edit-package': typeof AdminEditPackageRoute
   '/admin/games': typeof AdminGamesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
@@ -189,6 +197,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/terms': typeof TermsRoute
   '/vip': typeof VipRoute
+  '/welcome': typeof WelcomeRoute
   '/admin/edit-package': typeof AdminEditPackageRoute
   '/admin/games': typeof AdminGamesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
@@ -213,6 +222,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/terms'
     | '/vip'
+    | '/welcome'
     | '/admin/edit-package'
     | '/admin/games'
     | '/admin/notifications'
@@ -234,6 +244,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/terms'
     | '/vip'
+    | '/welcome'
     | '/admin/edit-package'
     | '/admin/games'
     | '/admin/notifications'
@@ -256,6 +267,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/terms'
     | '/vip'
+    | '/welcome'
     | '/admin/edit-package'
     | '/admin/games'
     | '/admin/notifications'
@@ -279,6 +291,7 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   TermsRoute: typeof TermsRoute
   VipRoute: typeof VipRoute
+  WelcomeRoute: typeof WelcomeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -374,6 +387,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VipRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/': {
       id: '/admin/'
       path: '/'
@@ -462,6 +482,7 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   TermsRoute: TermsRoute,
   VipRoute: VipRoute,
+  WelcomeRoute: WelcomeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
