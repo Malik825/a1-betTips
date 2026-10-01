@@ -38,9 +38,9 @@ function StatCard({ label, value, icon: Icon, color }: { label: string; value: s
 
 function AdminDashboardIndex() {
   const { data: vipPackages = [] } = useQuery({
-    queryKey: ["vip_packages"],
+    queryKey: ["admin_vip_packages"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("vip_packages").select("*");
+      const { data, error } = await supabase.from("secure_vip_packages").select("*");
       if (error) throw error;
       return data || [];
     }
@@ -51,7 +51,7 @@ function AdminDashboardIndex() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_tickets")
-        .select("*")
+        .select("*, profiles(email, full_name)")
         .order("purchased_at", { ascending: false });
       if (error) throw error;
       return data || [];
@@ -77,29 +77,39 @@ function AdminDashboardIndex() {
   });
 
   const totalUsers = allUsers.length;
-  const totalSales = userTickets.reduce((sum, ticket) => {
-    const pkg = vipPackages.find((p) => p.id === ticket.package_id);
+
+  // Exclude test-mode purchases from revenue and counts
+  const realTickets = (userTickets as any[]).filter(
+    (t) => !t.payment_ref?.startsWith("test_ref_")
+  );
+
+  const totalSales = realTickets.reduce((sum, ticket) => {
+    const pkg = (vipPackages as any[]).find((p) => p.id === ticket.package_id);
     return sum + (pkg ? Number(pkg.price || 0) : 0);
   }, 0);
-  const activeGamesCount = vipSelections.filter((s) => s.result_status === "pending").length;
-  const totalSubs = userTickets.length;
+  const activeGamesCount = (vipSelections as any[]).filter((s) => s.result_status === "pending").length;
+  const totalSubs = realTickets.length;
 
   const stats = [
     { label: "Registered Users", value: totalUsers.toString(), icon: Users, color: "#3b82f6" },
-    { label: "Total Sales", value: `GHS ${totalSales.toFixed(2)}`, icon: CreditCard, color: "#10b981" },
+    { label: "Total Revenue", value: `GHS ${totalSales.toFixed(2)}`, icon: CreditCard, color: "#10b981" },
     { label: "Active Predictions", value: activeGamesCount.toString(), icon: Gamepad2, color: "#f59e0b" },
     { label: "Total VIP Subs", value: totalSubs.toString(), icon: Crown, color: "#8b5cf6" },
   ];
 
-  const recentActivities = userTickets.slice(0, 10).map((ticket) => {
-    const pkg = vipPackages.find((p) => p.id === ticket.package_id);
+  const recentActivities = (userTickets as any[]).slice(0, 10).map((ticket) => {
+    const pkg = (vipPackages as any[]).find((p) => p.id === ticket.package_id);
+    const profile = ticket.profiles;
+    const userLabel = profile?.email || profile?.full_name || `user_${ticket.user_id.substring(0, 8)}`;
+    const isTest = ticket.payment_ref?.startsWith("test_ref_");
     return {
       id: ticket.id,
-      user: `user_${ticket.user_id.substring(0, 6)}`,
+      user: userLabel,
       action: `Purchased ${pkg?.name || "Package"}`,
       date: new Date(ticket.purchased_at).toLocaleString("en-GB", {
         day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
       }),
+      isTest,
     };
   });
 
@@ -126,7 +136,7 @@ function AdminDashboardIndex() {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>User ID</th>
+                <th>User</th>
                 <th>Action</th>
                 <th>Date</th>
                 <th>Status</th>
@@ -139,15 +149,17 @@ function AdminDashboardIndex() {
                     No recent purchases found.
                   </td>
                 </tr>
-              ) : recentActivities.map((activity) => (
+              ) : recentActivities.map((activity: any) => (
                 <tr key={activity.id}>
-                  <td style={{ fontWeight: 600 }}>@{activity.user}</td>
+                  <td style={{ fontWeight: 600 }}>{activity.user}</td>
                   <td style={{ color: "var(--muted-foreground)" }}>{activity.action}</td>
                   <td style={{ color: "var(--muted-foreground)" }}>{activity.date}</td>
                   <td>
-                    <span className="admin-badge" style={{ background: "#dcfce7", color: "#166534" }}>
-                      Success
-                    </span>
+                    {activity.isTest ? (
+                      <span className="admin-badge" style={{ background: "#fef3c7", color: "#92400e" }}>Test</span>
+                    ) : (
+                      <span className="admin-badge" style={{ background: "#dcfce7", color: "#166534" }}>Success</span>
+                    )}
                   </td>
                 </tr>
               ))}
