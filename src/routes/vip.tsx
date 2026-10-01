@@ -1,12 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { supabase } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
-import { Lock, ShoppingCart, Check, Crown, Gift, ArrowRight, LayoutDashboard, X } from "lucide-react";
+import { Lock, ShoppingCart, Check, Crown, Gift, ArrowRight } from "lucide-react";
 import { PAYSTACK_ENABLED, paystackPay } from "@/lib/paystack";
 
 export const Route = createFileRoute("/vip")({
@@ -23,7 +22,6 @@ function VipPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [successPkg, setSuccessPkg] = useState<string | null>(null);
 
   const { data: vipPackages = [], isLoading } = useQuery({
     queryKey: ["vip_packages"],
@@ -91,9 +89,10 @@ function VipPage() {
       });
       if (error) throw error;
     },
-    onSuccess: (_data, vars) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user_tickets"] });
-      setSuccessPkg(vars.packageId);
+      toast.success("Payment successful! Redirecting to your dashboard...");
+      setTimeout(() => navigate({ to: "/dashboard" }), 1500);
     },
     onError: (err: any) => toast.error(err.message || "Purchase failed."),
   });
