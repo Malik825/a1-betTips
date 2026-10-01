@@ -11,7 +11,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { useContactLinks } from "@/lib/contact-links";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import heroImage from "@/assets/hero-stadium.jpg";
+import heroBgImage from "@/assets/hero-bg.png";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -202,138 +202,84 @@ function HomePage() {
 
       <main className="flex-1 overflow-x-hidden">
                 {/* ??? HERO — Split Layout ??????????????????????????????????????? */}
-        {/* ??? HERO — Split Layout ??????????????????????????????????????? */}
-        <section className="relative overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors min-h-[92svh] flex items-center">
+        {/* ─── HERO — Full Background Image ─── */}
+        <section 
+          className="relative overflow-hidden bg-slate-900 transition-colors min-h-[92svh] flex items-center justify-center text-center"
+          style={{ 
+            backgroundImage: `url(${heroBgImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          }}
+        >
+          {/* Overlay gradient to darken the image for text readability */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/60 to-black/90 pointer-events-none" />
 
+          {/* subtle grid overlay on top of the image */}
+          <div className="absolute inset-0 opacity-[0.1] pointer-events-none" style={{backgroundImage:'repeating-linear-gradient(0deg,currentColor 0,currentColor 1px,transparent 1px,transparent 60px),repeating-linear-gradient(90deg,currentColor 0,currentColor 1px,transparent 1px,transparent 60px)'}} />
+          
+          <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full bg-green-500/20 blur-[120px] pointer-events-none" />
+          
+          <div className="relative z-10 w-full max-w-4xl mx-auto px-6 sm:px-10 py-24 flex flex-col items-center gap-6">
+            
+            {/* brand pill */}
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-green-500/20 border border-green-500/30 text-green-400 text-xs font-extrabold tracking-[0.18em] uppercase backdrop-blur-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+              A1-TipsDeck
+            </span>
 
-          <div className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 py-24 lg:py-0 grid lg:grid-cols-2 gap-12 lg:gap-0 items-center">
+            {/* headline */}
+            <h1 className="text-white text-[clamp(2.4rem,5.5vw,5.5rem)] font-black leading-[1.05] tracking-tight drop-shadow-2xl">
+              Analyze Smarter.<br />
+              <span className="text-green-500 drop-shadow-[0_0_30px_rgba(34,197,94,0.6)]">Win More.</span>
+            </h1>
 
-            {/* -- LEFT: copy + CTAs -- */}
-            <div className="flex flex-col items-start gap-6 lg:pr-12">
-              {/* brand pill */}
-              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 text-xs font-extrabold tracking-[0.18em] uppercase">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 dark:bg-green-400 animate-pulse" />
-                A1-TipsDeck
-              </span>
+            {/* sub copy */}
+            <p className="text-slate-200 text-base sm:text-xl font-medium leading-relaxed max-w-2xl mx-auto drop-shadow-md">
+              Expert sports analytics, free daily insights, and premium VIP data packages — trusted by thousands of winners across Africa.
+            </p>
 
-              {/* headline */}
-              <h1 className="text-slate-900 dark:text-white text-[clamp(2.4rem,5.5vw,5rem)] font-black leading-[1.05] tracking-tight">
-                Analyze Smarter.<br />
-                <span className="text-green-500 dark:text-green-400 drop-shadow-[0_0_30px_rgba(34,197,94,0.5)]">Win More.</span>
-              </h1>
-
-              {/* sub copy */}
-              <p className="text-slate-600 dark:text-slate-400 text-base sm:text-lg leading-relaxed max-w-md">
-                Expert sports analytics, free daily insights, and premium VIP data packages — trusted by thousands of winners across Africa.
-              </p>
-
-              {/* mini stats row */}
-              <div className="flex flex-wrap gap-6">
-                {[['87%','Win Rate'],['10K+','Members'],['40+','Leagues']].map(([val,lbl])=>(
-                  <div key={lbl} className="flex flex-col">
-                    <span className="text-slate-900 dark:text-white text-2xl font-black">{val}</span>
-                    <span className="text-slate-500 text-[11px] font-bold uppercase tracking-widest">{lbl}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* CTAs */}
-              <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                <Link
-                  to="/vip"
-                  className="inline-flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-extrabold py-3.5 px-8 rounded-xl text-sm tracking-wide transition-all hover:-translate-y-0.5 shadow-lg shadow-green-500/25"
-                >
-                  ?? Join VIP
-                </Link>
-                <a
-                  href="#free-tips"
-                  className="inline-flex items-center justify-center gap-2 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-300 dark:border-white/10 text-slate-800 dark:text-white font-bold py-3.5 px-8 rounded-xl text-sm tracking-wide transition-all"
-                >
-                  View Free Tips &rarr;
-                </a>
-              </div>
-
-              {/* social row */}
-              <div className="flex items-center gap-3 mt-1">
-                <span className="text-slate-600 text-xs font-bold uppercase tracking-widest">Follow us:</span>
-                <a target="_blank" rel="noopener noreferrer" href="https://t.me/+S6zQhRKDOV02YjJk"
-                  className="flex items-center gap-1.5 bg-[#229ED9]/10 hover:bg-[#229ED9]/20 border border-[#229ED9]/30 text-[#229ED9] font-bold text-xs px-3 py-1.5 rounded-full transition-colors">
-                  <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 496 512" className="w-3 h-3" xmlns="http://www.w3.org/2000/svg"><path d="M248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm121.8 169.9l-40.7 191.8c-3 13.6-11.1 16.9-22.4 10.5l-62-45.7-29.9 28.8c-3.3 3.3-6.1 6.1-12.5 6.1l4.4-63.1 114.9-103.8c5-4.4-1.1-6.9-7.7-2.5l-142 89.4-61.2-19.1c-13.3-4.2-13.6-13.3 2.8-19.7l239.1-92.2c11.1-4 20.8 2.7 17.2 19.5z"></path></svg>
-                  Telegram
-                </a>
-              </div>
+            {/* mini stats row (centered) */}
+            <div className="flex flex-wrap justify-center gap-8 sm:gap-12 mt-4 bg-black/30 backdrop-blur-md border border-white/10 px-8 py-5 rounded-2xl">
+              {[['87%','Win Rate'],['10K+','Members'],['40+','Leagues']].map(([val,lbl])=>(
+                <div key={lbl} className="flex flex-col items-center">
+                  <span className="text-white text-2xl sm:text-3xl font-black drop-shadow-lg">{val}</span>
+                  <span className="text-green-400 text-[11px] sm:text-xs font-bold uppercase tracking-widest mt-1">{lbl}</span>
+                </div>
+              ))}
             </div>
 
-
-            {/* -- RIGHT: image + orbital stats — hidden on mobile -- */}
-            <div className="relative hidden sm:flex items-center justify-center lg:justify-end w-full mt-12 lg:mt-0 pb-16 lg:pb-0">
-              {/* image frame — NO badges inside */}
-              <div className="relative w-full max-w-[540px] rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-2xl shadow-slate-300 dark:shadow-black/60">
-                <img
-                  src={heroImage}
-                  alt="Stadium"
-                  className="w-full h-[320px] sm:h-[400px] lg:h-[540px] object-cover object-center"
-                />
-              </div>
-
-              {/* -- Orbital Stats Ring — sits at left-center of the image -- */}
-              <style>{`
-                @keyframes orbitCW {
-                  from { transform: rotate(0deg)    translateX(108px) rotate(0deg); }
-                  to   { transform: rotate(360deg)  translateX(108px) rotate(-360deg); }
-                }
-                @keyframes spinRingCW  { from{transform:rotate(0deg)}   to{transform:rotate(360deg)} }
-                @keyframes spinRingCCW { from{transform:rotate(0deg)}   to{transform:rotate(-360deg)} }
-                .orbit-node-1 { animation: orbitCW 10s linear infinite; }
-                .orbit-node-2 { animation: orbitCW 10s linear infinite; animation-delay:-3.33s; }
-                .orbit-node-3 { animation: orbitCW 10s linear infinite; animation-delay:-6.66s; }
-                .ring-cw  { animation: spinRingCW  10s linear infinite; }
-                .ring-ccw { animation: spinRingCCW 16s linear infinite; }
-              `}</style>
-
-              <div className="absolute left-1/2 lg:left-0 top-[10%] lg:top-1/2 -translate-y-1/2 -translate-x-1/2 w-[180px] h-[180px] lg:w-[240px] lg:h-[240px] flex items-center justify-center z-20 pointer-events-none scale-75 sm:scale-100 lg:scale-100">
-                {/* outer dashed ring */}
-                <div className="ring-cw  absolute w-full h-full rounded-full border border-dashed border-green-500/40" />
-                {/* inner dashed ring */}
-                <div className="ring-ccw absolute w-[160px] h-[160px] rounded-full border border-dashed border-green-500/20" />
-
-                {/* center hub */}
-                <div className="relative z-10 w-[68px] h-[68px] rounded-full bg-green-500 shadow-[0_0_36px_rgba(34,197,94,0.55)] flex flex-col items-center justify-center select-none">
-                  <span className="text-white font-black text-[18px] leading-none">A1</span>
-                  <span className="text-green-100 text-[7px] font-black uppercase tracking-widest">Stats</span>
-                </div>
-
-                {/* -- orbiting node 1: Win Rate -- */}
-                <div className="orbit-node-1 absolute w-full h-full" style={{transformOrigin:'50% 50%'}}>
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[72px] h-[72px] rounded-full bg-white dark:bg-slate-900 border-2 border-green-500/50 shadow-lg shadow-green-500/20 flex flex-col items-center justify-center text-center">
-                    <span className="text-green-500 font-black text-[15px] leading-none">87%</span>
-                    <span className="text-slate-500 dark:text-slate-400 text-[8px] font-bold uppercase tracking-wide mt-0.5 leading-tight">Win<br/>Rate</span>
-                  </div>
-                </div>
-
-                {/* -- orbiting node 2: Members -- */}
-                <div className="orbit-node-2 absolute w-full h-full" style={{transformOrigin:'50% 50%'}}>
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[72px] h-[72px] rounded-full bg-white dark:bg-slate-900 border-2 border-green-500/50 shadow-lg shadow-green-500/20 flex flex-col items-center justify-center text-center">
-                    <span className="text-green-500 font-black text-[15px] leading-none">10K+</span>
-                    <span className="text-slate-500 dark:text-slate-400 text-[8px] font-bold uppercase tracking-wide mt-0.5 leading-tight">Members</span>
-                  </div>
-                </div>
-
-                {/* -- orbiting node 3: Leagues -- */}
-                <div className="orbit-node-3 absolute w-full h-full" style={{transformOrigin:'50% 50%'}}>
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[72px] h-[72px] rounded-full bg-white dark:bg-slate-900 border-2 border-green-500/50 shadow-lg shadow-green-500/20 flex flex-col items-center justify-center text-center">
-                    <span className="text-green-500 font-black text-[15px] leading-none">40+</span>
-                    <span className="text-slate-500 dark:text-slate-400 text-[8px] font-bold uppercase tracking-wide mt-0.5 leading-tight">Leagues</span>
-                  </div>
-                </div>
-              </div>
+            {/* CTAs */}
+            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto mt-6">
+              <Link
+                to="/vip"
+                className="inline-flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-black font-extrabold py-4 px-10 rounded-xl text-sm sm:text-base tracking-wide transition-all hover:-translate-y-0.5 shadow-[0_0_20px_rgba(34,197,94,0.3)]"
+              >
+                👑 Join VIP
+              </Link>
+              <a
+                href="#free-tips"
+                className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white font-bold py-4 px-10 rounded-xl text-sm sm:text-base tracking-wide transition-all"
+              >
+                View Free Tips &rarr;
+              </a>
             </div>
+
+            {/* social row */}
+            <div className="flex items-center justify-center gap-3 mt-8">
+              <span className="text-slate-300 text-xs font-bold uppercase tracking-widest">Follow us:</span>
+              <a target="_blank" rel="noopener noreferrer" href="https://t.me/+S6zQhRKDOV02YjJk"
+                className="flex items-center gap-1.5 bg-[#229ED9]/20 hover:bg-[#229ED9]/30 backdrop-blur-sm border border-[#229ED9]/40 text-[#229ED9] font-bold text-xs px-4 py-2 rounded-full transition-colors shadow-lg">
+                <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 496 512" className="w-3 h-3" xmlns="http://www.w3.org/2000/svg"><path d="M248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm121.8 169.9l-40.7 191.8c-3 13.6-11.1 16.9-22.4 10.5l-62-45.7-29.9 28.8c-3.3 3.3-6.1 6.1-12.5 6.1l4.4-63.1 114.9-103.8c5-4.4-1.1-6.9-7.7-2.5l-142 89.4-61.2-19.1c-13.3-4.2-13.6-13.3 2.8-19.7l239.1-92.2c11.1-4 20.8 2.7 17.2 19.5z"></path></svg>
+                Telegram
+              </a>
+            </div>
+
           </div>
 
           {/* bottom scroll cue */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-40">
-            <span className="text-slate-500 dark:text-white text-[10px] font-bold uppercase tracking-widest">Scroll</span>
-            <div className="w-px h-8 bg-slate-400 dark:bg-white" />
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-60 animate-pulse">
+            <span className="text-white text-[10px] font-bold uppercase tracking-widest">Scroll</span>
+            <div className="w-px h-8 bg-white" />
           </div>
         </section>
 
