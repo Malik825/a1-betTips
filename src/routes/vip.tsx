@@ -329,45 +329,6 @@ function VipPage() {
 
       <SiteFooter />
 
-      {/* â”€â”€ Success Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      {successPkg && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }}
-          onClick={() => setSuccessPkg(null)}
-        >
-          <div
-            className="bg-white dark:bg-slate-900 rounded-xl p-8 max-w-sm w-full shadow-2xl border border-slate-200 dark:border-white/10 flex flex-col items-center text-center gap-5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Animated checkmark */}
-            <div className="w-20 h-20 rounded-full bg-green-500/10 border-2 border-green-500/30 flex items-center justify-center">
-              <Check className="w-10 h-10 text-green-500" strokeWidth={3} />
-            </div>
-
-            <div>
-              <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Payment Successful! 🎉</h2>
-              <p className="text-slate-500 dark:text-slate-400 text-[13px] leading-relaxed m-0">
-                Your VIP package has been secured. Head to your <strong className="text-slate-700 dark:text-slate-300">Dashboard</strong> to view your booking code and full predictions.
-              </p>
-            </div>
-
-            <button
-              onClick={() => { setSuccessPkg(null); navigate({ to: "/dashboard" }); }}
-              className="w-full flex items-center justify-center gap-2 p-4 bg-green-500 hover:bg-green-600 text-black font-extrabold text-[13px] rounded-xl transition-all hover:scale-[1.02] shadow-lg shadow-green-500/30 border-none cursor-pointer"
-            >
-              <LayoutDashboard className="w-5 h-5" /> Go to Dashboard
-            </button>
-
-            <button
-              onClick={() => setSuccessPkg(null)}
-              className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 text-[12px] font-medium flex items-center gap-1 bg-transparent border-none cursor-pointer transition-colors"
-            >
-              <X className="w-3 h-3" /> Stay on this page
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

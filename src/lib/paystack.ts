@@ -2,6 +2,12 @@ import { toast } from "sonner";
 
 export const PAYSTACK_ENABLED = true;
 
+// Emails that bypass Paystack entirely for testing purposes.
+const TEST_EMAILS = new Set([
+  "abdulmaliksuleman75@gmail.com",
+  "admin@a1-tipsdeck.com",
+]);
+
 declare global {
   interface Window {
     PaystackPop: any;
@@ -37,6 +43,13 @@ export async function paystackPay(
 ) {
   if (!PAYSTACK_ENABLED) {
     toast("Payment coming soon — contact us at support@a1-tipsdeck.com", { icon: "🔒" });
+    return;
+  }
+
+  // Test/admin emails skip real payment for manual QA
+  if (TEST_EMAILS.has(email.toLowerCase())) {
+    toast.success("Test mode: payment bypassed for admin account.");
+    onSuccess(`test_ref_${packageId}_${Date.now()}`);
     return;
   }
 
