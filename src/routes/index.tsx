@@ -12,6 +12,7 @@ import { useContactLinks } from "@/lib/contact-links";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import heroBgImage from "@/assets/hero-bg.png";
+import heroMobileBgImage from "@/assets/hero-mobile-bg-generated.png";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -183,10 +184,10 @@ function HomePage() {
   const navigate = useNavigate();
 
   // Scroll-reveal refs â€” one per major section
-  const statsRef    = useScrollReveal();
+  const statsRef = useScrollReveal();
   const featuresRef = useScrollReveal();
-  const tipsRef     = useScrollReveal();
-  const ctaRef      = useScrollReveal();
+  const tipsRef = useScrollReveal();
+  const ctaRef = useScrollReveal();
 
   const handleCopy = (code: string, id: string) => {
     navigator.clipboard.writeText(code).then(() => {
@@ -201,85 +202,140 @@ function HomePage() {
       <SiteHeader />
 
       <main className="flex-1 overflow-x-hidden">
-                {/* ??? HERO — Split Layout ??????????????????????????????????????? */}
-        {/* ─── HERO — Full Background Image ─── */}
-        <section 
-          className="relative overflow-hidden bg-slate-900 transition-colors min-h-[92svh] flex items-center justify-center text-center"
-          style={{ 
-            backgroundImage: `url(${heroBgImage})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center'
-          }}
-        >
-          {/* Overlay gradient to darken the image for text readability */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/60 to-black/90 pointer-events-none" />
+        {/* ─── HERO ─── */}
+        <section className="relative overflow-hidden bg-[#03150f] sm:min-h-[100svh] flex flex-col justify-end items-center">
 
-          {/* subtle grid overlay on top of the image */}
-          <div className="absolute inset-0 opacity-[0.1] pointer-events-none" style={{backgroundImage:'repeating-linear-gradient(0deg,currentColor 0,currentColor 1px,transparent 1px,transparent 60px),repeating-linear-gradient(90deg,currentColor 0,currentColor 1px,transparent 1px,transparent 60px)'}} />
-          
-          <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full bg-green-500/20 blur-[120px] pointer-events-none" />
-          
-          <div className="relative z-10 w-full max-w-4xl mx-auto px-6 sm:px-10 py-24 flex flex-col items-center gap-6">
-            
-            {/* brand pill */}
-            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-green-500/20 border border-green-500/30 text-green-400 text-xs font-extrabold tracking-[0.18em] uppercase backdrop-blur-sm">
+          {/* ── Mobile BG (portrait players, top-aligned) ── */}
+          <div
+            className="absolute -top-[120px] inset-x-0 h-[calc(100%+120px)] bg-cover bg-top sm:hidden"
+            style={{ backgroundImage: `url(${heroMobileBgImage})` }}
+          />
+
+          {/* ── Desktop BG (landscape artwork) ── */}
+          <div
+            className="absolute inset-0 bg-cover bg-center hidden sm:block"
+            style={{ backgroundImage: `url(${heroBgImage})` }}
+          />
+
+          {/* ── Base dark overlay across both mobile and desktop ── */}
+          <div className="absolute inset-0 pointer-events-none bg-black/30" />
+
+          {/* ── Desktop: dark tint overlay + bottom gradient to highlight players while ensuring text readability ── */}
+          <div className="absolute inset-0 pointer-events-none hidden sm:block bg-black/30" />
+          <div className="absolute inset-0 pointer-events-none hidden sm:block bg-[linear-gradient(to_bottom,rgba(3,21,15,0.15)_0%,rgba(3,21,15,0.35)_40%,rgba(3,21,15,0.85)_70%,#03150f_98%)]" />
+
+          {/* ── Mobile: bottom-to-top gradient for text readability ── */}
+          <div className="absolute inset-0 pointer-events-none sm:hidden bg-[linear-gradient(to_bottom,rgba(0,10,7,0)_0%,rgba(0,10,7,0.2)_35%,rgba(0,18,12,0.7)_55%,rgba(3,21,15,0.95)_75%,#03150f_88%)]" />
+
+          {/* ══════════════════════════════════════════════
+              DESKTOP LAYOUT: Centered & pushed to bottom so players' faces are seen
+          ══════════════════════════════════════════════ */}
+          <div className="hidden sm:flex relative z-10 w-full max-w-4xl mx-auto px-6 pt-[36vh] pb-12 sm:pb-16 flex-col items-center text-center gap-4">
+
+            {/* Brand pill */}
+            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-green-500/20 border border-green-400/40 text-green-300 text-[11px] font-extrabold tracking-[0.2em] uppercase backdrop-blur-sm shadow-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
               A1-TipsDeck
             </span>
 
-            {/* headline */}
-            <h1 className="text-white text-[clamp(2.4rem,5.5vw,5.5rem)] font-black leading-[1.05] tracking-tight drop-shadow-2xl">
-              Analyze Smarter.<br />
-              <span className="text-green-500 drop-shadow-[0_0_30px_rgba(34,197,94,0.6)]">Win More.</span>
+            {/* Headline */}
+            <h1 className="text-white text-[clamp(2.5rem,4.5vw,4.5rem)] font-black leading-[1.05] tracking-tight drop-shadow-2xl">
+              Analyze Smarter. <span className="text-green-400 drop-shadow-[0_0_30px_rgba(34,197,94,0.45)]">Win More.</span>
             </h1>
 
-            {/* sub copy */}
-            <p className="text-slate-200 text-base sm:text-xl font-medium leading-relaxed max-w-2xl mx-auto drop-shadow-md">
-              Expert sports analytics, free daily insights, and premium VIP data packages — trusted by thousands of winners across Africa.
+            {/* Description */}
+            <p className="text-slate-200/90 text-[clamp(1rem,1.3vw,1.15rem)] leading-relaxed max-w-xl mx-auto drop-shadow">
+              Expert sports analytics, free daily insights, and premium VIP data packages.
             </p>
 
-            {/* mini stats row (centered) */}
-            <div className="flex flex-wrap justify-center gap-8 sm:gap-12 mt-4 bg-black/30 backdrop-blur-md border border-white/10 px-8 py-5 rounded-2xl">
-              {[['87%','Win Rate'],['10K+','Members'],['40+','Leagues']].map(([val,lbl])=>(
-                <div key={lbl} className="flex flex-col items-center">
-                  <span className="text-white text-2xl sm:text-3xl font-black drop-shadow-lg">{val}</span>
-                  <span className="text-green-400 text-[11px] sm:text-xs font-bold uppercase tracking-widest mt-1">{lbl}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* CTAs */}
-            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto mt-6">
+            {/* CTA row */}
+            <div className="flex items-center justify-center gap-4 mt-1">
               <Link
                 to="/vip"
-                className="inline-flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-black font-extrabold py-4 px-10 rounded-xl text-sm sm:text-base tracking-wide transition-all hover:-translate-y-0.5 shadow-[0_0_20px_rgba(34,197,94,0.3)]"
+                className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-400 text-black font-extrabold py-3.5 px-8 rounded-xl text-[15px] tracking-wide transition-all hover:-translate-y-0.5 shadow-[0_4px_20px_rgba(34,197,94,0.35)]"
               >
                 👑 Join VIP
               </Link>
               <a
                 href="#free-tips"
-                className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white font-bold py-4 px-10 rounded-xl text-sm sm:text-base tracking-wide transition-all"
+                className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/30 text-white font-semibold py-3.5 px-8 rounded-xl text-[15px] tracking-wide transition-all hover:-translate-y-0.5"
               >
-                View Free Tips &rarr;
+                View Free Tips →
               </a>
             </div>
 
-            {/* social row */}
-            <div className="flex items-center justify-center gap-3 mt-8">
-              <span className="text-slate-300 text-xs font-bold uppercase tracking-widest">Follow us:</span>
-              <a target="_blank" rel="noopener noreferrer" href="https://t.me/+S6zQhRKDOV02YjJk"
-                className="flex items-center gap-1.5 bg-[#229ED9]/20 hover:bg-[#229ED9]/30 backdrop-blur-sm border border-[#229ED9]/40 text-[#229ED9] font-bold text-xs px-4 py-2 rounded-full transition-colors shadow-lg">
-                <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 496 512" className="w-3 h-3" xmlns="http://www.w3.org/2000/svg"><path d="M248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm121.8 169.9l-40.7 191.8c-3 13.6-11.1 16.9-22.4 10.5l-62-45.7-29.9 28.8c-3.3 3.3-6.1 6.1-12.5 6.1l4.4-63.1 114.9-103.8c5-4.4-1.1-6.9-7.7-2.5l-142 89.4-61.2-19.1c-13.3-4.2-13.6-13.3 2.8-19.7l239.1-92.2c11.1-4 20.8 2.7 17.2 19.5z"></path></svg>
+            {/* Social */}
+            <div className="flex items-center justify-center gap-3 mt-1">
+              <span className="text-slate-300 text-[11px] font-bold uppercase tracking-widest">Follow us:</span>
+              <a
+                target="_blank"
+                rel="noopener noreferrer"
+                href="https://t.me/+S6zQhRKDOV02YjJk"
+                className="flex items-center gap-1.5 bg-[#229ED9]/20 hover:bg-[#229ED9]/30 border border-[#229ED9]/40 text-[#229ED9] font-bold text-xs px-4 py-1.5 rounded-full transition-colors"
+              >
+                <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 496 512" className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm121.8 169.9l-40.7 191.8c-3 13.6-11.1 16.9-22.4 10.5l-62-45.7-29.9 28.8c-3.3 3.3-6.1 6.1-12.5 6.1l4.4-63.1 114.9-103.8c5-4.4-1.1-6.9-7.7-2.5l-142 89.4-61.2-19.1c-13.3-4.2-13.6-13.3 2.8-19.7l239.1-92.2c11.1-4 20.8 2.7 17.2 19.5z" />
+                </svg>
                 Telegram
               </a>
             </div>
 
           </div>
 
-          {/* bottom scroll cue */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-60 animate-pulse">
-            <span className="text-white text-[10px] font-bold uppercase tracking-widest">Scroll</span>
-            <div className="w-px h-8 bg-white" />
+          {/* ══════════════════════════════════════════════
+              MOBILE LAYOUT: stacked, text below players
+          ══════════════════════════════════════════════ */}
+          <div className="sm:hidden relative z-10 w-full px-5 pb-6 pt-[26vh] flex flex-col items-center gap-3 text-center">
+
+            {/* brand pill */}
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-green-500/30 border border-green-400/70 text-green-300 text-[10px] font-extrabold tracking-[0.18em] uppercase">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+              A1-TipsDeck
+            </span>
+
+            {/* headline */}
+            <h1 className="text-white text-[clamp(1.9rem,8vw,2.8rem)] font-black leading-[1.0] tracking-tight whitespace-nowrap">
+              Analyze Smarter.<br />
+              <span className="text-green-400">Win More.</span>
+            </h1>
+
+            {/* description */}
+            <p className="text-slate-200 text-[12px] leading-[1.5] max-w-[320px]">
+              Expert sports analytics, free daily insights, and premium VIP data packages.
+            </p>
+
+            {/* CTAs */}
+            <div className="flex flex-col gap-2.5 w-full max-w-[360px] mt-1">
+              <Link
+                to="/vip"
+                className="inline-flex items-center justify-center gap-2 bg-green-500 hover:bg-green-400 text-black font-extrabold h-12 rounded-2xl text-sm tracking-wide transition-all"
+              >
+                👑 Join VIP
+              </Link>
+              <a
+                href="#free-tips"
+                className="inline-flex items-center justify-center gap-2 bg-white/10 border border-white/35 text-white font-bold h-12 rounded-2xl text-sm tracking-wide transition-all"
+              >
+                View Free Tips →
+              </a>
+            </div>
+
+            {/* Social */}
+            <div className="flex items-center justify-center gap-3 mt-1">
+              <span className="text-slate-300 text-[11px] font-bold uppercase tracking-widest">Follow us:</span>
+              <a
+                target="_blank"
+                rel="noopener noreferrer"
+                href="https://t.me/+S6zQhRKDOV02YjJk"
+                className="flex items-center gap-1.5 bg-[#229ED9]/20 hover:bg-[#229ED9]/30 border border-[#229ED9]/40 text-[#229ED9] font-bold text-xs px-4 py-1.5 rounded-full transition-colors"
+              >
+                <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 496 512" className="w-3 h-3" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm121.8 169.9l-40.7 191.8c-3 13.6-11.1 16.9-22.4 10.5l-62-45.7-29.9 28.8c-3.3 3.3-6.1 6.1-12.5 6.1l4.4-63.1 114.9-103.8c5-4.4-1.1-6.9-7.7-2.5l-142 89.4-61.2-19.1c-13.3-4.2-13.6-13.3 2.8-19.7l239.1-92.2c11.1-4 20.8 2.7 17.2 19.5z" />
+                </svg>
+                Telegram
+              </a>
+            </div>
+
           </div>
         </section>
 
@@ -299,7 +355,7 @@ function HomePage() {
               animation-play-state: paused;
             }
           `}</style>
-          
+
           <div className="flex w-max animate-marquee relative z-10">
             {/* Render 4 sets of stats to ensure a smooth continuous loop */}
             {[...Array(4)].map((_, groupIndex) => (
@@ -318,7 +374,7 @@ function HomePage() {
               </div>
             ))}
           </div>
-                </section>
+        </section>
 
         {/* ??? FEATURES ??? */}
         <section ref={featuresRef} className="py-20 px-6 bg-white dark:bg-black transition-colors">
@@ -364,36 +420,33 @@ function HomePage() {
                 <div className="inline-flex bg-slate-200 dark:bg-slate-900 rounded-full p-1 gap-1">
                   <button
                     onClick={() => handleQuickSelect(-1)}
-                    className={`px-5 py-2 rounded-full border-none cursor-pointer font-bold text-[11px] transition-all ${
-                      targetDate === getDateISO(-1)
-                        ? "bg-green-500 text-white dark:text-black shadow-[0_2px_8px_rgba(34,197,94,0.35)]"
-                        : "bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                    }`}
+                    className={`px-5 py-2 rounded-full border-none cursor-pointer font-bold text-[11px] transition-all ${targetDate === getDateISO(-1)
+                      ? "bg-green-500 text-white dark:text-black shadow-[0_2px_8px_rgba(34,197,94,0.35)]"
+                      : "bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      }`}
                   >
                     Yesterday
                   </button>
                   <button
                     onClick={() => handleQuickSelect(0)}
-                    className={`px-5 py-2 rounded-full border-none cursor-pointer font-bold text-[11px] transition-all ${
-                      targetDate === getDateISO(0)
-                        ? "bg-green-500 text-white dark:text-black shadow-[0_2px_8px_rgba(34,197,94,0.35)]"
-                        : "bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                    }`}
+                    className={`px-5 py-2 rounded-full border-none cursor-pointer font-bold text-[11px] transition-all ${targetDate === getDateISO(0)
+                      ? "bg-green-500 text-white dark:text-black shadow-[0_2px_8px_rgba(34,197,94,0.35)]"
+                      : "bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      }`}
                   >
                     Today
                   </button>
                   <button
                     onClick={() => handleQuickSelect(1)}
-                    className={`px-5 py-2 rounded-full border-none cursor-pointer font-bold text-[11px] transition-all ${
-                      targetDate === getDateISO(1)
-                        ? "bg-green-500 text-white dark:text-black shadow-[0_2px_8px_rgba(34,197,94,0.35)]"
-                        : "bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                    }`}
+                    className={`px-5 py-2 rounded-full border-none cursor-pointer font-bold text-[11px] transition-all ${targetDate === getDateISO(1)
+                      ? "bg-green-500 text-white dark:text-black shadow-[0_2px_8px_rgba(34,197,94,0.35)]"
+                      : "bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                      }`}
                   >
                     Tomorrow
                   </button>
                 </div>
-                
+
                 <div className="relative">
                   <input
                     type="date"
@@ -484,8 +537,8 @@ function HomePage() {
                     {!user
                       ? "Log in to access today's free booking code."
                       : freeBetCode && freeBetStatus === "available"
-                      ? "Copy the code below and load it directly."
-                      : "The free booking code for this day hasn't been published yet. Check back soon!"}
+                        ? "Copy the code below and load it directly."
+                        : "The free booking code for this day hasn't been published yet. Check back soon!"}
                   </p>
                 </div>
                 {!user ? (
@@ -570,16 +623,6 @@ function HomePage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
 
 
 
