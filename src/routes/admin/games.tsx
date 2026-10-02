@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useState, useEffect, Fragment } from "react";
-import { Edit2, Upload, Plus, ChevronDown } from "lucide-react";
+import { Edit2, Upload, Plus, ChevronDown, Trash2, RotateCcw } from "lucide-react";
 
 export const Route = createFileRoute("/admin/games")({ component: AdminGamesPage });
 
@@ -175,13 +175,76 @@ function AdminGamesPage() {
   // Update VIP package settings (booking code, combined odds, price, status, publish)
   const updatePackageMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Record<string, any> }) => {
-      const { error } = await supabase.from("vip_packages").update(updates).eq("id", id);
+      const { error } = await supabase.from("vip_packages").update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vip_packages"] });
       toast.success("Package updated!");
       setEditingPkg(null);
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  // Clear all selections and reset a VIP package
+  const clearPackageMutation = useMutation({
+    mutationFn: async (packageId: string) => {
+      // 1. Delete all fixtures associated with this package
+      const { error: delError } = await supabase
+        .from("vip_package_fixtures")
+        .delete()
+        .eq("package_id", packageId);
+      if (delError) throw delError;
+
+      // 2. Reset package booking code, combined odds, availability_status to draft, and update updated_at
+      const { error: pkgError } = await supabase
+        .from("vip_packages")
+        .update({
+          booking_code: null,
+          combined_odds: null,
+          availability_status: "draft",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", packageId);
+      if (pkgError) throw pkgError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vip_package_fixtures"] });
+      queryClient.invalidateQueries({ queryKey: ["vip_packages"] });
+      toast.success("Package cleared and reset to Draft.");
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  // Clear all free predictions and reset daily code
+  const clearFreePredictionsMutation = useMutation({
+    mutationFn: async () => {
+      // 1. Delete all free predictions
+      const { error: delError } = await supabase
+        .from("predictions")
+        .delete()
+        .neq("id", "");
+      if (delError) throw delError;
+
+      // 2. Clear free booking code in daily_settings for today
+      const todayDate = new Date().toISOString().split("T")[0];
+      await supabase
+        .from("daily_settings")
+        .upsert({
+          date: todayDate,
+          free_booking_code: null,
+          status: "draft",
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "date" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["predictions"] });
+      queryClient.invalidateQueries({ queryKey: ["daily_settings"] });
+      refetchDailySettings();
+      toast.success("All Free Predictions cleared and reset to Draft.");
     },
     onError: (err: any) => toast.error(err.message),
   });
@@ -354,6 +417,7 @@ function AdminGamesPage() {
         await supabase.from("vip_packages").update({
           booking_code: cleanCode,
           ...(combinedOdds !== null ? { combined_odds: combinedOdds } : {}),
+          updated_at: new Date().toISOString(),
         }).eq("id", packageId);
       }
 
@@ -613,11 +677,35 @@ function AdminGamesPage() {
 
             {/* Published Free Predictions */}
             <div className="mobile-no-card" style={card}>
-              <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", background: "var(--secondary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", background: "var(--secondary)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
                 <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: "var(--foreground)" }}>
                   Free Predictions ({freePredictions.length} matches)
                 </h3>
-                <Badge label={overallResult} style={{ background: RESULT_COLORS[overallResult].bg, color: RESULT_COLORS[overallResult].color }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <Badge label={overallResult} style={{ background: RESULT_COLORS[overallResult].bg, color: RESULT_COLORS[overallResult].color }} />
+                  {freePredictions.length > 0 && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm("Are you sure you want to clear ALL Free Predictions? This will delete all matches and reset the free booking code to Draft.")) {
+                          clearFreePredictionsMutation.mutate();
+                        }
+                      }}
+                      disabled={clearFreePredictionsMutation.isPending}
+                      style={{
+                        ...btnRed,
+                        padding: "6px 14px",
+                        fontSize: 12,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        opacity: clearFreePredictionsMutation.isPending ? 0.7 : 1,
+                      }}
+                    >
+                      <Trash2 size={13} />
+                      {clearFreePredictionsMutation.isPending ? "Clearing..." : "Clear All Matches"}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {freePredictions.length === 0 ? (
@@ -881,11 +969,35 @@ function AdminGamesPage() {
 
             {/* Selections in this package */}
             <div className="mobile-no-card" style={card}>
-              <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", background: "var(--secondary)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", background: "var(--secondary)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
                 <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: "var(--foreground)" }}>
                   Package Selections ({selections.length} matches)
                 </h3>
-                <Badge label={overallResult} style={{ background: RESULT_COLORS[overallResult].bg, color: RESULT_COLORS[overallResult].color }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <Badge label={overallResult} style={{ background: RESULT_COLORS[overallResult].bg, color: RESULT_COLORS[overallResult].color }} />
+                  {(selections.length > 0 || pkg.booking_code || avail !== "draft") && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Are you sure you want to reset ${pkg.name}?\n\nThis will remove all ${selections.length} matches, clear the booking code, and reset status to Draft.`)) {
+                          clearPackageMutation.mutate(pkg.id);
+                        }
+                      }}
+                      disabled={clearPackageMutation.isPending}
+                      style={{
+                        ...btnRed,
+                        padding: "6px 14px",
+                        fontSize: 12,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        opacity: clearPackageMutation.isPending ? 0.7 : 1,
+                      }}
+                    >
+                      <Trash2 size={13} />
+                      {clearPackageMutation.isPending ? "Clearing..." : "Reset / Clear Package"}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {selections.length === 0 ? (
