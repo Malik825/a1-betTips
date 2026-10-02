@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { Check, X, Ticket, ExternalLink, Clock } from "lucide-react";
+import { isTicketValidForPackage } from "@/lib/ticket-utils";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -19,9 +20,11 @@ export const Route = createFileRoute("/dashboard")({
 
 function ResultBadge({ result }: { result: string }) {
   const map: Record<string, { bg: string; color: string; label: string; border: string }> = {
-    pending: { bg: "bg-green-100 dark:bg-green-500/10", color: "text-green-700 dark:text-green-500", border: "border-green-200 dark:border-green-500/20", label: "Pending" },
-    won:     { bg: "bg-green-100 dark:bg-green-500/10", color: "text-green-800 dark:text-green-500", border: "border-green-200 dark:border-green-500/20", label: "Won" },
-    lost:    { bg: "bg-red-100 dark:bg-red-500/10", color: "text-red-800 dark:text-red-500", border: "border-red-200 dark:border-red-500/20", label: "Lost" },
+    pending:   { bg: "bg-green-100 dark:bg-green-500/10", color: "text-green-700 dark:text-green-500", border: "border-green-200 dark:border-green-500/20", label: "Pending" },
+    won:       { bg: "bg-green-100 dark:bg-green-500/10", color: "text-green-800 dark:text-green-500", border: "border-green-200 dark:border-green-500/20", label: "Won" },
+    lost:      { bg: "bg-red-100 dark:bg-red-500/10", color: "text-red-800 dark:text-red-500", border: "border-red-200 dark:border-red-500/20", label: "Lost" },
+    completed: { bg: "bg-slate-100 dark:bg-slate-700/30", color: "text-slate-500 dark:text-slate-400", border: "border-slate-200 dark:border-slate-600/30", label: "Completed" },
+    expired:   { bg: "bg-amber-100 dark:bg-amber-500/10", color: "text-amber-700 dark:text-amber-400", border: "border-amber-200 dark:border-amber-500/20", label: "Expired" },
   };
   const s = map[result] || map.pending;
   return (
@@ -64,7 +67,7 @@ function DashboardPage() {
   const { data: vipPackages = [] } = useQuery({
     queryKey: ["vip_packages"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("secure_vip_packages").select("*");
+      const { data, error } = await supabase.from("secure_vip_packages").select("id, name, price, availability_status, result_status, booking_code, combined_odds, expires_at, updated_at");
       if (error) throw error;
       return data || [];
     },
@@ -157,11 +160,14 @@ function DashboardPage() {
             {userTickets.map((ticket) => {
               const pkg = vipPackages.find((p) => p.id === ticket.package_id);
               if (!pkg) return null;
-              const sels = vipSelections.filter((s) => s.package_id === pkg.id);
-              const result = overallResult(pkg.id);
-              const dynamicOdds = sels.length > 0
-                ? sels.reduce((acc, sel) => acc * (Number(sel.odds) || 1), 1)
-                : null;
+              const isValidTicket = isTicketValidForPackage(ticket, pkg);
+              // Show current selections if ticket is valid for this batch, otherwise use snapshot
+              const sels = isValidTicket
+                ? vipSelections.filter((s) => s.package_id === pkg.id)
+                : (ticket.snapshot ? ticket.snapshot.map((snap: any) => ({ ...snap, result_status: "completed", odds: null })) : []);
+              const result = isValidTicket ? overallResult(pkg.id) : "completed";
+              // The booking code the user actually bought (snapshot), falls back to current pkg code if still valid
+              const displayBookingCode = ticket.booking_code || (isValidTicket ? pkg.booking_code : null);
 
               return (
                 <div key={ticket.id} className="bg-white dark:bg-slate-900/60 backdrop-blur-xl rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-lg dark:shadow-2xl dark:shadow-black/50 transition-colors">
@@ -181,19 +187,15 @@ function DashboardPage() {
 
                   <div className="p-7">
 
-                    {/* Booking code + combined odds */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-7">
+                    {/* Booking code */}
+                    <div className="mb-7">
                       <div className="p-5 bg-green-50 dark:bg-green-500/10 rounded-xl border border-green-200 dark:border-green-500/20">
                         <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Booking Code</p>
-                        <p className="text-2xl font-black text-green-800 dark:text-green-400 m-0 font-mono tracking-widest">
-                          {pkg.booking_code || <span className="text-slate-400 dark:text-slate-500 text-[13px] tracking-normal">Not set yet</span>}
-                        </p>
-                      </div>
-                      <div className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-white/5">
-                        <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Combined Odds</p>
-                        <p className="text-2xl font-black text-slate-900 dark:text-white m-0">
-                          {dynamicOdds ? Number(dynamicOdds).toFixed(2) : <span className="text-slate-400 dark:text-slate-500 text-[13px]">—</span>}
-                        </p>
+                        {displayBookingCode ? (
+                          <p className="text-2xl font-black text-green-800 dark:text-green-400 m-0 font-mono tracking-widest">{displayBookingCode}</p>
+                        ) : (
+                          <p className="text-[13px] text-slate-400 dark:text-slate-500 m-0">{isValidTicket ? "Not set yet" : "This package has been updated — your booking code was for the previous batch."}</p>
+                        )}
                       </div>
                     </div>
 
@@ -209,27 +211,26 @@ function DashboardPage() {
                             <tr className="bg-slate-50 dark:bg-black/40 text-left border-b border-slate-200 dark:border-white/10">
                               <th className="p-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400">Match</th>
                               <th className="p-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400">Prediction</th>
-                              <th className="p-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400">Odds</th>
                               <th className="p-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 text-right">Result</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {sels.map((sel, i) => {
+                            {sels.map((sel: any, i: number) => {
                               const fix = resolveFixture(sel);
+                              const matchLabel = sel.match || (fix ? `${fix.home_team} vs ${fix.away_team}` : "—");
+                              const compLabel = sel.competition || fix?.competition || "";
+                              const timeLabel = sel.match_time || fix?.match_time || "";
                               return (
                                 <tr key={sel.id} className={`${i < sels.length - 1 ? 'border-b border-slate-100 dark:border-white/5' : ''}`}>
                                   <td className="p-3.5 text-[12px] font-semibold text-slate-900 dark:text-slate-200">
-                                    {fix ? `${fix.home_team} vs ${fix.away_team}` : "—"}
-                                    {fix && <div className="text-[10px] text-slate-500 dark:text-slate-400 font-normal mt-0.5">{fix.competition} • {fix.match_time}</div>}
+                                    {matchLabel}
+                                    {(compLabel || timeLabel) && <div className="text-[10px] text-slate-500 dark:text-slate-400 font-normal mt-0.5">{compLabel}{compLabel && timeLabel ? " • " : ""}{timeLabel}</div>}
                                   </td>
                                   <td className="p-3.5 text-[12px] font-bold text-green-600 dark:text-green-500">
                                     {sel.prediction}
                                   </td>
-                                  <td className="p-3.5 text-[12px] font-semibold text-slate-900 dark:text-slate-200">
-                                    {sel.odds ? Number(sel.odds).toFixed(2) : "—"}
-                                  </td>
                                   <td className="p-3.5 text-right">
-                                    <ResultBadge result={sel.result_status} />
+                                    <ResultBadge result={sel.result_status || "completed"} />
                                   </td>
                                 </tr>
                               );

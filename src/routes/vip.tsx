@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 import { Lock, ShoppingCart, Check, Crown, Gift, ArrowRight } from "lucide-react";
 import { PAYSTACK_ENABLED, paystackPay } from "@/lib/paystack";
+import { hasUserPurchasedPackage } from "@/lib/ticket-utils";
 
 export const Route = createFileRoute("/vip")({
   head: () => ({
@@ -30,7 +31,7 @@ function VipPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("secure_vip_packages")
-        .select("*")
+        .select("id, name, price, availability_status, result_status, booking_code, combined_odds, expires_at, updated_at")
         .in("availability_status", ["available", "sold_out", "expired"])
         .order("id");
       if (error) throw error;
@@ -78,18 +79,52 @@ function VipPage() {
   const resolveFixture = (sel: any) =>
     sel.fixtures ?? allFixtures.find((f: any) => f.id === sel.fixture_id) ?? null;
 
-  const hasPurchased = (pkgId: string) => userTickets.some((t) => t.package_id === pkgId);
+  const hasPurchased = (pkgId: string) => {
+    const pkg = vipPackages.find((p) => p.id === pkgId);
+    return pkg ? hasUserPurchasedPackage(userTickets, pkg) : false;
+  };
 
   const buyMutation = useMutation({
     mutationFn: async ({ packageId, reference }: { packageId: string; reference?: string }) => {
       if (!user) throw new Error("Not logged in");
-      const { error } = await supabase.from("user_tickets").insert({
+      const pkg = vipPackages.find(p => p.id === packageId);
+      const pkgSels = vipSelections.filter(s => s.package_id === packageId);
+      const snapshot = pkgSels.map(sel => {
+        const fix = resolveFixture(sel);
+        return {
+          id: sel.id,
+          fixture_id: sel.fixture_id,
+          match: fix ? `${fix.home_team} vs ${fix.away_team}` : sel.fixture_id,
+          competition: fix?.competition || "",
+          match_time: fix?.match_time || "",
+          match_date: fix?.match_date_iso || "",
+          prediction: sel.prediction,
+        };
+      });
+
+      const ticketPayload: any = {
         id: `ticket_${Date.now()}`,
         package_id: packageId,
         user_id: user.id,
         payment_ref: reference,
-      });
-      if (error) throw error;
+        booking_code: pkg?.booking_code || null,
+        snapshot: snapshot.length > 0 ? snapshot : null,
+      };
+
+      const { error } = await supabase.from("user_tickets").insert(ticketPayload);
+      if (error) {
+        if (error.message?.includes("column")) {
+          const { error: fallbackError } = await supabase.from("user_tickets").insert({
+            id: ticketPayload.id,
+            package_id: packageId,
+            user_id: user.id,
+            payment_ref: reference,
+          });
+          if (fallbackError) throw fallbackError;
+        } else {
+          throw error;
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user_tickets"] });
@@ -257,8 +292,8 @@ function VipPage() {
                                   </div>
                                 )}
                                 {purchased ? (
-                                  <div className="text-[9px] font-semibold mt-0.5 text-green-600 dark:text-green-400">
-                                    {sel.prediction}{sel.odds ? ` @ ${Number(sel.odds).toFixed(2)}` : ""}
+                                  <div className="text-[10px] font-bold mt-0.5 text-green-600 dark:text-green-400">
+                                    Tip: {sel.prediction}
                                   </div>
                                 ) : (
                                   <div className="inline-flex mt-1 items-center gap-1 px-1.5 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-dashed border-slate-300 dark:border-white/10 text-[9px] text-slate-400 dark:text-slate-500 font-bold">
