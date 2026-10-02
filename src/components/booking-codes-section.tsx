@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { hasUserPurchasedPackage } from "@/lib/ticket-utils";
 
 interface BookingCodesSectionProps {
   /** If false, hides the entire section when no packages are available */
@@ -67,7 +68,10 @@ export function BookingCodesSection({ hideWhenEmpty = false, freeBetCode, freeBe
     });
   };
 
-  const hasPurchased = (pkgId: string) => userTickets.some((t: any) => t.package_id === pkgId);
+  const hasPurchased = (pkgId: string) => {
+    const pkg = vipPackages.find((p: any) => p.id === pkgId);
+    return pkg ? hasUserPurchasedPackage(userTickets, pkg) : false;
+  };
 
   // Only show packages that have at least one game OR that the user has purchased
   const visiblePkgs = vipPackages.filter((pkg: any) => {
