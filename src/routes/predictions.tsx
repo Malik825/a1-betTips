@@ -743,6 +743,7 @@ function PredictionsPage() {
                     const avail = pkg.availability_status || "sold_out";
                     const isAvailable = avail === "available";
                     const isFree = false; // Never show FREE
+                    const isSettled = pkgResult(pkg.id) !== "pending";
                     const dynamicOdds = pkgSels.length > 0
                       ? pkgSels.reduce((acc, sel) => acc * (Number(sel.odds) || 1), 1)
                       : null;
@@ -814,7 +815,7 @@ function PredictionsPage() {
                                               {fix.match_time} • {fix.competition}
                                             </div>
                                           )}
-                                          {purchased ? (
+                                          {(purchased || sel.result_status === "won" || sel.result_status === "lost") ? (
                                             <div className="inline-flex mt-1.5 px-2 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-slate-200 dark:border-white/10 text-[10px] text-green-600 dark:text-green-400 font-black tracking-wide">
                                               Tip: {sel.prediction}
                                             </div>
@@ -845,19 +846,26 @@ function PredictionsPage() {
                             )}
                           </div>
 
-                          {/* Booking code lock */}
-                          <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-300 dark:border-white/20 mb-6 flex items-center gap-3">
-                            <Lock className="w-4 h-4 text-slate-400" />
-                            <span className="text-[11px] text-slate-600 dark:text-slate-400 font-bold">
-                              Booking code unlocked upon purchase
-                            </span>
-                          </div>
+                          {/* Booking code lock — only show if not settled or user purchased */}
+                          {(!isSettled || purchased) && (
+                            <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-300 dark:border-white/20 mb-6 flex items-center gap-3">
+                              <Lock className="w-4 h-4 text-slate-400" />
+                              <span className="text-[11px] text-slate-600 dark:text-slate-400 font-bold">
+                                Booking code unlocked upon purchase
+                              </span>
+                            </div>
+                          )}
 
                           {/* CTA */}
                           {purchased ? (
                             <div className="p-4 bg-green-500/10 rounded-xl border border-green-500/30 text-center text-green-700 dark:text-green-400 font-black text-[13px] flex items-center justify-center gap-2">
                               <Check className="w-5 h-5" />
                               Secured - Check Dashboard
+                            </div>
+                          ) : isSettled ? (
+                            <div className="p-4 bg-slate-100 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 text-center text-slate-500 dark:text-slate-400 font-black text-[12px] flex items-center justify-center gap-2 uppercase tracking-wider">
+                              <Trophy className="w-4 h-4" />
+                              Results Final — Package Closed
                             </div>
                           ) : (
                             <button

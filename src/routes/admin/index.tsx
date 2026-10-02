@@ -46,14 +46,28 @@ function AdminDashboardIndex() {
     }
   });
 
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ["admin_users"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, email, username");
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
   const { data: userTickets = [] } = useQuery({
     queryKey: ["all_user_tickets"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_tickets")
-        .select("*, profiles(email, full_name)")
+        .select("*")
         .order("purchased_at", { ascending: false });
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching user_tickets:", error);
+        return [];
+      }
       return data || [];
     }
   });
@@ -67,18 +81,9 @@ function AdminDashboardIndex() {
     }
   });
 
-  const { data: allUsers = [] } = useQuery({
-    queryKey: ["admin_users"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("id");
-      if (error) throw error;
-      return data || [];
-    }
-  });
-
   const totalUsers = allUsers.length;
 
-  // Exclude test-mode purchases from revenue and counts
+  // Exclude test-mode purchases from revenue and counts if prefixed with test_ref_
   const realTickets = (userTickets as any[]).filter(
     (t) => !t.payment_ref?.startsWith("test_ref_")
   );
@@ -99,8 +104,8 @@ function AdminDashboardIndex() {
 
   const recentActivities = (userTickets as any[]).slice(0, 10).map((ticket) => {
     const pkg = (vipPackages as any[]).find((p) => p.id === ticket.package_id);
-    const profile = ticket.profiles;
-    const userLabel = profile?.email || profile?.full_name || `user_${ticket.user_id.substring(0, 8)}`;
+    const profile = (allUsers as any[]).find((u) => u.id === ticket.user_id);
+    const userLabel = profile?.email || profile?.username || `user_${ticket.user_id.substring(0, 8)}`;
     const isTest = ticket.payment_ref?.startsWith("test_ref_");
     return {
       id: ticket.id,

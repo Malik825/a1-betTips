@@ -318,7 +318,7 @@ function VipPage() {
                                       {fix.competition && <span>• {fix.competition}</span>}
                                     </div>
                                   )}
-                                  {purchased ? (
+                                  {purchased || sel.result_status === "won" || sel.result_status === "lost" ? (
                                     <div className="text-[10px] font-bold mt-0.5 text-green-600 dark:text-green-400">
                                       Tip: {sel.prediction}
                                     </div>
@@ -350,7 +350,7 @@ function VipPage() {
                   </div>
 
                   {/* Booking code teaser */}
-                  {!purchased && (
+                  {!purchased && overallResult === "pending" && (
                     <div className="p-4 bg-slate-100 dark:bg-black/20 rounded-xl border border-dashed border-slate-300 dark:border-white/10 mb-6 flex items-center gap-3">
                       <Lock className="w-4 h-4 text-slate-400 shrink-0" />
                       <div>
@@ -364,6 +364,14 @@ function VipPage() {
                     <div className="p-4 bg-green-500/10 rounded-xl border border-green-500/30 text-center text-green-700 dark:text-green-400 font-extrabold text-[12px] flex items-center justify-center gap-2">
                       <Check className="w-[18px] h-[18px]" />
                       Secured - Check Dashboard
+                    </div>
+                  ) : (overallResult === "won" || overallResult === "lost") ? (
+                    <div className={`p-4 rounded-xl border text-center font-extrabold text-[12px] flex items-center justify-center gap-2 ${
+                      overallResult === "won"
+                        ? "bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400"
+                        : "bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-400"
+                    }`}>
+                      {overallResult === "won" ? "✓ Package Won — Results Final" : "✗ Package Settled — Results Final"}
                     </div>
                   ) : isExpired ? (
                     <div className="p-4 bg-green-500/10 rounded-xl border border-green-500/20 text-center text-green-700 dark:text-green-400 font-extrabold text-[12px] flex items-center justify-center gap-2">
