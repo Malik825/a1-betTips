@@ -161,11 +161,35 @@ function DashboardPage() {
               const pkg = vipPackages.find((p) => p.id === ticket.package_id);
               if (!pkg) return null;
               const isValidTicket = isTicketValidForPackage(ticket, pkg);
-              // Show current selections if ticket is valid for this batch, otherwise use snapshot
-              const sels = isValidTicket
+              // Get selections: if valid batch with selections, use live selections; else use ticket snapshot
+              const rawSels = (isValidTicket && vipSelections.filter((s) => s.package_id === pkg.id).length > 0)
                 ? vipSelections.filter((s) => s.package_id === pkg.id)
-                : (ticket.snapshot ? ticket.snapshot.map((snap: any) => ({ ...snap, result_status: "completed", odds: null })) : []);
-              const result = isValidTicket ? overallResult(pkg.id) : "completed";
+                : (ticket.snapshot || []);
+
+              // Resolve latest live result status for each selection
+              const sels = rawSels.map((sel: any) => {
+                const live = vipSelections.find((s) => s.id === sel.id || (s.fixture_id && s.fixture_id === sel.fixture_id));
+                const status = live?.result_status || sel.result_status || "pending";
+                return {
+                  ...sel,
+                  result_status: status,
+                };
+              });
+
+              // Compute the true ticket result
+              let result = "pending";
+              if (sels.length > 0) {
+                if (sels.some((s: any) => s.result_status === "lost")) {
+                  result = "lost";
+                } else if (sels.every((s: any) => s.result_status === "won")) {
+                  result = "won";
+                } else {
+                  result = "pending";
+                }
+              } else if (!isValidTicket) {
+                result = "completed";
+              }
+
               // The booking code the user actually bought (snapshot), falls back to current pkg code if still valid
               const displayBookingCode = ticket.booking_code || (isValidTicket ? pkg.booking_code : null);
 

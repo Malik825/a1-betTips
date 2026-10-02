@@ -221,6 +221,13 @@ function VipPage() {
             const dynamicOdds = pkgSels.length > 0
               ? pkgSels.reduce((acc, sel) => acc * (Number(sel.odds) || 1), 1)
               : null;
+            const overallResult = (() => {
+              if (pkg.result_status && pkg.result_status !== "pending") return pkg.result_status;
+              if (!pkgSels.length) return "pending";
+              if (pkgSels.some((s: any) => s.result_status === "lost")) return "lost";
+              if (pkgSels.every((s: any) => s.result_status === "won")) return "won";
+              return "pending";
+            })();
             // Dim the card when expired
             const cardOpacity = isExpired ? 0.6 : 1;
 
@@ -228,7 +235,11 @@ function VipPage() {
               <div key={pkg.id} style={{ opacity: cardOpacity }} className="bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl rounded-xl overflow-hidden border border-slate-200 dark:border-white/5 shadow-xl dark:shadow-2xl dark:shadow-black/50 flex flex-col relative transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-green-500/10 dark:hover:shadow-green-500/10">
                 {/* Accent glow on top edge */}
                 <div className={`absolute top-0 left-0 right-0 h-0.5 ${
-                  isAvailable
+                  overallResult === 'won'
+                    ? 'bg-gradient-to-r from-transparent via-green-500 to-transparent'
+                    : overallResult === 'lost'
+                    ? 'bg-gradient-to-r from-transparent via-red-500 to-transparent'
+                    : isAvailable
                     ? 'bg-gradient-to-r from-transparent via-green-500 to-transparent'
                     : isExpired
                     ? 'bg-gradient-to-r from-transparent via-green-400 to-transparent'
@@ -240,15 +251,26 @@ function VipPage() {
                   {/* Title + status */}
                   <div className="flex justify-between items-start mb-6">
                     <h2 className="text-2xl font-black m-0 text-slate-900 dark:text-white tracking-tight">{pkg.name}</h2>
-                    <span className={`px-3 py-1.5 rounded-lg text-[9px] font-extrabold uppercase tracking-widest border ${
-                      isAvailable
-                        ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20'
-                        : isExpired
-                        ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20'
-                        : 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
-                    }`}>
-                      {isAvailable ? "Available" : isExpired ? "Expired" : "Sold Out"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {overallResult !== "pending" && (
+                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border flex items-center gap-1 ${
+                          overallResult === "won"
+                            ? "bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/30"
+                            : "bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30"
+                        }`}>
+                          {overallResult === "won" ? "✓ WON" : "✗ LOST"}
+                        </span>
+                      )}
+                      <span className={`px-3 py-1.5 rounded-lg text-[9px] font-extrabold uppercase tracking-widest border ${
+                        isAvailable
+                          ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20'
+                          : isExpired
+                          ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20'
+                          : 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
+                      }`}>
+                        {isAvailable ? "Available" : isExpired ? "Expired" : "Sold Out"}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Price */}
@@ -271,7 +293,7 @@ function VipPage() {
                     </div>
                   )}
 
-                  {/* Match list â€” show all matches, blur tips for non-buyers */}
+                  {/* Match list — show all matches, blur tips for non-buyers */}
                   <div className="mb-8 flex-1">
                     <h3 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">
                       Included Matches ({pkgSels.length})
@@ -281,26 +303,41 @@ function VipPage() {
                         {pkgSels.map((sel: any) => {
                           const fix = resolveFixture(sel);
                           return (
-                            <li key={sel.id} className="flex items-start gap-3 text-[12px] text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
-                              <div className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0 mt-[7px] shadow-[0_0_10px_#4ade80]" />
-                              <div className="flex-1">
-                                <span>{fix ? `${fix.home_team} vs ${fix.away_team}` : "Match TBC"}</span>
-                                {fix && (
-                                  <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 flex gap-2">
-                                    <span>{fix.match_time}</span>
-                                    {fix.competition && <span>• {fix.competition}</span>}
-                                  </div>
-                                )}
-                                {purchased ? (
-                                  <div className="text-[10px] font-bold mt-0.5 text-green-600 dark:text-green-400">
-                                    Tip: {sel.prediction}
-                                  </div>
-                                ) : (
-                                  <div className="inline-flex mt-1 items-center gap-1 px-1.5 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-dashed border-slate-300 dark:border-white/10 text-[9px] text-slate-400 dark:text-slate-500 font-bold">
-                                    <Lock size={9} /> Locked
-                                  </div>
-                                )}
+                            <li key={sel.id} className="flex items-start justify-between gap-3 text-[12px] text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
+                              <div className="flex items-start gap-3 flex-1 min-w-0">
+                                <div className={`w-1.5 h-1.5 rounded-full shrink-0 mt-[7px] ${
+                                  sel.result_status === "won" ? "bg-green-500 shadow-[0_0_10px_#4ade80]" :
+                                  sel.result_status === "lost" ? "bg-red-500 shadow-[0_0_10px_#ef4444]" :
+                                  "bg-green-500 shadow-[0_0_10px_#4ade80]"
+                                }`} />
+                                <div className="flex-1 min-w-0">
+                                  <span>{fix ? `${fix.home_team} vs ${fix.away_team}` : "Match TBC"}</span>
+                                  {fix && (
+                                    <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 flex gap-2">
+                                      <span>{fix.match_time}</span>
+                                      {fix.competition && <span>• {fix.competition}</span>}
+                                    </div>
+                                  )}
+                                  {purchased ? (
+                                    <div className="text-[10px] font-bold mt-0.5 text-green-600 dark:text-green-400">
+                                      Tip: {sel.prediction}
+                                    </div>
+                                  ) : (
+                                    <div className="inline-flex mt-1 items-center gap-1 px-1.5 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-dashed border-slate-300 dark:border-white/10 text-[9px] text-slate-400 dark:text-slate-500 font-bold">
+                                      <Lock size={9} /> Locked
+                                    </div>
+                                  )}
+                                </div>
                               </div>
+                              {sel.result_status && sel.result_status !== "pending" && (
+                                <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 ${
+                                  sel.result_status === "won"
+                                    ? "bg-green-500/15 text-green-600 dark:text-green-400 border border-green-500/20"
+                                    : "bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/20"
+                                }`}>
+                                  {sel.result_status === "won" ? "✓ Won" : "✗ Lost"}
+                                </span>
+                              )}
                             </li>
                           );
                         })}

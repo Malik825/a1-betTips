@@ -158,15 +158,38 @@ function AdminGamesPage() {
 
   // Update per-selection result
   const updateSelectionResult = useMutation({
-    mutationFn: async ({ id, result_status }: { id: string; result_status: ResultStatus }) => {
+    mutationFn: async ({ id, packageId, result_status }: { id: string; packageId: string; result_status: ResultStatus }) => {
       const { error } = await supabase
         .from("vip_package_fixtures")
         .update({ result_status })
         .eq("id", id);
       if (error) throw error;
+
+      if (packageId) {
+        const { data: currentSels } = await supabase
+          .from("vip_package_fixtures")
+          .select("id, result_status")
+          .eq("package_id", packageId);
+
+        if (currentSels) {
+          const updatedList = currentSels.map(s => s.id === id ? { ...s, result_status } : s);
+          let newOverall: ResultStatus = "pending";
+          if (updatedList.some(s => s.result_status === "lost")) {
+            newOverall = "lost";
+          } else if (updatedList.length > 0 && updatedList.every(s => s.result_status === "won")) {
+            newOverall = "won";
+          }
+
+          await supabase
+            .from("vip_packages")
+            .update({ result_status: newOverall })
+            .eq("id", packageId);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vip_package_fixtures"] });
+      queryClient.invalidateQueries({ queryKey: ["vip_packages"] });
       toast.success("Result updated.");
     },
     onError: (err: any) => toast.error(err.message),
@@ -1050,7 +1073,7 @@ function AdminGamesPage() {
                                 <div className="desktop-actions" style={{ gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
                                   {(["won", "pending", "lost"] as ResultStatus[]).map((r) => (
                                     <button key={r}
-                                      onClick={() => updateSelectionResult.mutate({ id: sel.id, result_status: r })}
+                                      onClick={() => updateSelectionResult.mutate({ id: sel.id, packageId: sel.package_id, result_status: r })}
                                       disabled={selResult === r}
                                       style={{
                                         padding: "5px 11px", borderRadius: 6, border: "none",
@@ -1088,7 +1111,7 @@ function AdminGamesPage() {
                                       {(["won", "pending", "lost"] as ResultStatus[]).map((r) => (
                                         <button
                                           key={r}
-                                          onClick={() => { updateSelectionResult.mutate({ id: sel.id, result_status: r }); setActionDrawerId(null); }}
+                                          onClick={() => { updateSelectionResult.mutate({ id: sel.id, packageId: sel.package_id, result_status: r }); setActionDrawerId(null); }}
                                           disabled={selResult === r}
                                           style={{
                                             padding: "14px", borderRadius: 8, border: "none",
