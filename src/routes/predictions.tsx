@@ -128,7 +128,8 @@ function PredictionsPage() {
       if (error) throw error;
       return data || [];
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 30,
+    refetchOnWindowFocus: true,
   });
 
   // Prefer joined fixture data, fall back to separate fixtures query
@@ -175,7 +176,8 @@ function PredictionsPage() {
       if (error) throw error;
       return data || [];
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 30,
+    refetchOnWindowFocus: true,
   });
 
   const { data: vipSelections = [], isLoading: vipSelectionsLoading } = useQuery({
@@ -369,7 +371,7 @@ function PredictionsPage() {
         setInitializingPkg(null);
       }
     );
-    
+
     if (!opened) {
       setInitializingPkg(null);
     }
@@ -491,7 +493,7 @@ function PredictionsPage() {
                     <button
                       key={league}
                       onClick={() => setSelectedLeague(league)}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${selectedLeague === league
+                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${selectedLeague === league
                         ? "bg-green-500 text-black shadow-lg shadow-green-500/20 font-black"
                         : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/10 hover:text-slate-900 dark:hover:text-white"
                         }`}
@@ -755,9 +757,20 @@ function PredictionsPage() {
                           {/* Title + status */}
                           <div className="flex justify-between items-start mb-6">
                             <h2 className="text-2xl font-black m-0 text-slate-900 dark:text-white tracking-tight">{pkg.name}</h2>
-                            <span className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${isAvailable ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 shadow-[0_0_15px_rgba(34,197,94,0.15)]' : 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'}`}>
-                              {isAvailable ? "Available" : "Sold Out"}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              {pkgResult(pkg.id) !== "pending" && (
+                                <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border flex items-center gap-1 ${
+                                  pkgResult(pkg.id) === "won"
+                                    ? "bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/30"
+                                    : "bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30"
+                                }`}>
+                                  {pkgResult(pkg.id) === "won" ? "✓ WON" : "✗ LOST"}
+                                </span>
+                              )}
+                              <span className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${isAvailable ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 shadow-[0_0_15px_rgba(34,197,94,0.15)]' : 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'}`}>
+                                {isAvailable ? "Available" : "Sold Out"}
+                              </span>
+                            </div>
                           </div>
 
                           {/* Price */}
@@ -785,27 +798,42 @@ function PredictionsPage() {
                                 {pkgSels.map((sel: any) => {
                                   const fix = resolveFixture(sel);
                                   return (
-                                    <li key={sel.id} className="flex items-start gap-3">
-                                      <div className="w-2 h-2 rounded-full bg-green-500 shrink-0 mt-[6px] shadow-[0_0_8px_#4ade80]" />
-                                      <div>
-                                        <div className="text-[13px] text-slate-900 dark:text-white font-bold leading-tight">
-                                          {fix ? <>{fix.home_team} <span className="text-slate-400 font-normal text-[11px] mx-0.5">vs</span> {fix.away_team}</> : "Match TBC"}
+                                    <li key={sel.id} className="flex items-start justify-between gap-3">
+                                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                                        <div className={`w-2 h-2 rounded-full shrink-0 mt-[6px] ${
+                                          sel.result_status === "won" ? "bg-green-500 shadow-[0_0_8px_#4ade80]" :
+                                          sel.result_status === "lost" ? "bg-red-500 shadow-[0_0_8px_#ef4444]" :
+                                          "bg-green-500 shadow-[0_0_8px_#4ade80]"
+                                        }`} />
+                                        <div className="flex-1 min-w-0">
+                                          <div className="text-[13px] text-slate-900 dark:text-white font-bold leading-tight">
+                                            {fix ? <>{fix.home_team} <span className="text-slate-400 font-normal text-[11px] mx-0.5">vs</span> {fix.away_team}</> : "Match TBC"}
+                                          </div>
+                                          {fix && (
+                                            <div className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-semibold uppercase tracking-wide">
+                                              {fix.match_time} • {fix.competition}
+                                            </div>
+                                          )}
+                                          {purchased ? (
+                                            <div className="inline-flex mt-1.5 px-2 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-slate-200 dark:border-white/10 text-[10px] text-green-600 dark:text-green-400 font-black tracking-wide">
+                                              Tip: {sel.prediction}
+                                            </div>
+                                          ) : (
+                                            <div className="inline-flex mt-1.5 items-center gap-1 px-2 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-dashed border-slate-300 dark:border-white/10 text-[10px] text-slate-400 dark:text-slate-500 font-bold">
+                                              <Lock size={9} /> Locked
+                                            </div>
+                                          )}
                                         </div>
-                                        {fix && (
-                                          <div className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-semibold uppercase tracking-wide">
-                                            {fix.match_time} • {fix.competition}
-                                          </div>
-                                        )}
-                                        {purchased ? (
-                                          <div className="inline-flex mt-1.5 px-2 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-slate-200 dark:border-white/10 text-[10px] text-green-600 dark:text-green-400 font-black tracking-wide">
-                                            Tip: {sel.prediction}
-                                          </div>
-                                        ) : (
-                                          <div className="inline-flex mt-1.5 items-center gap-1 px-2 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-dashed border-slate-300 dark:border-white/10 text-[10px] text-slate-400 dark:text-slate-500 font-bold">
-                                            <Lock size={9} /> Locked
-                                          </div>
-                                        )}
                                       </div>
+                                      {sel.result_status && sel.result_status !== "pending" && (
+                                        <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 ${
+                                          sel.result_status === "won"
+                                            ? "bg-green-500/15 text-green-600 dark:text-green-400 border border-green-500/20"
+                                            : "bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/20"
+                                        }`}>
+                                          {sel.result_status === "won" ? "✓ Won" : "✗ Lost"}
+                                        </span>
+                                      )}
                                     </li>
                                   );
                                 })}

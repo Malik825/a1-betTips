@@ -135,7 +135,8 @@ function HomePage() {
         };
       });
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 30,
+    refetchOnWindowFocus: true,
   });
 
   // Auto-switch to day with games if today has none (and user hasn't explicitly clicked a tab)
