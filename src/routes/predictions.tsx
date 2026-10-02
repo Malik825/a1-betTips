@@ -369,7 +369,7 @@ function PredictionsPage() {
         setInitializingPkg(null);
       }
     );
-    
+
     if (!opened) {
       setInitializingPkg(null);
     }
@@ -491,7 +491,7 @@ function PredictionsPage() {
                     <button
                       key={league}
                       onClick={() => setSelectedLeague(league)}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${selectedLeague === league
+                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${selectedLeague === league
                         ? "bg-green-500 text-black shadow-lg shadow-green-500/20 font-black"
                         : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/10 hover:text-slate-900 dark:hover:text-white"
                         }`}
