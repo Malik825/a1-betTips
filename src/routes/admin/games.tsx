@@ -222,13 +222,14 @@ function AdminGamesPage() {
         .eq("package_id", packageId);
       if (delError) throw delError;
 
-      // 2. Reset package booking code, combined odds, availability_status to draft, and update updated_at
+      // 2. Reset package booking code, combined odds, availability_status to draft, result_status to pending, and update updated_at
       const { error: pkgError } = await supabase
         .from("vip_packages")
         .update({
           booking_code: null,
           combined_odds: null,
           availability_status: "draft",
+          result_status: "pending",
           updated_at: new Date().toISOString(),
         })
         .eq("id", packageId);
