@@ -318,6 +318,7 @@ function PredictionsPage() {
         payment_ref: reference,
         booking_code: pkg?.booking_code || null,
         snapshot: snapshot.length > 0 ? snapshot : null,
+        amount_paid: Number(pkg?.price || 0),
       };
 
       const { error } = await supabase.from("user_tickets").insert(ticketPayload);
