@@ -440,6 +440,7 @@ function AdminGamesPage() {
           : null;
         await supabase.from("vip_packages").update({
           booking_code: cleanCode,
+          result_status: "pending", // reset so new batch starts fresh
           ...(combinedOdds !== null ? { combined_odds: combinedOdds } : {}),
           updated_at: new Date().toISOString(),
         }).eq("id", packageId);
