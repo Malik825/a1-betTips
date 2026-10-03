@@ -276,7 +276,10 @@ function PredictionsPage() {
 
 
   // Package overall result
-  const pkgResult = (pkgId: string): string => {
+  const pkgResult = (pkgId: string, pkg?: any): string => {
+    // Trust the DB-stored result_status on the package first (set by admin settle action)
+    if (pkg?.result_status && pkg.result_status !== "pending") return pkg.result_status;
+    // Fallback: compute from individual selection statuses
     const sels = vipSelections.filter((s) => s.package_id === pkgId);
     if (!sels.length) return "pending";
     if (sels.some((s) => s.result_status === "lost")) return "lost";
@@ -744,7 +747,7 @@ function PredictionsPage() {
                     const avail = pkg.availability_status || "sold_out";
                     const isAvailable = avail === "available";
                     const isFree = false; // Never show FREE
-                    const isSettled = pkgResult(pkg.id) !== "pending";
+                    const isSettled = pkgResult(pkg.id, pkg) !== "pending";
                     const dynamicOdds = pkgSels.length > 0
                       ? pkgSels.reduce((acc, sel) => acc * (Number(sel.odds) || 1), 1)
                       : null;
@@ -760,13 +763,13 @@ function PredictionsPage() {
                           <div className="flex justify-between items-start mb-6">
                             <h2 className="text-2xl font-black m-0 text-slate-900 dark:text-white tracking-tight">{pkg.name}</h2>
                             <div className="flex items-center gap-2">
-                              {pkgResult(pkg.id) !== "pending" && (
+                              {pkgResult(pkg.id, pkg) !== "pending" && (
                                 <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border flex items-center gap-1 ${
-                                  pkgResult(pkg.id) === "won"
+                                  pkgResult(pkg.id, pkg) === "won"
                                     ? "bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/30"
                                     : "bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30"
                                 }`}>
-                                  {pkgResult(pkg.id) === "won" ? "✓ WON" : "✗ LOST"}
+                                  {pkgResult(pkg.id, pkg) === "won" ? "✓ WON" : "✗ LOST"}
                                 </span>
                               )}
                               <span className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${isAvailable ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 shadow-[0_0_15px_rgba(34,197,94,0.15)]' : 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'}`}>
