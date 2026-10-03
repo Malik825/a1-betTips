@@ -89,6 +89,10 @@ function AdminDashboardIndex() {
   );
 
   const totalSales = realTickets.reduce((sum, ticket) => {
+    // Use amount_paid stored at purchase time (accurate even if package price changes later)
+    const paid = Number((ticket as any).amount_paid ?? 0);
+    if (paid > 0) return sum + paid;
+    // Fallback for old tickets that predate the amount_paid column
     const pkg = (vipPackages as any[]).find((p) => p.id === ticket.package_id);
     return sum + (pkg ? Number(pkg.price || 0) : 0);
   }, 0);
