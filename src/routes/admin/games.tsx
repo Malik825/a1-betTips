@@ -333,6 +333,15 @@ function AdminGamesPage() {
       let totalAdded = 0;
       const allOdds: number[] = [];
 
+      // For VIP packages: auto-clear old fixtures before importing new batch.
+      // This ensures yesterday's settled matches don't pollute today's new package.
+      if (packageId !== "free") {
+        await supabase
+          .from("vip_package_fixtures")
+          .delete()
+          .eq("package_id", packageId);
+      }
+
       for (const match of matches) {
         const homeTeam =
           match.homeTeamName || match.home?.name || match.homeTeam || match.home || "Home";
