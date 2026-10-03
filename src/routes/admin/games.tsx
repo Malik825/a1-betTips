@@ -212,9 +212,54 @@ function AdminGamesPage() {
     onError: (err: any) => toast.error(err.message),
   });
 
+  // Helper to archive a settled VIP package before it is cleared or overwritten
+  const archiveSettledPackage = async (packageId: string) => {
+    try {
+      const currentPkg = vipPackages.find((p: any) => p.id === packageId);
+      const currentSels = vipSelections.filter((s: any) => s.package_id === packageId);
+
+      if (currentPkg && currentSels.length > 0) {
+        const isWon = currentPkg.result_status === "won" || currentSels.every((s: any) => s.result_status === "won");
+        const isLost = currentPkg.result_status === "lost" || currentSels.some((s: any) => s.result_status === "lost");
+
+        // If package was settled as won or lost, archive it into vip_history
+        if (isWon || isLost) {
+          const snapshotSelections = currentSels.map((s: any) => {
+            const fix = s.fixture || fixtures.find((f: any) => f.id === s.fixture_id);
+            return {
+              id: s.id,
+              home_team: fix?.home_team || "Home",
+              away_team: fix?.away_team || "Away",
+              competition: fix?.competition || "",
+              prediction: s.prediction,
+              odds: s.odds,
+              result_status: s.result_status,
+            };
+          });
+
+          await supabase.from("vip_history").insert({
+            id: `viph_${packageId}_${Date.now()}`,
+            package_id: packageId,
+            package_name: currentPkg.name,
+            booking_code: currentPkg.booking_code,
+            combined_odds: currentPkg.combined_odds,
+            result_status: isWon ? "won" : "lost",
+            settled_date: currentPkg.updated_at ? currentPkg.updated_at.split("T")[0] : new Date().toISOString().split("T")[0],
+            selections: snapshotSelections,
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("Could not archive package to vip_history:", e);
+    }
+  };
+
   // Clear all selections and reset a VIP package
   const clearPackageMutation = useMutation({
     mutationFn: async (packageId: string) => {
+      // 0. Auto-archive settled batch so history is preserved
+      await archiveSettledPackage(packageId);
+
       // 1. Delete all fixtures associated with this package
       const { error: delError } = await supabase
         .from("vip_package_fixtures")
@@ -333,9 +378,11 @@ function AdminGamesPage() {
       let totalAdded = 0;
       const allOdds: number[] = [];
 
-      // For VIP packages: auto-clear old fixtures before importing new batch.
-      // This ensures yesterday's settled matches don't pollute today's new package.
+      // For VIP packages: auto-archive old settled batch and clear before importing new batch.
+      // This ensures yesterday's settled matches become social proof history instead of being lost.
       if (packageId !== "free") {
+        await archiveSettledPackage(packageId);
+
         await supabase
           .from("vip_package_fixtures")
           .delete()

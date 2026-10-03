@@ -97,6 +97,7 @@ function PredictionsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLeague, setSelectedLeague] = useState("ALL");
   const [initializingPkg, setInitializingPkg] = useState<string | null>(null);
+  const [pkgFilter, setPkgFilter] = useState<"active" | "results">("active");
 
   const handleQuickSelect = (offset: number) => {
     setUserSelected(true);
@@ -193,6 +194,22 @@ function PredictionsPage() {
       return data || [];
     },
     staleTime: 1000 * 60 * 5,
+  });
+
+  const { data: vipHistory = [] } = useQuery({
+    queryKey: ["vip_history"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vip_history")
+        .select("*")
+        .order("settled_date", { ascending: false })
+        .limit(20);
+      if (error) {
+        return [];
+      }
+      return data || [];
+    },
+    staleTime: 1000 * 60,
   });
 
   const freeIsLoading = freeLoading;
@@ -719,15 +736,20 @@ function PredictionsPage() {
                 ))}
               </div>
             ) : (() => {
-              const visiblePackages = vipPackages.filter((pkg) => {
+              const allVisible = vipPackages.filter((pkg) => {
                 const pkgSels = vipSelections.filter((s) => s.package_id === pkg.id);
                 const purchased = hasPurchased(pkg.id);
-
-                // Show if it has fixtures OR it's a drafted one that user already bought
                 return pkgSels.length > 0 || purchased;
               });
 
-              if (visiblePackages.length === 0) {
+              const activePackages = allVisible.filter(pkg => pkgResult(pkg.id, pkg) === "pending");
+              const resultsPackages = allVisible.filter(pkg => pkgResult(pkg.id, pkg) !== "pending");
+              const totalResultsCount = resultsPackages.length + vipHistory.length;
+              const visiblePackages = pkgFilter === "active" ? activePackages : resultsPackages;
+              const hasVisibleContent = pkgFilter === "active" ? activePackages.length > 0 : totalResultsCount > 0;
+              const showTabs = allVisible.length > 0 || vipHistory.length > 0;
+
+              if (allVisible.length === 0 && vipHistory.length === 0) {
                 return (
                   <div className="py-20 text-center bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm">
                     <Crown className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
@@ -740,8 +762,56 @@ function PredictionsPage() {
               }
 
               return (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {visiblePackages.map((pkg) => {
+                <>
+                  {/* Active / Results filter tabs */}
+                  {showTabs && (
+                    <div className="flex items-center justify-center mb-8">
+                      <div className="inline-flex bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl p-1.5 shadow-lg shadow-slate-200/50 dark:shadow-black/30 gap-1">
+                        <button
+                          onClick={() => setPkgFilter("active")}
+                          className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all duration-200 border-none cursor-pointer ${
+                            pkgFilter === "active"
+                              ? "bg-green-500 text-black shadow-md shadow-green-500/30"
+                              : "bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5"
+                          }`}
+                        >
+                          🟢 Active
+                          <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[9px] ${
+                            pkgFilter === "active" ? "bg-black/20 text-white" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-400"
+                          }`}>{activePackages.length}</span>
+                        </button>
+                        <button
+                          onClick={() => setPkgFilter("results")}
+                          className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all duration-200 border-none cursor-pointer ${
+                            pkgFilter === "results"
+                              ? "bg-slate-800 dark:bg-white text-white dark:text-black shadow-md"
+                              : "bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5"
+                          }`}
+                        >
+                          📊 Results
+                          <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[9px] ${
+                            pkgFilter === "results" ? "bg-white/20 text-white dark:bg-black/20 dark:text-black" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-400"
+                          }`}>{totalResultsCount}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!hasVisibleContent ? (
+                    <div className="py-16 text-center bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm">
+                      <Crown className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                      <h3 className="text-slate-900 dark:text-white font-black text-lg mb-1">
+                        {pkgFilter === "active" ? "No Active Packages Right Now" : "No Settled Packages Yet"}
+                      </h3>
+                      <p className="text-slate-500 dark:text-slate-400 text-sm max-w-sm mx-auto">
+                        {pkgFilter === "active"
+                          ? "Today's packages are being finalized. Check back soon."
+                          : "Results and verified winning tickets will appear here once packages are settled."}
+                      </p>
+                    </div>
+                  ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {visiblePackages.map((pkg) => {
                     const pkgSels = vipSelections.filter((s) => s.package_id === pkg.id);
                     const purchased = hasPurchased(pkg.id);
                     const avail = pkg.availability_status || "sold_out";
@@ -901,9 +971,122 @@ function PredictionsPage() {
                       </div>
                     );
                   })}
-                </div>
-              );
-            })()}
+
+                  {/* Archived Historical Settled Batches */}
+                  {pkgFilter === "results" && vipHistory.map((item: any) => {
+                    const isWon = item.result_status === "won";
+                    const selections = Array.isArray(item.selections) ? item.selections : [];
+                    const dateFormatted = item.settled_date
+                      ? new Date(item.settled_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                      : "Settled Batch";
+
+                    return (
+                      <div key={item.id} className="bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-xl shadow-slate-200/50 dark:shadow-black/50 flex flex-col relative transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl">
+                        {/* Top accent glow */}
+                        <div className={`absolute top-0 left-0 right-0 h-1 ${
+                          isWon ? 'bg-gradient-to-r from-emerald-400 to-green-600' : 'bg-gradient-to-r from-red-500 to-rose-600'
+                        }`} />
+
+                        <div className="p-8 flex-1 flex flex-col">
+                          {/* Title + Won/Lost badge */}
+                          <div className="flex justify-between items-start mb-6">
+                            <div>
+                              <h2 className="text-2xl font-black m-0 text-slate-900 dark:text-white tracking-tight">{item.package_name}</h2>
+                              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 font-medium">
+                                {dateFormatted}
+                              </p>
+                            </div>
+                            <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border flex items-center gap-1 ${
+                              isWon
+                                ? "bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/30"
+                                : "bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30"
+                            }`}>
+                              {isWon ? "✓ WON" : "✗ LOST"}
+                            </span>
+                          </div>
+
+                          {/* Odds & Booking Code summary */}
+                          <div className="mb-6 p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Combined Odds</span>
+                              <span className="text-xl font-black text-green-600 dark:text-green-400">
+                                {item.combined_odds ? `${Number(item.combined_odds).toFixed(2)}` : "—"}
+                              </span>
+                            </div>
+                            {item.booking_code && (
+                              <div className="text-right">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Booking Code</span>
+                                <span className="text-xs font-mono font-black text-slate-800 dark:text-slate-200 bg-slate-200 dark:bg-white/10 px-2 py-1 rounded">
+                                  {item.booking_code}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Selections list */}
+                          <div className="mb-8 flex-1">
+                            <h3 className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                              Settled Matches
+                              <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center text-[9px] text-slate-700 dark:text-slate-300">
+                                {selections.length}
+                              </span>
+                            </h3>
+                            {selections.length > 0 ? (
+                              <ul className="m-0 p-0 list-none flex flex-col gap-4">
+                                {selections.map((sel: any, idx: number) => (
+                                  <li key={idx} className="flex items-start justify-between gap-3">
+                                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                                      <div className={`w-2 h-2 rounded-full shrink-0 mt-[6px] ${
+                                        sel.result_status === "won" ? "bg-green-500 shadow-[0_0_8px_#4ade80]" :
+                                        sel.result_status === "lost" ? "bg-red-500 shadow-[0_0_8px_#ef4444]" :
+                                        "bg-slate-400"
+                                      }`} />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-[13px] text-slate-900 dark:text-white font-bold leading-tight">
+                                          {sel.home_team} <span className="text-slate-400 font-normal text-[11px] mx-0.5">vs</span> {sel.away_team}
+                                        </div>
+                                        {sel.competition && (
+                                          <div className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-semibold uppercase tracking-wide">
+                                            {sel.competition}
+                                          </div>
+                                        )}
+                                        <div className="inline-flex mt-1.5 px-2 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-slate-200 dark:border-white/10 text-[10px] text-green-600 dark:text-green-400 font-black tracking-wide">
+                                          Tip: {sel.prediction} {sel.odds ? `(${sel.odds})` : ""}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    {sel.result_status && (
+                                      <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 ${
+                                        sel.result_status === "won"
+                                          ? "bg-green-500/15 text-green-600 dark:text-green-400 border border-green-500/20"
+                                          : "bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/20"
+                                      }`}>
+                                        {sel.result_status === "won" ? "✓ Won" : "✗ Lost"}
+                                      </span>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-[12px] text-slate-500 dark:text-slate-400 italic m-0 bg-slate-50 dark:bg-white/5 p-4 rounded-xl border border-slate-200 dark:border-white/10 text-center">
+                                Matches archived.
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Results Final Banner */}
+                          <div className="p-4 bg-slate-100 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 text-center text-slate-500 dark:text-slate-400 font-black text-[13px] uppercase tracking-wider flex items-center justify-center gap-2">
+                            Results Final — Verified
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  </div>
+                )}
+              </>
+            );
+          })()}
           </div>
         </section>
       </main>
