@@ -30,7 +30,13 @@ function AdminSettingsPage() {
     siteName: "A1-TipsDeck",
     whatsappNumber: "+233551234567",
     supportEmail: "support@a1-tipsdeck.com",
+    paymentGateway: "manual", // "manual" | "paystack" | "kora"
     paystackPublicKey: "",
+    koraPublicKey: "",
+    momoNumber: "0550000000",
+    momoName: "A1 Predictions",
+    momoNetwork: "MTN Mobile Money",
+    momoInstructions: "Send payment via MoMo to the number above using your Reference Code as the reference/remarks. Once sent, enter your sender phone number and transaction ID below and submit.",
     telegramLink: "",
     twitterLink: "",
   });
@@ -51,7 +57,13 @@ function AdminSettingsPage() {
         siteName: remoteSettings.site_name || "",
         whatsappNumber: remoteSettings.whatsapp_number || "",
         supportEmail: remoteSettings.support_email || "",
+        paymentGateway: remoteSettings.payment_gateway || "manual",
         paystackPublicKey: remoteSettings.paystack_public_key || "",
+        koraPublicKey: remoteSettings.kora_public_key || "",
+        momoNumber: remoteSettings.momo_number || "0556224818",
+        momoName: remoteSettings.momo_name || "JOHN YEBOAH",
+        momoNetwork: remoteSettings.momo_network || "MTN Mobile Money",
+        momoInstructions: remoteSettings.momo_instructions || "Send to the MoMo number above. Use your Reference Code as the MoMo remarks/narration. Then fill in your details below and submit.",
         telegramLink: remoteSettings.telegram_link || "",
         twitterLink: remoteSettings.twitter_link || "",
       });
@@ -103,7 +115,13 @@ function AdminSettingsPage() {
         site_name: settings.siteName,
         whatsapp_number: settings.whatsappNumber,
         support_email: settings.supportEmail,
+        payment_gateway: settings.paymentGateway,
         paystack_public_key: settings.paystackPublicKey,
+        kora_public_key: settings.koraPublicKey,
+        momo_number: settings.momoNumber,
+        momo_name: settings.momoName,
+        momo_network: settings.momoNetwork,
+        momo_instructions: settings.momoInstructions,
         telegram_link: settings.telegramLink,
         twitter_link: settings.twitterLink,
         updated_at: new Date().toISOString(),
@@ -192,9 +210,135 @@ function AdminSettingsPage() {
           </div>
         </SectionCard>
 
-        {/* Payment */}
-        <SectionCard icon={<CreditCard size={17} />} title="Payment Gateway (Paystack)">
-          {field("Public Key", "paystackPublicKey", "text", "pk_test_...")}
+        {/* Payment Gateways & MoMo */}
+        <SectionCard icon={<CreditCard size={17} />} title="Payment Methods & Gateway Switcher">
+          <div style={{ marginBottom: "20px" }}>
+            <label className="admin-label" style={{ marginBottom: "10px" }}>
+              Active Payment Method for Customers
+            </label>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
+              
+              {/* Option 1: Manual MoMo (Active / Default) */}
+              <div 
+                onClick={() => setSettings(s => ({ ...s, paymentGateway: "manual" }))}
+                style={{
+                  padding: "16px",
+                  borderRadius: "10px",
+                  border: settings.paymentGateway === "manual" ? "2px solid #22c55e" : "1px solid var(--border)",
+                  background: settings.paymentGateway === "manual" ? "rgba(34, 197, 94, 0.08)" : "var(--card)",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                  <span style={{ fontWeight: 700, fontSize: "14px", color: "var(--foreground)" }}>
+                    Manual MoMo
+                  </span>
+                  <span style={{ 
+                    width: 14, height: 14, borderRadius: "50%", 
+                    border: settings.paymentGateway === "manual" ? "4px solid #22c55e" : "1px solid var(--border)",
+                    background: "transparent",
+                  }} />
+                </div>
+                <p style={{ fontSize: "12px", color: "var(--muted-foreground)", margin: 0, lineHeight: 1.4 }}>
+                  Direct Mobile Money transfer (MTN/Telecel/AT). <strong>No payment gateway required.</strong> Manual verification in admin.
+                </p>
+              </div>
+
+              {/* Option 2: Paystack */}
+              <div 
+                onClick={() => setSettings(s => ({ ...s, paymentGateway: "paystack" }))}
+                style={{
+                  padding: "16px",
+                  borderRadius: "10px",
+                  border: settings.paymentGateway === "paystack" ? "2px solid #22c55e" : "1px solid var(--border)",
+                  background: settings.paymentGateway === "paystack" ? "rgba(34, 197, 94, 0.08)" : "var(--card)",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                  <span style={{ fontWeight: 700, fontSize: "14px", color: "var(--foreground)" }}>
+                    Paystack
+                  </span>
+                  <span style={{ 
+                    width: 14, height: 14, borderRadius: "50%", 
+                    border: settings.paymentGateway === "paystack" ? "4px solid #22c55e" : "1px solid var(--border)",
+                    background: "transparent",
+                  }} />
+                </div>
+                <p style={{ fontSize: "12px", color: "var(--muted-foreground)", margin: 0, lineHeight: 1.4 }}>
+                  Automated card & MoMo popup. Requires Paystack gaming compliance approval.
+                </p>
+              </div>
+
+              {/* Option 3: Kora Pay */}
+              <div 
+                onClick={() => setSettings(s => ({ ...s, paymentGateway: "kora" }))}
+                style={{
+                  padding: "16px",
+                  borderRadius: "10px",
+                  border: settings.paymentGateway === "kora" ? "2px solid #22c55e" : "1px solid var(--border)",
+                  background: settings.paymentGateway === "kora" ? "rgba(34, 197, 94, 0.08)" : "var(--card)",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                  <span style={{ fontWeight: 700, fontSize: "14px", color: "var(--foreground)" }}>
+                    Kora Pay
+                  </span>
+                  <span style={{ 
+                    width: 14, height: 14, borderRadius: "50%", 
+                    border: settings.paymentGateway === "kora" ? "4px solid #22c55e" : "1px solid var(--border)",
+                    background: "transparent",
+                  }} />
+                </div>
+                <p style={{ fontSize: "12px", color: "var(--muted-foreground)", margin: 0, lineHeight: 1.4 }}>
+                  Alternative gateway without gaming licence barrier. Switch here when Kora setup is ready.
+                </p>
+              </div>
+
+            </div>
+          </div>
+
+          {/* Conditional Gateway Details */}
+          {settings.paymentGateway === "manual" && (
+            <div style={{ padding: "16px", background: "var(--secondary)", borderRadius: "10px", border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--foreground)" }}>
+                MoMo Account Details (Shown to Customers on Checkout)
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                {field("MoMo Number", "momoNumber", "tel", "0556224818")}
+                {field("Account Name", "momoName", "text", "JOHN YEBOAH")}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                {field("Network", "momoNetwork", "text", "MTN Mobile Money")}
+                {field("Payment Instructions", "momoInstructions", "text", "Include your Reference Code as the MoMo remarks...")}
+              </div>
+            </div>
+          )}
+
+          {settings.paymentGateway === "paystack" && (
+            <div style={{ padding: "16px", background: "var(--secondary)", borderRadius: "10px", border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--foreground)", marginBottom: "12px" }}>
+                Paystack Gateway Configuration
+              </div>
+              {field("Paystack Public Key", "paystackPublicKey", "text", "pk_live_... or pk_test_...")}
+            </div>
+          )}
+
+          {settings.paymentGateway === "kora" && (
+            <div style={{ padding: "16px", background: "var(--secondary)", borderRadius: "10px", border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--foreground)", marginBottom: "12px" }}>
+                Kora Pay Gateway Configuration
+              </div>
+              {field("Kora Public Key", "koraPublicKey", "text", "pk_live_... or pk_test_...")}
+              <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "8px" }}>
+                Once your Kora account is approved, add your public key here to activate Kora checkout.
+              </p>
+            </div>
+          )}
         </SectionCard>
 
         {/* Support */}

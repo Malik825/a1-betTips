@@ -64,6 +64,23 @@ function DashboardPage() {
     enabled: !!user,
   });
 
+  const { data: userPendingPayments = [] } = useQuery({
+    queryKey: ["user_manual_payments", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("manual_payments")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) return [];
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  const activePendingPayments = userPendingPayments.filter((p: any) => p.status === "pending");
+
   const { data: vipPackages = [] } = useQuery({
     queryKey: ["vip_packages"],
     queryFn: async () => {
@@ -127,6 +144,41 @@ function DashboardPage() {
       </div>
 
       <main className="flex-1 w-[95%] sm:w-[92%] max-w-7xl mx-auto py-8 px-5 pb-20">
+
+        {/* ── Pending Manual Payments Banner ──────────────────────────── */}
+        {activePendingPayments.length > 0 && (
+          <div className="mb-8 p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 shadow-sm animate-in fade-in duration-200">
+            <div className="flex items-center gap-2.5 mb-2">
+              <Clock className="w-5 h-5 text-amber-500 animate-pulse" />
+              <h3 className="font-extrabold text-sm text-slate-900 dark:text-white m-0">
+                Payment Verification in Progress ({activePendingPayments.length})
+              </h3>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
+              We received your Mobile Money transfer details. Once confirmed by our admin team (usually within 5-15 minutes), your package access and booking codes will unlock automatically.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {activePendingPayments.map((p: any) => {
+                const pkg = vipPackages.find((pkgItem: any) => pkgItem.id === p.package_id);
+                return (
+                  <div key={p.id} className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-amber-500/20 shadow-sm flex items-center justify-between">
+                    <div>
+                      <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                        {pkg?.name || p.package_id}
+                      </span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Ref: <strong className="font-mono text-green-600 dark:text-green-400">{p.reference_code}</strong> • GHS {Number(p.amount).toFixed(2)}
+                      </span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                      Pending
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* ── Section title ───────────────────────────────────────────── */}
         <div className="flex justify-between items-center mb-6">

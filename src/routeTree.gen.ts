@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
@@ -27,6 +28,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminEditPackageRouteImport } from './routes/admin/edit-package'
 import { Route as AdminGamesRouteImport } from './routes/admin/games'
 import { Route as AdminNotificationsRouteImport } from './routes/admin/notifications'
+import { Route as AdminPaymentsRouteImport } from './routes/admin/payments'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminSmsRouteImport } from './routes/admin/sms'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
@@ -44,6 +46,11 @@ const AboutRoute = AboutRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContactRoute = ContactRouteImport.update({
@@ -121,6 +128,11 @@ const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
   path: '/notifications',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminSettingsRoute = AdminSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -141,6 +153,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/admin': typeof AdminRouteWithChildren
+  '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
@@ -155,6 +168,7 @@ export interface FileRoutesByFullPath {
   '/admin/edit-package': typeof AdminEditPackageRoute
   '/admin/games': typeof AdminGamesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/sms': typeof AdminSmsRoute
   '/admin/users': typeof AdminUsersRoute
@@ -163,6 +177,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
@@ -177,6 +192,7 @@ export interface FileRoutesByTo {
   '/admin/edit-package': typeof AdminEditPackageRoute
   '/admin/games': typeof AdminGamesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/sms': typeof AdminSmsRoute
   '/admin/users': typeof AdminUsersRoute
@@ -187,6 +203,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/admin': typeof AdminRouteWithChildren
+  '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
@@ -201,6 +218,7 @@ export interface FileRoutesById {
   '/admin/edit-package': typeof AdminEditPackageRoute
   '/admin/games': typeof AdminGamesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/sms': typeof AdminSmsRoute
   '/admin/users': typeof AdminUsersRoute
@@ -212,6 +230,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/admin'
+    | '/checkout'
     | '/contact'
     | '/dashboard'
     | '/forgot-password'
@@ -226,6 +245,7 @@ export interface FileRouteTypes {
     | '/admin/edit-package'
     | '/admin/games'
     | '/admin/notifications'
+    | '/admin/payments'
     | '/admin/settings'
     | '/admin/sms'
     | '/admin/users'
@@ -234,6 +254,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
+    | '/checkout'
     | '/contact'
     | '/dashboard'
     | '/forgot-password'
@@ -248,6 +269,7 @@ export interface FileRouteTypes {
     | '/admin/edit-package'
     | '/admin/games'
     | '/admin/notifications'
+    | '/admin/payments'
     | '/admin/settings'
     | '/admin/sms'
     | '/admin/users'
@@ -257,6 +279,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/admin'
+    | '/checkout'
     | '/contact'
     | '/dashboard'
     | '/forgot-password'
@@ -271,6 +294,7 @@ export interface FileRouteTypes {
     | '/admin/edit-package'
     | '/admin/games'
     | '/admin/notifications'
+    | '/admin/payments'
     | '/admin/settings'
     | '/admin/sms'
     | '/admin/users'
@@ -281,6 +305,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRouteWithChildren
+  CheckoutRoute: typeof CheckoutRoute
   ContactRoute: typeof ContactRoute
   DashboardRoute: typeof DashboardRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
@@ -315,6 +340,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contact': {
@@ -422,6 +454,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminNotificationsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/payments': {
+      id: '/admin/payments'
+      path: '/payments'
+      fullPath: '/admin/payments'
+      preLoaderRoute: typeof AdminPaymentsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/settings': {
       id: '/admin/settings'
       path: '/settings'
@@ -450,6 +489,7 @@ interface AdminRouteChildren {
   AdminEditPackageRoute: typeof AdminEditPackageRoute
   AdminGamesRoute: typeof AdminGamesRoute
   AdminNotificationsRoute: typeof AdminNotificationsRoute
+  AdminPaymentsRoute: typeof AdminPaymentsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSmsRoute: typeof AdminSmsRoute
   AdminUsersRoute: typeof AdminUsersRoute
@@ -460,6 +500,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminEditPackageRoute: AdminEditPackageRoute,
   AdminGamesRoute: AdminGamesRoute,
   AdminNotificationsRoute: AdminNotificationsRoute,
+  AdminPaymentsRoute: AdminPaymentsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminSmsRoute: AdminSmsRoute,
   AdminUsersRoute: AdminUsersRoute,
@@ -472,6 +513,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   AdminRoute: AdminRouteWithChildren,
+  CheckoutRoute: CheckoutRoute,
   ContactRoute: ContactRoute,
   DashboardRoute: DashboardRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,

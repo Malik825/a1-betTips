@@ -1,8 +1,10 @@
-import { createFileRoute, Link, Outlet, useRouterState, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState, useNavigate, redirect } from "@tanstack/react-router";
 import { supabase } from "@/lib/supabase";
-import { LayoutDashboard, Gamepad2, Users, Bell, MessageSquare, Settings, Sun, Moon, Monitor, Menu, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import { LayoutDashboard, CreditCard, Gamepad2, Users, Bell, MessageSquare, Settings, Sun, Moon, Monitor, Menu, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTheme } from "@/lib/theme-provider";
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Logo } from "@/components/logo";
 
 export const Route = createFileRoute("/admin")({
@@ -11,6 +13,7 @@ export const Route = createFileRoute("/admin")({
 
 const navItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
+  { label: "Payments", href: "/admin/payments", icon: CreditCard, hasPendingBadge: true },
   { label: "Games Control", href: "/admin/games", icon: Gamepad2 },
   { label: "Users", href: "/admin/users", icon: Users },
   { label: "Notifications", href: "/admin/notifications", icon: Bell },
@@ -69,9 +72,6 @@ function ThemeToggle({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-import { useAuth } from "@/lib/auth-context";
-import { useNavigate } from "@tanstack/react-router";
-
 function AdminLayout() {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
@@ -84,6 +84,21 @@ function AdminLayout() {
   
   // Mobile open state (drawer overlay)
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Pending payments count query - must be called before any conditional return
+  const { data: pendingPaymentsCount = 0 } = useQuery({
+    queryKey: ["admin_pending_payments_count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("manual_payments")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending");
+      if (error) return 0;
+      return count || 0;
+    },
+    enabled: !isLoading && !!user && user.app_metadata?.role === "admin",
+    refetchInterval: 20000,
+  });
 
   useEffect(() => {
     if (!isLoading) {
@@ -223,8 +238,34 @@ function AdminLayout() {
                       overflow: "hidden",
                     }}
                   >
-                    <item.icon size={17} style={{ flexShrink: 0 }} />
-                    {!collapsed && <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{item.label}</span>}
+                    <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                      <item.icon size={17} style={{ flexShrink: 0 }} />
+                      {collapsed && item.hasPendingBadge && pendingPaymentsCount > 0 && (
+                        <span style={{
+                          position: "absolute", top: -3, right: -3,
+                          width: 8, height: 8, borderRadius: "50%",
+                          background: "#f59e0b",
+                        }} />
+                      )}
+                    </div>
+                    {!collapsed && (
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                        {item.label}
+                        {item.hasPendingBadge && pendingPaymentsCount > 0 && (
+                          <span style={{
+                            marginLeft: "auto",
+                            background: "#f59e0b",
+                            color: "#000",
+                            borderRadius: "999px",
+                            padding: "1px 6px",
+                            fontSize: "10px",
+                            fontWeight: 800,
+                          }}>
+                            {pendingPaymentsCount}
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </Link>
                 </li>
               );
@@ -276,8 +317,22 @@ function AdminLayout() {
                       fontFamily: "inherit",
                     }}
                   >
-                    <item.icon size={17} style={{ flexShrink: 0 }} />
-                    {item.label}
+                    <div style={{ display: "flex", alignItems: "center", gap: "11px", width: "100%" }}>
+                      <item.icon size={17} style={{ flexShrink: 0 }} />
+                      <span style={{ flex: 1 }}>{item.label}</span>
+                      {item.hasPendingBadge && pendingPaymentsCount > 0 && (
+                        <span style={{
+                          background: "#f59e0b",
+                          color: "#000",
+                          borderRadius: "999px",
+                          padding: "1px 7px",
+                          fontSize: "11px",
+                          fontWeight: 800,
+                        }}>
+                          {pendingPaymentsCount}
+                        </span>
+                      )}
+                    </div>
                   </Link>
                 </li>
               );
