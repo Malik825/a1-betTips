@@ -9,6 +9,7 @@ import { Lock, ShoppingCart, Clock, Crown, Check, Copy, Eye, EyeOff, Search, Tro
 import { useAuth } from "@/lib/auth-context";
 import { PAYSTACK_ENABLED, paystackPay } from "@/lib/paystack";
 import { hasUserPurchasedPackage } from "@/lib/ticket-utils";
+import { ManualPaymentModal } from "@/components/manual-payment-modal";
 
 
 export const Route = createFileRoute("/predictions")({
@@ -98,6 +99,39 @@ function PredictionsPage() {
   const [selectedLeague, setSelectedLeague] = useState("ALL");
   const [initializingPkg, setInitializingPkg] = useState<string | null>(null);
   const [pkgFilter, setPkgFilter] = useState<"active" | "results">("active");
+  const [manualModalPkg, setManualModalPkg] = useState<any | null>(null);
+
+  const { data: adminSettings } = useQuery({
+    queryKey: ["public_admin_settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("admin_settings")
+        .select("payment_gateway, paystack_public_key, kora_public_key")
+        .eq("id", 1)
+        .maybeSingle();
+      if (error && error.code !== "PGRST116") return null;
+      return data;
+    },
+  });
+
+  const { data: userPendingPayments = [] } = useQuery({
+    queryKey: ["user_manual_payments", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("manual_payments")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("status", "pending");
+      if (error) return [];
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  const hasPendingPayment = (pkgId: string) => {
+    return userPendingPayments.some((p: any) => p.package_id === pkgId);
+  };
 
   const handleQuickSelect = (offset: number) => {
     setUserSelected(true);
@@ -379,6 +413,26 @@ function PredictionsPage() {
       return;
     }
 
+    const activeGateway = adminSettings?.payment_gateway || "manual";
+
+    // 1. Manual Mobile Money transfer
+    if (activeGateway === "manual") {
+      setManualModalPkg(pkg);
+      return;
+    }
+
+    // 2. Kora Pay (fallback to manual MoMo until credentials live)
+    if (activeGateway === "kora") {
+      if (adminSettings?.kora_public_key) {
+        toast("Kora Pay gateway integration active. Redirecting to checkout...", { icon: "💳" });
+      } else {
+        toast("Using Direct Mobile Money transfer for payment.", { icon: "📱" });
+      }
+      setManualModalPkg(pkg);
+      return;
+    }
+
+    // 3. Paystack gateway
     setInitializingPkg(packageId);
     const opened = await paystackPay(
       user.email || "",
@@ -936,6 +990,14 @@ function PredictionsPage() {
                               <Check className="w-5 h-5" />
                               Secured - Check Dashboard
                             </div>
+                          ) : hasPendingPayment(pkg.id) ? (
+                            <button
+                              onClick={() => setManualModalPkg(pkg)}
+                              className="w-full p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-extrabold text-[13px] flex items-center justify-center gap-2 cursor-pointer transition-all hover:bg-amber-500/20"
+                            >
+                              <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
+                              Payment Under Review — View Details
+                            </button>
                           ) : isSettled ? (
                             <div className="p-4 bg-slate-100 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 text-center text-slate-500 dark:text-slate-400 font-black text-[12px] flex items-center justify-center gap-2 uppercase tracking-wider">
                               <Trophy className="w-4 h-4" />
@@ -943,9 +1005,9 @@ function PredictionsPage() {
                             </div>
                           ) : (
                             <button
-                              disabled={!isAvailable || buyMutation.isPending || (!isFree && !PAYSTACK_ENABLED) || initializingPkg === pkg.id}
+                              disabled={!isAvailable || buyMutation.isPending || initializingPkg === pkg.id}
                               onClick={() => handleBuy(pkg.id)}
-                              className={`w-full p-4 rounded-xl border-none font-black text-[13px] flex items-center justify-center gap-2 transition-all shadow-xl uppercase tracking-wider ${buyMutation.isPending || !isAvailable || (!isFree && !PAYSTACK_ENABLED) || initializingPkg === pkg.id
+                              className={`w-full p-4 rounded-xl border-none font-black text-[13px] flex items-center justify-center gap-2 transition-all shadow-xl uppercase tracking-wider ${buyMutation.isPending || !isAvailable || initializingPkg === pkg.id
                                 ? "bg-slate-200 dark:bg-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none"
                                 : "bg-green-500 text-black cursor-pointer hover:-translate-y-0.5 hover:shadow-green-500/30"
                                 }`}
@@ -956,10 +1018,6 @@ function PredictionsPage() {
                                 "Opening secure checkout..."
                               ) : !isAvailable ? (
                                 "Sold Out"
-                              ) : (!isFree && !PAYSTACK_ENABLED) ? (
-                                <>
-                                  <Lock className="w-5 h-5" /> Payment Coming Soon
-                                </>
                               ) : (
                                 <>
                                   <ShoppingCart className="w-5 h-5" /> Buy Now GHS {pkg.price}
@@ -1090,6 +1148,12 @@ function PredictionsPage() {
           </div>
         </section>
       </main>
+
+      <ManualPaymentModal
+        isOpen={!!manualModalPkg}
+        onClose={() => setManualModalPkg(null)}
+        pkg={manualModalPkg}
+      />
 
       <SiteFooter />
     </div>

@@ -6,9 +6,10 @@ import { supabase } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
-import { Lock, ShoppingCart, Check, Crown, Gift, ArrowRight } from "lucide-react";
+import { Lock, ShoppingCart, Check, Crown, Gift, ArrowRight, Clock } from "lucide-react";
 import { PAYSTACK_ENABLED, paystackPay } from "@/lib/paystack";
 import { hasUserPurchasedPackage } from "@/lib/ticket-utils";
+import { ManualPaymentModal } from "@/components/manual-payment-modal";
 
 export const Route = createFileRoute("/vip")({
   head: () => ({
@@ -25,6 +26,39 @@ function VipPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [initializingPkg, setInitializingPkg] = useState<string | null>(null);
+  const [manualModalPkg, setManualModalPkg] = useState<any | null>(null);
+
+  const { data: adminSettings } = useQuery({
+    queryKey: ["public_admin_settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("admin_settings")
+        .select("payment_gateway, paystack_public_key, kora_public_key")
+        .eq("id", 1)
+        .maybeSingle();
+      if (error && error.code !== "PGRST116") return null;
+      return data;
+    },
+  });
+
+  const { data: userPendingPayments = [] } = useQuery({
+    queryKey: ["user_manual_payments", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("manual_payments")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("status", "pending");
+      if (error) return [];
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  const hasPendingPayment = (pkgId: string) => {
+    return userPendingPayments.some((p: any) => p.package_id === pkgId);
+  };
 
   const { data: vipPackages = [], isLoading } = useQuery({
     queryKey: ["vip_packages"],
@@ -150,6 +184,26 @@ function VipPage() {
       return;
     }
 
+    const activeGateway = adminSettings?.payment_gateway || "manual";
+
+    // 1. Manual Mobile Money transfer
+    if (activeGateway === "manual") {
+      setManualModalPkg(pkg);
+      return;
+    }
+
+    // 2. Kora Pay (fallback to manual MoMo until Kora credentials live)
+    if (activeGateway === "kora") {
+      if (adminSettings?.kora_public_key) {
+        toast("Kora Pay gateway integration active. Redirecting to checkout...", { icon: "💳" });
+      } else {
+        toast("Using Direct Mobile Money transfer for payment.", { icon: "📱" });
+      }
+      setManualModalPkg(pkg);
+      return;
+    }
+
+    // 3. Paystack gateway
     setInitializingPkg(pkgId);
     const opened = await paystackPay(
       user.email || "",
@@ -366,6 +420,14 @@ function VipPage() {
                       <Check className="w-[18px] h-[18px]" />
                       Secured - Check Dashboard
                     </div>
+                  ) : hasPendingPayment(pkg.id) ? (
+                    <button
+                      onClick={() => setManualModalPkg(pkg)}
+                      className="w-full p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-extrabold text-[13px] flex items-center justify-center gap-2 cursor-pointer transition-all hover:bg-amber-500/20"
+                    >
+                      <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
+                      Payment Under Review — View Details
+                    </button>
                   ) : (overallResult === "won" || overallResult === "lost") ? (
                     <div className={`p-4 rounded-xl border text-center font-extrabold text-[12px] flex items-center justify-center gap-2 ${
                       overallResult === "won"
@@ -381,10 +443,10 @@ function VipPage() {
                   ) : (
                     <div className="space-y-2">
                       <button
-                        disabled={!isAvailable || buyMutation.isPending || (!isFree && !PAYSTACK_ENABLED) || initializingPkg === pkg.id}
+                        disabled={!isAvailable || buyMutation.isPending || initializingPkg === pkg.id}
                         onClick={() => handleBuy(pkg.id)}
                         className={`w-full p-4 rounded-xl border-none font-extrabold text-[13px] flex items-center justify-center gap-2 transition-all shadow-lg ${
-                          buyMutation.isPending || !isAvailable || (!isFree && !PAYSTACK_ENABLED) || initializingPkg === pkg.id
+                          buyMutation.isPending || !isAvailable || initializingPkg === pkg.id
                             ? "bg-slate-200 dark:bg-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none opacity-50"
                             : isFree
                               ? "bg-green-600 text-white cursor-pointer hover:scale-[1.02] hover:shadow-green-500/30"
@@ -397,11 +459,6 @@ function VipPage() {
                           "Opening secure checkout..."
                         ) : !isAvailable ? (
                           "Sold Out"
-                        ) : (!isFree && !PAYSTACK_ENABLED) ? (
-                          <>
-                            <Lock className="w-[16px] h-[16px]" />
-                            Payment Coming Soon
-                          </>
                         ) : isFree ? (
                           <>
                             <Gift className="w-[18px] h-[18px]" />
@@ -425,6 +482,12 @@ function VipPage() {
           );
         })()}
       </main>
+
+      <ManualPaymentModal
+        isOpen={!!manualModalPkg}
+        onClose={() => setManualModalPkg(null)}
+        pkg={manualModalPkg}
+      />
 
       <SiteFooter />
 
