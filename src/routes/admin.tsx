@@ -1,5 +1,6 @@
-import { createFileRoute, Link, Outlet, useRouterState, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState, useNavigate, redirect } from "@tanstack/react-router";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-context";
 import { LayoutDashboard, CreditCard, Gamepad2, Users, Bell, MessageSquare, Settings, Sun, Moon, Monitor, Menu, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTheme } from "@/lib/theme-provider";
 import { useState, useEffect } from "react";
@@ -71,9 +72,6 @@ function ThemeToggle({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-import { useAuth } from "@/lib/auth-context";
-import { useNavigate } from "@tanstack/react-router";
-
 function AdminLayout() {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
@@ -86,6 +84,21 @@ function AdminLayout() {
   
   // Mobile open state (drawer overlay)
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Pending payments count query - must be called before any conditional return
+  const { data: pendingPaymentsCount = 0 } = useQuery({
+    queryKey: ["admin_pending_payments_count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("manual_payments")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending");
+      if (error) return 0;
+      return count || 0;
+    },
+    enabled: !isLoading && !!user && user.app_metadata?.role === "admin",
+    refetchInterval: 20000,
+  });
 
   useEffect(() => {
     if (!isLoading) {
@@ -118,19 +131,6 @@ function AdminLayout() {
   if (isLoading || !user || user.app_metadata?.role !== "admin") {
     return null; // or a loading spinner
   }
-
-  const { data: pendingPaymentsCount = 0 } = useQuery({
-    queryKey: ["admin_pending_payments_count"],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("manual_payments")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "pending");
-      if (error) return 0;
-      return count || 0;
-    },
-    refetchInterval: 20000,
-  });
 
   const sidebarWidth = collapsed ? 64 : 200;
 

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { 
-  X, Check, Copy, Clock, ShieldCheck, AlertCircle, Smartphone, 
-  ArrowRight, ExternalLink, Loader2 
+import React, { useState, useEffect, useRef } from "react";
+import {
+  X, Check, Copy, Clock, ShieldCheck, Smartphone,
+  ArrowRight, Loader2, BadgeCheck, Upload, ImageIcon, Lock, AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -20,385 +20,530 @@ interface ManualPaymentModalProps {
   } | null;
 }
 
+// ── Merchant config ──────────────────────────────────────────
+const MERCHANTS = {
+  ghana: {
+    id: "ghana",
+    label: "Ghana",
+    flag: "🇬🇭",
+    currency: "GHS",
+    symbol: "GHS",
+    network: "MTN Mobile Money",
+    networkColor: "#f59e0b",        // MTN yellow
+    networkBg: "rgba(245,158,11,0.12)",
+  },
+  nigeria: {
+    id: "nigeria",
+    label: "Nigeria",
+    flag: "🇳🇬",
+    currency: "NGN",
+    symbol: "₦",
+    number: "6719402828",
+    name: "Wizzy Brand (Esoroibe Wisdom Ifeanyi)",
+    network: "Moniepoint MFB",
+    networkColor: "#7c3aed",        // purple for Moniepoint
+    networkBg: "rgba(124,58,237,0.12)",
+  },
+} as const;
+
+type MerchantKey = keyof typeof MERCHANTS;
+
 export function ManualPaymentModal({ isOpen, onClose, pkg }: ManualPaymentModalProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [senderPhone, setSenderPhone] = useState("");
+  const [activeMerchant, setActiveMerchant] = useState<MerchantKey>("ghana");
   const [senderName, setSenderName] = useState("");
-  const [network, setNetwork] = useState("MTN Mobile Money");
+  const [senderPhone, setSenderPhone] = useState("");
   const [transactionId, setTransactionId] = useState("");
   const [referenceCode, setReferenceCode] = useState("");
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
-  // Fetch admin MoMo settings
+  // Ghana merchant details from admin settings (DB-configurable)
   const { data: adminSettings } = useQuery({
     queryKey: ["public_admin_settings"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("admin_settings")
-        .select("momo_number, momo_name, momo_network, momo_instructions, manual_payment_enabled")
+        .select("momo_number, momo_name, momo_network, momo_instructions")
         .eq("id", 1)
         .maybeSingle();
-      if (error && error.code !== "PGRST116") {
-        console.warn("Could not fetch admin settings:", error.message);
-      }
+      if (error && error.code !== "PGRST116") console.warn("Settings fetch:", error.message);
       return data;
     },
   });
 
-  const momoNumber = adminSettings?.momo_number || "0550000000";
-  const momoName = adminSettings?.momo_name || "A1 Predictions";
-  const momoNetwork = adminSettings?.momo_network || "MTN Mobile Money";
-  const momoInstructions = adminSettings?.momo_instructions;
+  // Live GHS → NGN exchange rate
+  const { data: exchangeRate } = useQuery({
+    queryKey: ["ghs_ngn_rate"],
+    queryFn: async () => {
+      try {
+        const res = await fetch("https://open.er-api.com/v6/latest/GHS");
+        const json = await res.json();
+        return (json?.rates?.NGN as number) || null;
+      } catch {
+        return null;
+      }
+    },
+    staleTime: 1000 * 60 * 30, // cache for 30 min
+  });
 
-  // Generate a random human-friendly reference code when modal opens for a package
+  const ghanaNumber  = adminSettings?.momo_number  || "0556224818";
+  const ghanaName    = adminSettings?.momo_name    || "JOHN YEBOAH";
+  const ghanaNetwork = adminSettings?.momo_network || "MTN Mobile Money";
+
+  const priceGHS = Number(pkg?.price ?? 0);
+  const priceNGN = exchangeRate ? Math.ceil(priceGHS * exchangeRate) : null;
+
+  // Active merchant details
+  const merchant = MERCHANTS[activeMerchant];
+  const accountNumber = activeMerchant === "ghana" ? ghanaNumber : MERCHANTS.nigeria.number;
+  const accountName   = activeMerchant === "ghana" ? ghanaName   : MERCHANTS.nigeria.name;
+  const networkLabel  = activeMerchant === "ghana" ? ghanaNetwork : MERCHANTS.nigeria.network;
+  const displayAmount = activeMerchant === "ghana"
+    ? `GHS ${priceGHS.toFixed(2)}`
+    : priceNGN !== null
+      ? `₦${priceNGN.toLocaleString()}`
+      : "Loading…";
+
   useEffect(() => {
     if (isOpen && pkg) {
       setSubmittedSuccess(false);
+      setActiveMerchant("ghana");
       const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
       let code = "A1-";
-      for (let i = 0; i < 6; i++) {
-        code += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
+      for (let i = 0; i < 6; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
       setReferenceCode(code);
       setSenderPhone("");
       setSenderName(user?.user_metadata?.full_name || "");
       setTransactionId("");
+      setProofFile(null);
+      setProofPreview(null);
     }
   }, [isOpen, pkg?.id]);
 
-  const copyToClipboard = (text: string, fieldName: string) => {
+  useEffect(() => {
+    if (isOpen) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
+
+  const copy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    setCopiedField(fieldName);
-    toast.success(`Copied ${fieldName} to clipboard!`);
+    setCopiedField(label);
+    toast.success(`${label} copied!`);
     setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const handleFile = (file: File) => {
+    if (!file.type.startsWith("image/")) { toast.error("Please upload an image file."); return; }
+    if (file.size > 5 * 1024 * 1024)    { toast.error("Max file size is 5MB.");          return; }
+    setProofFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => setProofPreview(e.target?.result as string);
+    reader.readAsDataURL(file);
   };
 
   const submitPaymentMutation = useMutation({
     mutationFn: async () => {
-      if (!user) throw new Error("Please log in to submit a payment.");
-      if (!pkg) throw new Error("No package selected.");
-      if (!senderPhone.trim()) throw new Error("Please provide your sender MoMo phone number.");
-      if (!senderName.trim()) throw new Error("Please provide your MoMo account/sender name.");
+      if (!user) throw new Error("Please log in to continue.");
+      if (!pkg)  throw new Error("No package selected.");
+      if (!senderName.trim()) throw new Error("Please enter your full name.");
+      if (!transactionId.trim() && !proofFile)
+        throw new Error("Please enter a transaction ID or upload a screenshot.");
 
-      const payload = {
-        user_id: user.id,
-        package_id: pkg.id,
-        amount: Number(pkg.price),
-        sender_phone: senderPhone.trim(),
-        sender_name: senderName.trim(),
+      let proofUrl: string | null = null;
+      if (proofFile) {
+        const ext  = proofFile.name.split(".").pop();
+        const path = `${user.id}/${Date.now()}.${ext}`;
+        const { data: up, error: upErr } = await supabase.storage
+          .from("payment-proofs")
+          .upload(path, proofFile, { upsert: false });
+        if (!upErr && up) {
+          const { data: urlData } = supabase.storage
+            .from("payment-proofs")
+            .getPublicUrl(up.path);
+          proofUrl = urlData?.publicUrl || null;
+        }
+      }
+
+      const amountPaid = activeMerchant === "nigeria" && priceNGN !== null ? priceNGN : priceGHS;
+
+      const { error } = await supabase.from("manual_payments").insert({
+        user_id:        user.id,
+        package_id:     pkg.id,
+        amount:         priceGHS,            // always store in GHS for consistency
+        sender_phone:   senderPhone.trim()  || null,
+        sender_name:    senderName.trim(),
         reference_code: referenceCode,
         transaction_id: transactionId.trim() || null,
-        network,
-        status: "pending",
-      };
-
-      const { error } = await supabase.from("manual_payments").insert(payload);
-      if (error) {
-        // Handle case where table or columns might differ
-        throw error;
-      }
+        network:        `${merchant.flag} ${networkLabel} (${activeMerchant === "nigeria" ? `₦${amountPaid.toLocaleString()}` : `GHS ${priceGHS.toFixed(2)}`})`,
+        proof_url:      proofUrl,
+        status:         "pending",
+      });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user_manual_payments"] });
       queryClient.invalidateQueries({ queryKey: ["admin_manual_payments"] });
       setSubmittedSuccess(true);
-      toast.success("Payment submitted for verification!");
     },
-    onError: (err: any) => {
-      toast.error(err.message || "Failed to submit payment. Please try again.");
-    },
+    onError: (err: any) => toast.error(err.message || "Submission failed. Try again."),
   });
 
   if (!isOpen || !pkg) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div 
-        className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
+    <div
+      className="fixed inset-0 z-[60] flex items-stretch justify-end"
+      style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)", animation: "fadeInOverlay 0.2s ease" }}
+      onClick={onClose}
+    >
+      {/* Panel */}
+      <div
+        className="relative flex flex-col w-full sm:max-w-[820px] bg-white dark:bg-[#0e1117] shadow-2xl"
+        style={{ animation: "slideInRight 0.3s cubic-bezier(0.32,0.72,0,1)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="px-6 py-4 bg-slate-950 text-white flex items-center justify-between border-b border-white/10">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-green-500/20 border border-green-500/30 flex items-center justify-center text-green-400">
-              <Smartphone className="w-4 h-4" />
+        {/* ── Header ── */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#0e1117] shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-green-500 flex items-center justify-center shadow-lg shadow-green-500/30">
+              <Smartphone className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h3 className="font-bold text-base text-white leading-tight">Mobile Money Direct Payment</h3>
-              <p className="text-xs text-slate-400">Manual verification • No bank card needed</p>
+              <h2 className="text-base font-black text-slate-900 dark:text-white">Complete Your Purchase</h2>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Pay via Mobile Money · Verified within 15 minutes</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
-          >
+          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Scrollable Content */}
-        <div className="p-6 overflow-y-auto space-y-5 text-slate-800 dark:text-slate-200">
-          
+        {/* ── Body ── */}
+        <div className="flex-1 overflow-y-auto">
           {submittedSuccess ? (
-            /* Success / Confirmation State */
-            <div className="py-6 text-center space-y-4">
-              <div className="w-16 h-16 bg-green-500/10 border-2 border-green-500/30 text-green-500 rounded-full flex items-center justify-center mx-auto shadow-lg shadow-green-500/10">
-                <Check className="w-8 h-8 stroke-[3]" />
+            /* SUCCESS */
+            <div className="flex flex-col items-center justify-center min-h-full p-10 text-center gap-6">
+              <div className="w-24 h-24 rounded-full bg-green-100 dark:bg-green-500/15 border-4 border-green-500/30 flex items-center justify-center">
+                <BadgeCheck className="w-12 h-12 text-green-600 dark:text-green-400" />
               </div>
-
               <div>
-                <h4 className="text-xl font-extrabold text-slate-900 dark:text-white mb-1">
-                  Payment Submitted!
-                </h4>
-                <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm mx-auto">
-                  Your payment for <strong className="text-slate-900 dark:text-white">{pkg.name}</strong> has been received and is pending verification.
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white">Payment Submitted!</h3>
+                <p className="mt-2 text-slate-500 dark:text-slate-400 text-sm max-w-xs mx-auto">
+                  Your payment for <strong className="text-slate-800 dark:text-slate-200">{pkg.name}</strong> is under review.
+                  Access unlocks automatically once confirmed.
                 </p>
               </div>
-
-              <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-white/10 rounded-xl p-4 text-left max-w-sm mx-auto space-y-2">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500 dark:text-slate-400">Reference Code:</span>
-                  <span className="font-mono font-bold text-green-600 dark:text-green-400">{referenceCode}</span>
+              <div className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden">
+                <div className="bg-slate-50 dark:bg-white/5 px-5 py-3 border-b border-slate-200 dark:border-white/10">
+                  <p className="text-[10px] uppercase font-black tracking-widest text-slate-400">Receipt</p>
                 </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500 dark:text-slate-400">Amount:</span>
-                  <span className="font-bold text-slate-900 dark:text-white">GHS {Number(pkg.price).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500 dark:text-slate-400">Sender Phone:</span>
-                  <span className="font-semibold text-slate-900 dark:text-white">{senderPhone}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs pt-1 border-t border-slate-200 dark:border-white/5">
-                  <span className="text-slate-500 dark:text-slate-400">Status:</span>
-                  <span className="inline-flex items-center gap-1 font-bold text-[11px] text-amber-500">
-                    <Clock className="w-3 h-3" /> Under Review (5-15 mins)
-                  </span>
+                <div className="divide-y divide-slate-100 dark:divide-white/5">
+                  <ReceiptRow label="Package"   value={pkg.name} />
+                  <ReceiptRow label="Amount (GHS)" value={`GHS ${priceGHS.toFixed(2)}`} />
+                  {activeMerchant === "nigeria" && priceNGN && (
+                    <ReceiptRow label="Amount (NGN)" value={`₦${priceNGN.toLocaleString()}`} valueClass="font-bold text-purple-600 dark:text-purple-400" />
+                  )}
+                  <ReceiptRow label="Reference" value={referenceCode} valueClass="font-mono font-black text-green-600 dark:text-green-400" />
+                  <ReceiptRow label="Status"    value="Pending · 5–15 min" valueClass="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1" icon={<Clock className="w-3.5 h-3.5" />} />
                 </div>
               </div>
-
-              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs text-amber-700 dark:text-amber-400 max-w-sm mx-auto flex items-start gap-2 text-left">
-                <Clock className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
-                <span>
-                  Our team confirms transactions promptly. Once verified, your VIP access and booking codes will unlock automatically on your Dashboard.
-                </span>
-              </div>
-
-              <div className="pt-3 flex flex-col sm:flex-row gap-2 max-w-sm mx-auto">
+              <div className="flex gap-3 w-full max-w-sm">
                 <button
-                  onClick={() => {
-                    onClose();
-                    navigate({ to: "/dashboard" });
-                  }}
-                  className="flex-1 py-2.5 px-4 bg-green-500 hover:bg-green-600 text-black font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-green-500/20"
+                  onClick={() => { onClose(); navigate({ to: "/dashboard" }); }}
+                  className="flex-1 py-3.5 bg-green-600 hover:bg-green-700 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-green-500/20"
                 >
                   Go to Dashboard <ArrowRight className="w-4 h-4" />
                 </button>
-                <button
-                  onClick={onClose}
-                  className="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-sm rounded-xl transition-colors"
-                >
+                <button onClick={onClose} className="px-5 py-3.5 rounded-xl border border-slate-200 dark:border-white/15 text-slate-600 dark:text-slate-300 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                   Close
                 </button>
               </div>
             </div>
           ) : (
-            /* Payment Steps & Form */
-            <>
-              {/* Package Summary Card */}
-              <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-white/10 rounded-xl p-3.5 flex items-center justify-between">
+            <div className="grid grid-cols-1 md:grid-cols-2 min-h-full">
+
+              {/* ── LEFT: Merchant Info ── */}
+              <div className="bg-slate-900 text-white flex flex-col p-7 gap-5">
+
+                {/* Package & price */}
                 <div>
-                  <span className="text-[10px] uppercase font-extrabold tracking-wider text-green-600 dark:text-green-400">Selected Package</span>
-                  <h4 className="font-extrabold text-base text-slate-900 dark:text-white leading-tight">{pkg.name}</h4>
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500 mb-1">You're buying</p>
+                  <h3 className="text-lg font-black text-white leading-tight">{pkg.name}</h3>
                   {pkg.combined_odds && (
-                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                      Combined Odds: <strong className="text-slate-700 dark:text-slate-300">{Number(pkg.combined_odds).toFixed(2)}</strong>
-                    </span>
+                    <p className="text-xs text-slate-400 mt-0.5">Odds: <span className="font-bold text-white">{Number(pkg.combined_odds).toFixed(2)}</span></p>
                   )}
                 </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-semibold block">Total to Pay</span>
-                  <span className="text-xl font-black text-green-600 dark:text-green-400">
-                    GHS {Number(pkg.price).toFixed(2)}
-                  </span>
+
+                {/* Merchant toggle */}
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500 mb-2">Pay via</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["ghana", "nigeria"] as MerchantKey[]).map((key) => {
+                      const m = MERCHANTS[key];
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setActiveMerchant(key)}
+                          className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all text-sm font-bold ${
+                            activeMerchant === key
+                              ? "bg-white text-slate-900 border-white shadow-lg"
+                              : "bg-white/5 text-slate-400 border-white/10 hover:bg-white/10 hover:text-white"
+                          }`}
+                        >
+                          <span className="text-lg">{m.flag}</span>
+                          <div>
+                            <div className="font-black text-xs leading-tight">{m.label}</div>
+                            <div className={`text-[10px] font-normal ${activeMerchant === key ? "text-slate-500" : "text-slate-600"}`}>{m.currency}</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Amount */}
+                <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3 flex items-center justify-between">
+                  <span className="text-xs text-slate-400 font-semibold">Amount to send</span>
+                  <div className="text-right">
+                    <div className="text-2xl font-black text-green-400">{displayAmount}</div>
+                    {activeMerchant === "nigeria" && priceNGN && exchangeRate && (
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        Rate: 1 GHS ≈ ₦{exchangeRate.toFixed(1)}
+                      </div>
+                    )}
+                    {activeMerchant === "nigeria" && !priceNGN && (
+                      <div className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Fetching rate…
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Account details */}
+                <div className="space-y-2">
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Send payment to</p>
+
+                  {/* Network badge */}
+                  <div
+                    className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 border text-xs font-black"
+                    style={{ background: MERCHANTS[activeMerchant].networkBg, borderColor: `${MERCHANTS[activeMerchant].networkColor}40`, color: MERCHANTS[activeMerchant].networkColor }}
+                  >
+                    <span className="w-2 h-2 rounded-full" style={{ background: MERCHANTS[activeMerchant].networkColor }} />
+                    {networkLabel}
+                  </div>
+
+                  {/* Account card */}
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-4">
+                    {/* Number */}
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-0.5">
+                          {activeMerchant === "ghana" ? "MoMo Number" : "Account Number"}
+                        </p>
+                        <span className="text-2xl font-black tracking-widest font-mono text-white">{accountNumber}</span>
+                      </div>
+                      <CopyBtn text={accountNumber} label={activeMerchant === "ghana" ? "MoMo number" : "Account number"} copiedField={copiedField} onCopy={copy} />
+                    </div>
+
+                    {/* Name */}
+                    <div className="flex items-center justify-between border-t border-white/10 pt-4 gap-3">
+                      <div>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-0.5">Account Name</p>
+                        <span className="text-sm font-bold text-white">{accountName}</span>
+                      </div>
+                      <CopyBtn text={accountName} label="Account name" copiedField={copiedField} onCopy={copy} />
+                    </div>
+                  </div>
+
+                  {/* Reference */}
+                  <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-4">
+                    <p className="text-[10px] text-green-400 uppercase tracking-wider font-bold mb-1">
+                      ⚡ {activeMerchant === "ghana" ? "MoMo Narration" : "Transfer Narration"} / Reference
+                    </p>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xl font-black tracking-widest font-mono text-green-400">{referenceCode}</span>
+                      <CopyBtn text={referenceCode} label="Reference" copiedField={copiedField} onCopy={copy} variant="green" />
+                    </div>
+                    <p className="text-[11px] text-green-400/60 mt-1.5">Include this in your transfer narration so we can match your payment.</p>
+                  </div>
+                </div>
+
+                <div className="mt-auto flex items-center gap-2 text-[11px] text-slate-500">
+                  <Lock className="w-3.5 h-3.5 shrink-0" />
+                  Verified by our team within 15 minutes
                 </div>
               </div>
 
-              {/* Step 1: Send Money Box */}
-              <div className="space-y-2.5">
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  <span className="w-5 h-5 rounded-full bg-slate-900 text-white dark:bg-green-500 dark:text-black flex items-center justify-center text-[10px] font-black">1</span>
-                  Send Payment via Mobile Money
-                </div>
-
-                <div className="bg-gradient-to-br from-slate-900 to-slate-950 text-white p-4 rounded-xl border border-white/10 shadow-md space-y-3">
-                  <div className="flex justify-between items-center border-b border-white/10 pb-2.5">
-                    <span className="text-xs text-slate-400">Network</span>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-green-500/20 text-green-400 border border-green-500/30">
-                      {momoNetwork}
-                    </span>
-                  </div>
-
-                  {/* MoMo Number */}
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <span className="text-[11px] text-slate-400 block">MoMo Number</span>
-                      <span className="font-mono text-lg font-bold text-white tracking-wide">{momoNumber}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(momoNumber, "MoMo Number")}
-                      className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-white flex items-center gap-1.5 transition-colors border border-white/10"
-                    >
-                      {copiedField === "MoMo Number" ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-                      {copiedField === "MoMo Number" ? "Copied" : "Copy"}
-                    </button>
-                  </div>
-
-                  {/* MoMo Account Name */}
-                  <div className="flex justify-between items-center border-t border-white/10 pt-2.5">
-                    <div>
-                      <span className="text-[11px] text-slate-400 block">Account Name</span>
-                      <span className="text-sm font-semibold text-slate-200">{momoName}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(momoName, "Account Name")}
-                      className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-white flex items-center gap-1.5 transition-colors border border-white/10"
-                    >
-                      {copiedField === "Account Name" ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-                      {copiedField === "Account Name" ? "Copied" : "Copy"}
-                    </button>
-                  </div>
-
-                  {/* Reference to include */}
-                  <div className="flex justify-between items-center border-t border-white/10 pt-2.5 bg-green-500/10 -mx-4 -mb-4 p-3.5 rounded-b-xl border border-green-500/20">
-                    <div>
-                      <span className="text-[11px] text-green-300 font-bold block">Use this Reference Note</span>
-                      <span className="font-mono text-base font-extrabold text-green-400 tracking-wider">{referenceCode}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(referenceCode, "Reference")}
-                      className="px-3 py-1.5 rounded-lg bg-green-500 hover:bg-green-400 text-xs font-bold text-slate-950 flex items-center gap-1.5 transition-colors shadow-sm"
-                    >
-                      {copiedField === "Reference" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      {copiedField === "Reference" ? "Copied" : "Copy Ref"}
-                    </button>
-                  </div>
-                </div>
-
-                {momoInstructions && (
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">
-                    {momoInstructions}
+              {/* ── RIGHT: Proof Form ── */}
+              <div className="bg-slate-50 dark:bg-[#0e1117] flex flex-col p-7 border-l border-slate-200 dark:border-white/10">
+                <div className="mb-5">
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">Submit Your Proof</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    After sending, fill in your details and upload a screenshot.
                   </p>
-                )}
-              </div>
-
-              {/* Step 2: Verification Form */}
-              <form 
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  submitPaymentMutation.mutate();
-                }} 
-                className="space-y-3 pt-2"
-              >
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  <span className="w-5 h-5 rounded-full bg-slate-900 text-white dark:bg-green-500 dark:text-black flex items-center justify-center text-[10px] font-black">2</span>
-                  Submit Your Payment Details
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <form
+                  onSubmit={(e) => { e.preventDefault(); submitPaymentMutation.mutate(); }}
+                  className="flex flex-col flex-1 gap-4"
+                >
+                  {/* Full Name */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Your MoMo Phone Number <span className="text-red-500">*</span>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text" required
+                      placeholder="Your name as it appears on your account"
+                      value={senderName}
+                      onChange={(e) => setSenderName(e.target.value)}
+                      className="w-full px-4 py-3 text-sm rounded-xl border-2 border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:border-green-500 placeholder:text-slate-400 transition-colors"
+                    />
+                  </div>
+
+                  {/* Phone */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      {activeMerchant === "ghana" ? "MoMo" : "Bank"} Phone Number
+                      <span className="text-slate-400 font-normal ml-1">(Optional)</span>
                     </label>
                     <input
                       type="tel"
-                      required
-                      placeholder="e.g. 0551234567"
+                      placeholder={activeMerchant === "ghana" ? "e.g. 0551234567" : "e.g. 08012345678"}
                       value={senderPhone}
                       onChange={(e) => setSenderPhone(e.target.value)}
-                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className="w-full px-4 py-3 text-sm rounded-xl border-2 border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:border-green-500 placeholder:text-slate-400 transition-colors"
                     />
                   </div>
 
+                  {/* Transaction ID */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Sender Name on Account <span className="text-red-500">*</span>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Transaction / Session ID
+                      <span className="text-slate-400 font-normal ml-1">(From SMS)</span>
                     </label>
                     <input
                       type="text"
-                      required
-                      placeholder="e.g. Kwame Mensah"
-                      value={senderName}
-                      onChange={(e) => setSenderName(e.target.value)}
-                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Network Sent From
-                    </label>
-                    <select
-                      value={network}
-                      onChange={(e) => setNetwork(e.target.value)}
-                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                    >
-                      <option value="MTN Mobile Money">MTN Mobile Money</option>
-                      <option value="Telecel Cash">Telecel Cash</option>
-                      <option value="AT Money">AirtelTigo / AT Money</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Transaction ID (From SMS) <span className="text-slate-400 font-normal">(Optional)</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 2938472910"
+                      placeholder="e.g. TRF2938472910"
                       value={transactionId}
                       onChange={(e) => setTransactionId(e.target.value)}
-                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className="w-full px-4 py-3 text-sm rounded-xl border-2 border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:border-green-500 placeholder:text-slate-400 transition-colors"
                     />
                   </div>
-                </div>
 
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={submitPaymentMutation.isPending}
-                    className="w-full py-3 px-4 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-black font-extrabold text-sm rounded-xl transition-all shadow-lg shadow-green-500/20 flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    {submitPaymentMutation.isPending ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Submitting payment...
-                      </>
+                  {/* Screenshot */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Payment Screenshot <span className="text-red-500">*</span>
+                      <span className="text-slate-400 font-normal ml-1">(if no transaction ID)</span>
+                    </label>
+                    <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+
+                    {proofPreview ? (
+                      <div className="relative rounded-xl overflow-hidden border-2 border-green-500 group">
+                        <img src={proofPreview} alt="Payment proof" className="w-full max-h-40 object-cover" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <button type="button" onClick={() => { setProofFile(null); setProofPreview(null); }}
+                            className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Remove</button>
+                        </div>
+                        <div className="absolute top-2 right-2 bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded-lg flex items-center gap-1">
+                          <Check className="w-3 h-3" /> Uploaded
+                        </div>
+                      </div>
                     ) : (
-                      <>
-                        <ShieldCheck className="w-4 h-4" />
-                        I Have Sent Payment — Submit for Verification
-                      </>
+                      <div
+                        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                        onDragLeave={() => setIsDragging(false)}
+                        onDrop={(e) => { e.preventDefault(); setIsDragging(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+                        onClick={() => fileInputRef.current?.click()}
+                        className={`rounded-xl border-2 border-dashed cursor-pointer transition-all p-5 flex flex-col items-center gap-2 text-center ${
+                          isDragging
+                            ? "border-green-500 bg-green-50 dark:bg-green-500/10"
+                            : "border-slate-200 dark:border-white/10 hover:border-green-400 bg-white dark:bg-white/5 hover:bg-green-50/50"
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDragging ? "bg-green-500" : "bg-slate-100 dark:bg-white/10"}`}>
+                          {isDragging ? <Upload className="w-4 h-4 text-white" /> : <ImageIcon className="w-4 h-4 text-slate-400" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-600 dark:text-slate-300">{isDragging ? "Drop here" : "Upload screenshot"}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">Drag & drop or click · Max 5MB</p>
+                        </div>
+                      </div>
                     )}
-                  </button>
-                  <p className="text-[11px] text-center text-slate-500 dark:text-slate-400 mt-2">
-                    🔒 Our team verifies incoming MoMo payments within minutes.
-                  </p>
-                </div>
-              </form>
-            </>
-          )}
+                  </div>
 
+                  {/* Alert */}
+                  <div className="flex gap-2.5 p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl text-xs text-amber-800 dark:text-amber-300">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
+                    <span>Include <strong>{referenceCode}</strong> in your {activeMerchant === "ghana" ? "MoMo narration" : "transfer description"} so we can match your payment quickly.</span>
+                  </div>
+
+                  {/* Submit */}
+                  <div className="mt-auto pt-1">
+                    <button
+                      type="submit"
+                      disabled={submitPaymentMutation.isPending}
+                      className="w-full py-4 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-black text-sm rounded-xl flex items-center justify-center gap-2.5 transition-colors shadow-xl shadow-green-500/20 cursor-pointer"
+                    >
+                      {submitPaymentMutation.isPending
+                        ? <><Loader2 className="w-4 h-4 animate-spin" /> Submitting…</>
+                        : <><ShieldCheck className="w-4 h-4" /> I've Paid — Submit for Verification</>}
+                    </button>
+                    <p className="text-[11px] text-center text-slate-400 mt-2">
+                      🔒 Payments verified within 15 minutes. Access unlocks automatically.
+                    </p>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      <style>{`
+        @keyframes fadeInOverlay { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideInRight  { from { transform: translateX(100%); } to { transform: translateX(0); } }
+      `}</style>
+    </div>
+  );
+}
+
+/* ── Shared sub-components ── */
+function CopyBtn({ text, label, copiedField, onCopy, variant = "default" }: {
+  text: string; label: string; copiedField: string | null;
+  onCopy: (t: string, l: string) => void; variant?: "default" | "green";
+}) {
+  const active = copiedField === label;
+  const greenCls = active ? "bg-green-500 text-black" : "bg-green-500 hover:bg-green-400 text-black";
+  const defCls   = active ? "bg-green-500 text-black" : "bg-white/10 hover:bg-white/20 text-slate-300 border border-white/10";
+  return (
+    <button type="button" onClick={() => onCopy(text, label)}
+      className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${variant === "green" ? greenCls : defCls}`}>
+      {active ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+      {active ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
+function ReceiptRow({ label, value, icon, valueClass = "font-semibold text-slate-900 dark:text-slate-100" }: {
+  label: string; value: string; icon?: React.ReactNode; valueClass?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between px-5 py-3 text-sm">
+      <span className="text-slate-500 dark:text-slate-400">{label}</span>
+      <span className={`flex items-center gap-1 ${valueClass}`}>{icon}{value}</span>
     </div>
   );
 }

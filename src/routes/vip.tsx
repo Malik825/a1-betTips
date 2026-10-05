@@ -9,7 +9,6 @@ import { useAuth } from "@/lib/auth-context";
 import { Lock, ShoppingCart, Check, Crown, Gift, ArrowRight, Clock } from "lucide-react";
 import { PAYSTACK_ENABLED, paystackPay } from "@/lib/paystack";
 import { hasUserPurchasedPackage } from "@/lib/ticket-utils";
-import { ManualPaymentModal } from "@/components/manual-payment-modal";
 
 export const Route = createFileRoute("/vip")({
   head: () => ({
@@ -26,7 +25,6 @@ function VipPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [initializingPkg, setInitializingPkg] = useState<string | null>(null);
-  const [manualModalPkg, setManualModalPkg] = useState<any | null>(null);
 
   const { data: adminSettings } = useQuery({
     queryKey: ["public_admin_settings"],
@@ -188,18 +186,13 @@ function VipPage() {
 
     // 1. Manual Mobile Money transfer
     if (activeGateway === "manual") {
-      setManualModalPkg(pkg);
+      navigate({ to: "/checkout", search: { pkgId: pkgId } });
       return;
     }
 
-    // 2. Kora Pay (fallback to manual MoMo until Kora credentials live)
+    // 2. Kora Pay (fallback to manual until Kora credentials live)
     if (activeGateway === "kora") {
-      if (adminSettings?.kora_public_key) {
-        toast("Kora Pay gateway integration active. Redirecting to checkout...", { icon: "💳" });
-      } else {
-        toast("Using Direct Mobile Money transfer for payment.", { icon: "📱" });
-      }
-      setManualModalPkg(pkg);
+      navigate({ to: "/checkout", search: { pkgId: pkgId } });
       return;
     }
 
@@ -422,7 +415,7 @@ function VipPage() {
                     </div>
                   ) : hasPendingPayment(pkg.id) ? (
                     <button
-                      onClick={() => setManualModalPkg(pkg)}
+                      onClick={() => navigate({ to: "/checkout", search: { pkgId: pkg.id } })}
                       className="w-full p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-extrabold text-[13px] flex items-center justify-center gap-2 cursor-pointer transition-all hover:bg-amber-500/20"
                     >
                       <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
@@ -483,11 +476,6 @@ function VipPage() {
         })()}
       </main>
 
-      <ManualPaymentModal
-        isOpen={!!manualModalPkg}
-        onClose={() => setManualModalPkg(null)}
-        pkg={manualModalPkg}
-      />
 
       <SiteFooter />
 

@@ -3,18 +3,42 @@ import { useState } from "react";
 import { 
   Search, Check, X, Clock, RefreshCw, CreditCard, 
   Smartphone, AlertCircle, ArrowUpRight, CheckCircle2, 
-  XCircle, Filter, ChevronDown 
+  XCircle, Filter, ChevronDown, MoreVertical, Eye,
+  ExternalLink, Calendar, User, Hash, FileText, Image as ImageIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/admin/payments")({
   component: AdminPaymentsPage,
 });
 
-export function AdminPaymentsPage() {
+function formatPaymentDate(dateStr: string) {
+  if (!dateStr) return { top: "—", bottom: "" };
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return { top: "—", bottom: "" };
+  const day = d.toLocaleDateString("en-GB", { day: "2-digit" });
+  const month = d.toLocaleDateString("en-GB", { month: "short" });
+  const year = d.toLocaleDateString("en-GB", { year: "2-digit" });
+  return { top: `${day} ${month}`, bottom: year };
+}
+
+function truncateRef(ref: string | null | undefined, max = 12) {
+  if (!ref) return "—";
+  if (ref.length <= max) return ref;
+  return `${ref.slice(0, 10)}...`;
+}
+
+function AdminPaymentsPage() {
   const { user: currentAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -22,6 +46,8 @@ export function AdminPaymentsPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectModalPayment, setRejectModalPayment] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [viewModalPayment, setViewModalPayment] = useState<any | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // 1. Fetch manual payments
   const { data: payments = [], isLoading: paymentsLoading } = useQuery({
@@ -140,6 +166,7 @@ export function AdminPaymentsPage() {
       queryClient.invalidateQueries({ queryKey: ["user_tickets"] });
       toast.success("Payment approved! VIP access successfully activated for customer.");
       setProcessingId(null);
+      if (viewModalPayment) setViewModalPayment(null);
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to approve payment");
@@ -170,9 +197,39 @@ export function AdminPaymentsPage() {
       setRejectModalPayment(null);
       setRejectReason("");
       setProcessingId(null);
+      if (viewModalPayment) setViewModalPayment(null);
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to reject payment");
+      setProcessingId(null);
+    },
+  });
+
+  // Set Pending Mutation
+  const setPendingMutation = useMutation({
+    mutationFn: async (paymentId: string) => {
+      setProcessingId(paymentId);
+      const { error } = await supabase
+        .from("manual_payments")
+        .update({
+          status: "pending",
+          rejection_reason: null,
+          reviewed_by: currentAdmin?.id || null,
+          reviewed_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", paymentId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin_manual_payments"] });
+      toast.success("Payment reset to pending.");
+      setProcessingId(null);
+      if (viewModalPayment) setViewModalPayment(null);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to reset payment status");
       setProcessingId(null);
     },
   });
@@ -206,163 +263,147 @@ export function AdminPaymentsPage() {
     );
   });
 
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(filteredPayments.map((p: any) => p.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectRow = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
   return (
-    <div>
+    <div className="space-y-6">
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexWrap: "wrap", gap: 16 }}>
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 style={{ fontSize: "22px", fontWeight: 700, color: "var(--foreground)", margin: 0, display: "flex", alignItems: "center", gap: "10px" }}>
-            <CreditCard className="text-green-500" size={24} />
-            Mobile Money Direct Payments
+          <h1 className="text-xl font-bold text-foreground flex items-center gap-2.5">
+            <CreditCard className="text-primary w-5 h-5" />
+            Direct Payments Management
           </h1>
-          <p style={{ color: "var(--muted-foreground)", margin: "4px 0 0", fontSize: "14px" }}>
-            Review incoming MoMo transfers and instantly activate VIP package access
+          <p className="text-xs text-muted-foreground mt-1">
+            Review incoming mobile transfers, inspect proof screenshots, and manage VIP customer activations.
           </p>
         </div>
 
         <button
           onClick={() => queryClient.invalidateQueries({ queryKey: ["admin_manual_payments"] })}
-          className="admin-btn-ghost"
-          style={{ display: "flex", alignItems: "center", gap: "6px" }}
+          className="flex items-center gap-2 text-xs py-2 px-3.5 rounded-lg border border-border bg-card text-foreground hover:bg-section transition-colors cursor-pointer"
         >
-          <RefreshCw size={14} /> Refresh
+          <RefreshCw size={13} /> Refresh
         </button>
       </div>
 
       {/* Stats Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "28px" }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
         {/* Pending Card */}
         <div 
           onClick={() => setStatusFilter("pending")}
-          style={{
-            cursor: "pointer",
-            background: "var(--card)",
-            border: statusFilter === "pending" ? "2px solid #f59e0b" : "1px solid var(--border)",
-            padding: "18px",
-            borderRadius: "12px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
+          className={`cursor-pointer bg-card p-4 rounded-xl border transition-all flex items-center justify-between ${
+            statusFilter === "pending"
+              ? "border-warning shadow-md shadow-warning/10 ring-2 ring-warning/30"
+              : "border-border hover:border-border/80"
+          }`}
         >
           <div>
-            <p style={{ color: "var(--muted-foreground)", fontSize: "12px", fontWeight: 600, textTransform: "uppercase", margin: 0 }}>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
               Pending Review
             </p>
-            <h3 style={{ fontSize: "24px", fontWeight: 800, color: "#f59e0b", margin: "4px 0 0" }}>
+            <h3 className="text-2xl font-black text-warning mt-1">
               {pendingCount}
             </h3>
           </div>
-          <div style={{ width: "42px", height: "42px", borderRadius: "50%", background: "#f59e0b18", color: "#f59e0b", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Clock size={20} />
+          <div className="w-10 h-10 rounded-xl bg-warning/15 text-warning flex items-center justify-center">
+            <Clock size={18} />
           </div>
         </div>
 
         {/* Approved Card */}
         <div 
           onClick={() => setStatusFilter("approved")}
-          style={{
-            cursor: "pointer",
-            background: "var(--card)",
-            border: statusFilter === "approved" ? "2px solid #10b981" : "1px solid var(--border)",
-            padding: "18px",
-            borderRadius: "12px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
+          className={`cursor-pointer bg-card p-4 rounded-xl border transition-all flex items-center justify-between ${
+            statusFilter === "approved"
+              ? "border-success shadow-md shadow-success/10 ring-2 ring-success/30"
+              : "border-border hover:border-border/80"
+          }`}
         >
           <div>
-            <p style={{ color: "var(--muted-foreground)", fontSize: "12px", fontWeight: 600, textTransform: "uppercase", margin: 0 }}>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
               Approved
             </p>
-            <h3 style={{ fontSize: "24px", fontWeight: 800, color: "#10b981", margin: "4px 0 0" }}>
+            <h3 className="text-2xl font-black text-success mt-1">
               {approvedCount}
             </h3>
           </div>
-          <div style={{ width: "42px", height: "42px", borderRadius: "50%", background: "#10b98118", color: "#10b981", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <CheckCircle2 size={20} />
+          <div className="w-10 h-10 rounded-xl bg-success/15 text-success flex items-center justify-center">
+            <CheckCircle2 size={18} />
           </div>
         </div>
 
         {/* Total Revenue Card */}
-        <div style={{
-          background: "var(--card)",
-          border: "1px solid var(--border)",
-          padding: "18px",
-          borderRadius: "12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}>
+        <div className="bg-card p-4 rounded-xl border border-border flex items-center justify-between">
           <div>
-            <p style={{ color: "var(--muted-foreground)", fontSize: "12px", fontWeight: 600, textTransform: "uppercase", margin: 0 }}>
-              Verified MoMo Revenue
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Verified Revenue
             </p>
-            <h3 style={{ fontSize: "24px", fontWeight: 800, color: "var(--foreground)", margin: "4px 0 0" }}>
-              GHS {totalApprovedAmount.toFixed(2)}
+            <h3 className="text-2xl font-black text-foreground mt-1">
+              GHS {totalApprovedAmount.toFixed(0)}
             </h3>
           </div>
-          <div style={{ width: "42px", height: "42px", borderRadius: "50%", background: "#3b82f618", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <CreditCard size={20} />
+          <div className="w-10 h-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center">
+            <CreditCard size={18} />
           </div>
         </div>
 
         {/* Rejected Card */}
         <div 
           onClick={() => setStatusFilter("rejected")}
-          style={{
-            cursor: "pointer",
-            background: "var(--card)",
-            border: statusFilter === "rejected" ? "2px solid #ef4444" : "1px solid var(--border)",
-            padding: "18px",
-            borderRadius: "12px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
+          className={`cursor-pointer bg-card p-4 rounded-xl border transition-all flex items-center justify-between ${
+            statusFilter === "rejected"
+              ? "border-destructive shadow-md shadow-destructive/10 ring-2 ring-destructive/30"
+              : "border-border hover:border-border/80"
+          }`}
         >
           <div>
-            <p style={{ color: "var(--muted-foreground)", fontSize: "12px", fontWeight: 600, textTransform: "uppercase", margin: 0 }}>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
               Rejected
             </p>
-            <h3 style={{ fontSize: "24px", fontWeight: 800, color: "#ef4444", margin: "4px 0 0" }}>
+            <h3 className="text-2xl font-black text-destructive mt-1">
               {rejectedCount}
             </h3>
           </div>
-          <div style={{ width: "42px", height: "42px", borderRadius: "50%", background: "#ef444418", color: "#ef4444", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <XCircle size={20} />
+          <div className="w-10 h-10 rounded-xl bg-destructive/15 text-destructive flex items-center justify-center">
+            <XCircle size={18} />
           </div>
         </div>
 
       </div>
 
       {/* Main Filter & Table Card */}
-      <div className="admin-card">
-        <div className="admin-card-header">
+      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+        {/* Filter bar */}
+        <div className="p-4 border-b border-border flex flex-wrap items-center justify-between gap-3 bg-section/40">
           {/* Status Tabs */}
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <div className="flex gap-1.5 flex-wrap">
             {(["pending", "all", "approved", "rejected"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setStatusFilter(tab)}
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: "8px",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  textTransform: "capitalize",
-                  background: statusFilter === tab ? "var(--foreground)" : "transparent",
-                  color: statusFilter === tab ? "var(--background)" : "var(--muted-foreground)",
-                  transition: "all 0.15s ease",
-                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all cursor-pointer ${
+                  statusFilter === tab
+                    ? "bg-foreground text-background shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-section"
+                }`}
               >
                 {tab}
                 {tab === "pending" && pendingCount > 0 && (
-                  <span style={{ marginLeft: "6px", padding: "1px 6px", borderRadius: "999px", background: "#f59e0b", color: "#000", fontSize: "11px", fontWeight: 800 }}>
+                  <span className="ml-1.5 px-1.5 py-0.2 bg-warning text-black text-[10px] font-black rounded-full">
                     {pendingCount}
                   </span>
                 )}
@@ -371,179 +412,350 @@ export function AdminPaymentsPage() {
           </div>
 
           {/* Search Input */}
-          <div style={{ position: "relative" }}>
-            <Search size={15} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--muted-foreground)" }} />
+          <div className="relative w-full sm:w-64">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
-              className="admin-input"
               type="text"
-              placeholder="Search phone, ref, email..."
+              placeholder="Search user, ref, txid..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ paddingLeft: "34px", width: "240px", fontSize: "13px" }}
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
         </div>
 
-        {/* Table Content */}
-        <div style={{ overflowX: "auto" }}>
-          <table className="admin-table">
+        {/* ── Mobile Card List (hidden on sm+) ── */}
+        <div className="sm:hidden divide-y divide-border/60">
+          {paymentsLoading ? (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground text-sm gap-2">
+              <RefreshCw className="w-5 h-5 animate-spin opacity-50" />
+              Loading payments...
+            </div>
+          ) : filteredPayments.length === 0 ? (
+            <div className="text-center text-muted-foreground py-16 text-sm">
+              No payment records found matching your filter.
+            </div>
+          ) : (
+            filteredPayments.map((payment: any) => {
+              const pkg = vipPackages.find((p: any) => p.id === payment.package_id);
+              const userProfile = profiles.find((prof: any) => prof.id === payment.user_id);
+              const userDisplay = payment.sender_name || userProfile?.username || userProfile?.email?.split("@")[0] || "Customer";
+              const isProcessing = processingId === payment.id;
+              const dateInfo = formatPaymentDate(payment.created_at);
+
+              return (
+                <div key={payment.id} className="p-4 space-y-3 hover:bg-section/30 transition-colors">
+                  {/* Top row: user + status badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-bold text-sm text-foreground truncate leading-tight">{userDisplay}</p>
+                      <p className="text-[11px] text-muted-foreground font-mono truncate mt-0.5">
+                        {userProfile?.email || `ID: ${payment.user_id.substring(0, 10)}...`}
+                      </p>
+                    </div>
+                    {payment.status === "pending" && (
+                      <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-warning/15 border border-warning/30 text-warning">
+                        <Clock className="w-3 h-3" /> Pending
+                      </span>
+                    )}
+                    {payment.status === "approved" && (
+                      <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-success/15 border border-success/30 text-success">
+                        <CheckCircle2 className="w-3 h-3" /> Approved
+                      </span>
+                    )}
+                    {payment.status === "rejected" && (
+                      <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-destructive/15 border border-destructive/30 text-destructive">
+                        <XCircle className="w-3 h-3" /> Rejected
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Middle row: amount + date + ref */}
+                  <div className="flex items-center gap-4 text-xs">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Amount</span>
+                      <span className="font-black text-foreground">GHS {Number(payment.amount || pkg?.price || 0).toFixed(0)}</span>
+                      <span className="text-warning font-semibold ml-1 text-[11px]">{payment.network || "MTN"}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Date</span>
+                      <span className="font-bold text-foreground">{dateInfo.top}</span>
+                      <span className="text-muted-foreground ml-1">{dateInfo.bottom}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Ref</span>
+                      <span
+                        className="font-mono font-bold text-foreground tracking-wider truncate"
+                        title={payment.transaction_id || payment.reference_code}
+                      >
+                        {truncateRef(payment.transaction_id || payment.reference_code, 12)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Action row */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setViewModalPayment(payment)}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-border text-xs font-semibold text-foreground hover:bg-section transition-colors cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-muted-foreground" /> View
+                    </button>
+                    {payment.status !== "approved" && (
+                      <button
+                        type="button"
+                        disabled={isProcessing}
+                        onClick={() => {
+                          if (confirm(`Approve GHS ${payment.amount} for ${userDisplay}?`)) {
+                            approveMutation.mutate(payment);
+                          }
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-success/15 border border-success/30 text-xs font-bold text-success hover:bg-success/25 transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Approve
+                      </button>
+                    )}
+                    {payment.status !== "rejected" && (
+                      <button
+                        type="button"
+                        disabled={isProcessing}
+                        onClick={() => setRejectModalPayment(payment)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-destructive/15 border border-destructive/30 text-xs font-bold text-destructive hover:bg-destructive/25 transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        <XCircle className="w-3.5 h-3.5" /> Reject
+                      </button>
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-section border border-border transition-colors focus:outline-none cursor-pointer"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-card-elevated border border-border text-foreground min-w-[180px] p-1.5 shadow-xl rounded-xl z-50">
+                        <DropdownMenuItem
+                          disabled={isProcessing}
+                          onClick={() => setPendingMutation.mutate(payment.id)}
+                          className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-warning hover:bg-warning/10 rounded-lg cursor-pointer"
+                        >
+                          <Clock className="w-4 h-4 text-warning" /> Mark as Pending
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* ── Desktop Table (hidden on mobile) ── */}
+        <div className="hidden sm:block overflow-x-auto">
+          <table className="w-full border-collapse text-left">
             <thead>
-              <tr>
-                <th>Date & Time</th>
-                <th>User / Customer</th>
-                <th>Package & Amount</th>
-                <th>Sender Details</th>
-                <th>Reference & TxID</th>
-                <th>Status</th>
-                <th style={{ textAlign: "right" }}>Actions</th>
+              <tr className="border-b border-border bg-section/70 text-[11px] font-bold tracking-wider text-muted-foreground uppercase select-none">
+                <th className="py-3.5 px-4 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={filteredPayments.length > 0 && selectedIds.length === filteredPayments.length}
+                    onChange={handleSelectAll}
+                    className="w-4 h-4 rounded border-border bg-background text-primary focus:ring-0 cursor-pointer"
+                  />
+                </th>
+                <th className="py-3.5 px-4">USER</th>
+                <th className="py-3.5 px-4">AMOUNT</th>
+                <th className="py-3.5 px-4">DATE</th>
+                <th className="py-3.5 px-4">TXN REF</th>
+                <th className="py-3.5 px-4">STATUS</th>
+                <th className="py-3.5 px-4 text-right">ACTIONS</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border/60">
               {paymentsLoading ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: "center", color: "var(--muted-foreground)", padding: "40px" }}>
-                    Loading manual payments...
+                  <td colSpan={7} className="text-center text-muted-foreground py-16 text-sm">
+                    <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 opacity-50" />
+                    Loading payments...
                   </td>
                 </tr>
               ) : filteredPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: "center", color: "var(--muted-foreground)", padding: "40px" }}>
-                    No payment requests found matching your filter.
+                  <td colSpan={7} className="text-center text-muted-foreground py-16 text-sm">
+                    No payment records found matching your filter.
                   </td>
                 </tr>
               ) : (
                 filteredPayments.map((payment: any) => {
                   const pkg = vipPackages.find((p: any) => p.id === payment.package_id);
                   const userProfile = profiles.find((prof: any) => prof.id === payment.user_id);
-                  const userDisplay = userProfile?.email || userProfile?.username || `ID: ${payment.user_id.substring(0, 8)}...`;
+                  const userDisplay = payment.sender_name || userProfile?.username || userProfile?.email?.split("@")[0] || "Customer";
+                  const userEmail = userProfile?.email || `ID: ${payment.user_id.substring(0, 8)}...`;
                   const isProcessing = processingId === payment.id;
+                  const dateInfo = formatPaymentDate(payment.created_at);
 
                   return (
-                    <tr key={payment.id}>
-                      {/* Date */}
-                      <td style={{ color: "var(--muted-foreground)", fontSize: "12px", whiteSpace: "nowrap" }}>
-                        {new Date(payment.created_at).toLocaleDateString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                        })}
-                        <div style={{ fontSize: "11px", opacity: 0.7 }}>
-                          {new Date(payment.created_at).toLocaleTimeString("en-GB", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </div>
+                    <tr 
+                      key={payment.id}
+                      className="hover:bg-section/40 transition-colors"
+                    >
+                      {/* Checkbox */}
+                      <td className="py-4 px-4 w-10 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(payment.id)}
+                          onChange={() => handleSelectRow(payment.id)}
+                          className="w-4 h-4 rounded border-border bg-background text-primary focus:ring-0 cursor-pointer"
+                        />
                       </td>
 
-                      {/* User */}
-                      <td>
-                        <div style={{ fontWeight: 600, fontSize: "13px", color: "var(--foreground)" }}>
+                      {/* USER */}
+                      <td className="py-4 px-4">
+                        <div className="font-bold text-sm text-foreground leading-tight">
                           {userDisplay}
                         </div>
-                        <div style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>
-                          UID: {payment.user_id.substring(0, 8)}
+                        <div className="text-xs text-muted-foreground font-mono mt-0.5">
+                          {userEmail}
                         </div>
                       </td>
 
-                      {/* Package */}
-                      <td>
-                        <div style={{ fontWeight: 700, fontSize: "13px", color: "var(--foreground)" }}>
-                          {pkg?.name || payment.package_id}
+                      {/* AMOUNT */}
+                      <td className="py-4 px-4">
+                        <div className="font-black text-sm text-foreground">
+                          GHS {Number(payment.amount || pkg?.price || 0).toFixed(0)}
                         </div>
-                        <div style={{ fontWeight: 800, fontSize: "12px", color: "#10b981" }}>
-                          GHS {Number(payment.amount).toFixed(2)}
-                        </div>
-                      </td>
-
-                      {/* Sender MoMo details */}
-                      <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                          <Smartphone size={13} style={{ color: "var(--muted-foreground)" }} />
-                          <span style={{ fontWeight: 700, fontSize: "13px" }}>{payment.sender_phone}</span>
-                        </div>
-                        <div style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
-                          {payment.sender_name} ({payment.network || "MTN"})
+                        <div className="text-xs font-semibold text-warning mt-0.5">
+                          {payment.network || "MTN"} • {payment.sender_name || userDisplay}
                         </div>
                       </td>
 
-                      {/* Reference code & MoMo transaction ID */}
-                      <td>
-                        <div style={{ display: "inline-block", background: "var(--secondary)", padding: "2px 8px", borderRadius: "6px", fontFamily: "monospace", fontWeight: 700, fontSize: "12px" }}>
-                          {payment.reference_code}
+                      {/* DATE */}
+                      <td className="py-4 px-4">
+                        <div className="text-xs font-bold text-foreground">
+                          {dateInfo.top}
                         </div>
-                        {payment.transaction_id && (
-                          <div style={{ fontSize: "11px", color: "var(--muted-foreground)", marginTop: "2px" }}>
-                            TxID: <span style={{ fontFamily: "monospace" }}>{payment.transaction_id}</span>
-                          </div>
-                        )}
+                        <div className="text-[11px] text-muted-foreground font-medium">
+                          {dateInfo.bottom}
+                        </div>
                       </td>
 
-                      {/* Status badge */}
-                      <td>
-                        {payment.status === "pending" && (
-                          <span className="admin-badge" style={{ background: "#fef3c7", color: "#92400e", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                            <Clock size={11} /> Pending
-                          </span>
-                        )}
-                        {payment.status === "approved" && (
-                          <span className="admin-badge" style={{ background: "#dcfce7", color: "#166534", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                            <Check size={11} /> Approved
-                          </span>
-                        )}
-                        {payment.status === "rejected" && (
-                          <div>
-                            <span className="admin-badge" style={{ background: "#fee2e2", color: "#991b1b", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                              <X size={11} /> Rejected
-                            </span>
-                            {payment.rejection_reason && (
-                              <div style={{ fontSize: "10px", color: "#ef4444", marginTop: "2px", maxWidth: "160px" }}>
-                                {payment.rejection_reason}
-                              </div>
-                            )}
-                          </div>
-                        )}
+                      {/* TXN REF */}
+                      <td className="py-4 px-4">
+                        <span 
+                          className="font-mono text-xs font-bold text-foreground tracking-wider"
+                          title={payment.transaction_id || payment.reference_code}
+                        >
+                          {truncateRef(payment.transaction_id || payment.reference_code, 12)}
+                        </span>
                       </td>
 
-                      {/* Actions */}
-                      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                        {payment.status === "pending" ? (
-                          <div style={{ display: "inline-flex", gap: "8px" }}>
-                            <button
+                      {/* STATUS (Dropdown Trigger) */}
+                      <td className="py-4 px-4">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="cursor-pointer focus:outline-none transition-transform active:scale-95 group text-left">
+                              {payment.status === "pending" && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-warning/15 border border-warning/30 text-warning hover:bg-warning/25 transition-colors">
+                                  <Clock className="w-3.5 h-3.5 text-warning" /> Pending
+                                </span>
+                              )}
+                              {payment.status === "approved" && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-success/15 border border-success/30 text-success hover:bg-success/25 transition-colors">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-success" /> Approved
+                                </span>
+                              )}
+                              {payment.status === "rejected" && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-destructive/15 border border-destructive/30 text-destructive hover:bg-destructive/25 transition-colors">
+                                  <XCircle className="w-3.5 h-3.5 text-destructive" /> Rejected
+                                </span>
+                              )}
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="bg-card-elevated border border-border text-foreground min-w-[180px] p-1.5 shadow-xl rounded-xl z-50">
+                            <DropdownMenuItem
+                              onClick={() => setViewModalPayment(payment)}
+                              className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-foreground hover:bg-section rounded-lg cursor-pointer"
+                            >
+                              <Eye className="w-4 h-4 text-muted-foreground" /> View Payment
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
                               disabled={isProcessing}
                               onClick={() => {
-                                if (confirm(`Approve GHS ${payment.amount} for ${userDisplay}? This will activate VIP access immediately.`)) {
+                                if (confirm(`Approve GHS ${payment.amount} for ${userDisplay}? VIP access will activate immediately.`)) {
                                   approveMutation.mutate(payment);
                                 }
                               }}
-                              className="admin-btn-green"
-                              style={{ padding: "6px 12px", fontSize: "12px", cursor: isProcessing ? "wait" : "pointer" }}
+                              className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-success hover:bg-success/10 rounded-lg cursor-pointer"
                             >
-                              <Check size={14} /> Approve
-                            </button>
-                            <button
+                              <CheckCircle2 className="w-4 h-4 text-success" /> Approve Payment
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
                               disabled={isProcessing}
                               onClick={() => setRejectModalPayment(payment)}
-                              style={{
-                                padding: "6px 10px",
-                                background: "#fee2e2",
-                                color: "#dc2626",
-                                border: "1px solid #fecaca",
-                                borderRadius: "8px",
-                                fontSize: "12px",
-                                fontWeight: 600,
-                                cursor: "pointer",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "4px",
-                              }}
+                              className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
                             >
-                              <X size={14} /> Reject
+                              <XCircle className="w-4 h-4 text-destructive" /> Reject Payment
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator className="bg-border my-1" />
+                            <DropdownMenuItem
+                              disabled={isProcessing}
+                              onClick={() => setPendingMutation.mutate(payment.id)}
+                              className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-warning hover:bg-warning/10 rounded-lg cursor-pointer"
+                            >
+                              <Clock className="w-4 h-4 text-warning" /> Mark as Pending
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+
+                      {/* ACTIONS (3-Dots Menu) */}
+                      <td className="py-4 px-4 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-section transition-colors focus:outline-none cursor-pointer"
+                            >
+                              <MoreVertical className="w-4 h-4" />
                             </button>
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
-                            Processed
-                          </span>
-                        )}
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-card-elevated border border-border text-foreground min-w-[180px] p-1.5 shadow-xl rounded-xl z-50">
+                            <DropdownMenuItem
+                              onClick={() => setViewModalPayment(payment)}
+                              className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-foreground hover:bg-section rounded-lg cursor-pointer"
+                            >
+                              <Eye className="w-4 h-4 text-muted-foreground" /> View Payment
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={isProcessing}
+                              onClick={() => {
+                                if (confirm(`Approve GHS ${payment.amount} for ${userDisplay}? VIP access will activate immediately.`)) {
+                                  approveMutation.mutate(payment);
+                                }
+                              }}
+                              className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-success hover:bg-success/10 rounded-lg cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-4 h-4 text-success" /> Approve Payment
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={isProcessing}
+                              onClick={() => setRejectModalPayment(payment)}
+                              className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
+                            >
+                              <XCircle className="w-4 h-4 text-destructive" /> Reject Payment
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator className="bg-border my-1" />
+                            <DropdownMenuItem
+                              disabled={isProcessing}
+                              onClick={() => setPendingMutation.mutate(payment.id)}
+                              className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-warning hover:bg-warning/10 rounded-lg cursor-pointer"
+                            >
+                              <Clock className="w-4 h-4 text-warning" /> Mark as Pending
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                   );
@@ -554,44 +766,219 @@ export function AdminPaymentsPage() {
         </div>
       </div>
 
-      {/* Reject Reason Modal */}
+      {/* ── View Payment Modal ── */}
+      {viewModalPayment && (() => {
+        const p = viewModalPayment;
+        const pkg = vipPackages.find((item: any) => item.id === p.package_id);
+        const userProfile = profiles.find((prof: any) => prof.id === p.user_id);
+        const userDisplay = p.sender_name || userProfile?.username || userProfile?.email?.split("@")[0] || "Customer";
+        const isProcessing = processingId === p.id;
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-card border border-border rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl p-6 text-foreground space-y-5">
+              
+              {/* Modal Top */}
+              <div className="flex items-center justify-between border-b border-border pb-4">
+                <div>
+                  <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-primary" />
+                    Payment Details
+                  </h3>
+                  <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                    Ref: {p.reference_code}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setViewModalPayment(null)}
+                  className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-section transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Status Header Banner */}
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-section/60 border border-border">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Current Status:</span>
+                  {p.status === "pending" && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-warning/15 text-warning border border-warning/30">
+                      <Clock className="w-3 h-3" /> Pending
+                    </span>
+                  )}
+                  {p.status === "approved" && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-success/15 text-success border border-success/30">
+                      <CheckCircle2 className="w-3 h-3" /> Approved
+                    </span>
+                  )}
+                  {p.status === "rejected" && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-destructive/15 text-destructive border border-destructive/30">
+                      <XCircle className="w-3 h-3" /> Rejected
+                    </span>
+                  )}
+                </div>
+                <div className="text-right">
+                  <span className="text-xs text-muted-foreground">Amount: </span>
+                  <span className="font-black text-sm text-primary">GHS {Number(p.amount || pkg?.price || 0).toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Rejection Reason Notice (if rejected) */}
+              {p.status === "rejected" && p.rejection_reason && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl text-xs text-destructive">
+                  <strong className="block font-bold mb-0.5">Rejection Reason:</strong>
+                  {p.rejection_reason}
+                </div>
+              )}
+
+              {/* Customer & Transaction Info Grid */}
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="p-3 rounded-xl bg-section/40 border border-border/60 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Customer</span>
+                  <p className="font-bold text-foreground">{userDisplay}</p>
+                  <p className="font-mono text-[11px] text-muted-foreground truncate">{userProfile?.email || "No email"}</p>
+                  <p className="font-mono text-[10px] text-muted-foreground">UID: {p.user_id.substring(0, 12)}...</p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-section/40 border border-border/60 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Package</span>
+                  <p className="font-bold text-foreground">{pkg?.name || p.package_id}</p>
+                  <p className="text-muted-foreground">Odds: {pkg?.combined_odds ? Number(pkg.combined_odds).toFixed(2) : "—"}</p>
+                  <p className="text-muted-foreground">Booking Code: {pkg?.booking_code || "None"}</p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-section/40 border border-border/60 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Payment Method</span>
+                  <p className="font-bold text-warning">{p.network || "Mobile Money"}</p>
+                  <p className="text-muted-foreground font-mono">Phone: {p.sender_phone || "—"}</p>
+                  <p className="text-foreground">Sender: {p.sender_name}</p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-section/40 border border-border/60 space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Transaction Data</span>
+                  <p className="font-mono text-foreground truncate">TxID: {p.transaction_id || "None"}</p>
+                  <p className="font-mono text-primary font-bold">Ref: {p.reference_code}</p>
+                  <p className="text-muted-foreground text-[10px]">
+                    {new Date(p.created_at).toLocaleString("en-GB")}
+                  </p>
+                </div>
+              </div>
+
+              {/* Screenshot Proof */}
+              <div>
+                <span className="text-[11px] uppercase font-bold text-muted-foreground tracking-wider block mb-2">
+                  Payment Proof Screenshot
+                </span>
+                {p.proof_url ? (
+                  <div className="relative rounded-xl overflow-hidden border border-border group bg-section/30">
+                    <img
+                      src={p.proof_url}
+                      alt="Payment proof"
+                      className="w-full max-h-64 object-contain rounded-xl"
+                    />
+                    <a
+                      href={p.proof_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="absolute bottom-3 right-3 bg-background/90 hover:bg-background text-foreground text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors border border-border shadow-md"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> Full Resolution
+                    </a>
+                  </div>
+                ) : (
+                  <div className="p-6 rounded-xl border border-dashed border-border bg-section/20 text-center text-muted-foreground text-xs">
+                    <ImageIcon className="w-8 h-8 opacity-40 mx-auto mb-1.5" />
+                    No screenshot uploaded (User verified via Transaction ID)
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setViewModalPayment(null)}
+                  className="px-4 py-2 text-xs font-semibold rounded-lg border border-border text-foreground hover:bg-section transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+
+                {p.status !== "approved" && (
+                  <button
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={() => {
+                      if (confirm(`Approve payment for ${userDisplay}? VIP ticket will be activated.`)) {
+                        approveMutation.mutate(p);
+                      }
+                    }}
+                    className="px-4 py-2 text-xs font-bold rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Approve
+                  </button>
+                )}
+
+                {p.status !== "rejected" && (
+                  <button
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={() => {
+                      setRejectModalPayment(p);
+                    }}
+                    className="px-4 py-2 text-xs font-bold rounded-lg bg-destructive hover:opacity-90 text-destructive-foreground flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+                  >
+                    <XCircle className="w-3.5 h-3.5" /> Reject
+                  </button>
+                )}
+
+                {p.status !== "pending" && (
+                  <button
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={() => setPendingMutation.mutate(p.id)}
+                    className="px-4 py-2 text-xs font-bold rounded-lg bg-warning hover:opacity-90 text-black flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+                  >
+                    <Clock className="w-3.5 h-3.5" /> Set Pending
+                  </button>
+                )}
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Reject Reason Modal ── */}
       {rejectModalPayment && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 999,
-          background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", padding: "16px",
-        }}>
-          <div style={{
-            background: "var(--card)", borderRadius: "14px", border: "1px solid var(--border)",
-            padding: "24px", maxWidth: "440px", width: "100%", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.2)",
-          }}>
-            <h3 style={{ fontSize: "16px", fontWeight: 700, margin: "0 0 8px", color: "var(--foreground)" }}>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl border border-border p-6 max-w-md w-full shadow-2xl text-foreground space-y-4">
+            <h3 className="text-base font-bold text-foreground">
               Reject Payment Request
             </h3>
-            <p style={{ fontSize: "13px", color: "var(--muted-foreground)", margin: "0 0 16px" }}>
-              Enter the reason for rejecting this payment (e.g., funds not received, wrong amount).
+            <p className="text-xs text-muted-foreground">
+              Provide a reason for rejecting this payment (e.g., funds not received on MoMo statement, incorrect amount).
             </p>
 
-            <div style={{ marginBottom: "16px" }}>
-              <label className="admin-label">Rejection Reason</label>
+            <div>
+              <label className="block text-xs font-bold text-foreground mb-1.5">Rejection Reason</label>
               <textarea
-                className="admin-input"
                 rows={3}
-                placeholder="e.g. Payment not received on our MoMo statement"
+                placeholder="e.g. Payment not received on our statement."
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                style={{ width: "100%", resize: "none" }}
+                className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-destructive resize-none"
               />
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+            <div className="flex justify-end gap-2.5 pt-2">
               <button
                 type="button"
                 onClick={() => {
                   setRejectModalPayment(null);
                   setRejectReason("");
                 }}
-                className="admin-btn-ghost"
+                className="px-4 py-2 text-xs font-semibold rounded-lg border border-border text-foreground hover:bg-section transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -604,16 +991,7 @@ export function AdminPaymentsPage() {
                     reason: rejectReason,
                   });
                 }}
-                style={{
-                  padding: "8px 16px",
-                  background: "#dc2626",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "8px",
-                  fontWeight: 700,
-                  fontSize: "13px",
-                  cursor: "pointer",
-                }}
+                className="px-4 py-2 text-xs font-bold rounded-lg bg-destructive hover:opacity-90 text-destructive-foreground transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
               >
                 {rejectMutation.isPending ? "Rejecting..." : "Confirm Rejection"}
               </button>

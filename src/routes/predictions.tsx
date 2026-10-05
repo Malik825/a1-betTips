@@ -9,7 +9,6 @@ import { Lock, ShoppingCart, Clock, Crown, Check, Copy, Eye, EyeOff, Search, Tro
 import { useAuth } from "@/lib/auth-context";
 import { PAYSTACK_ENABLED, paystackPay } from "@/lib/paystack";
 import { hasUserPurchasedPackage } from "@/lib/ticket-utils";
-import { ManualPaymentModal } from "@/components/manual-payment-modal";
 
 
 export const Route = createFileRoute("/predictions")({
@@ -92,6 +91,10 @@ const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
 };
 
 function PredictionsPage() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
   const [targetDate, setTargetDate] = useState<string>(getDateISO(0));
   const [userSelected, setUserSelected] = useState<boolean>(false);
   const [revealCode, setRevealCode] = useState(false);
@@ -99,7 +102,6 @@ function PredictionsPage() {
   const [selectedLeague, setSelectedLeague] = useState("ALL");
   const [initializingPkg, setInitializingPkg] = useState<string | null>(null);
   const [pkgFilter, setPkgFilter] = useState<"active" | "results">("active");
-  const [manualModalPkg, setManualModalPkg] = useState<any | null>(null);
 
   const { data: adminSettings } = useQuery({
     queryKey: ["public_admin_settings"],
@@ -139,10 +141,6 @@ function PredictionsPage() {
     setSearchQuery("");
     setSelectedLeague("ALL");
   };
-
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
-  const navigate = useNavigate();
 
   // —— Data ————————————————————————————————————————————————————
   const { data: fixtures = [], isLoading: fixturesLoading } = useQuery({
@@ -417,18 +415,13 @@ function PredictionsPage() {
 
     // 1. Manual Mobile Money transfer
     if (activeGateway === "manual") {
-      setManualModalPkg(pkg);
+      navigate({ to: "/checkout", search: { pkgId: packageId } });
       return;
     }
 
-    // 2. Kora Pay (fallback to manual MoMo until credentials live)
+    // 2. Kora Pay (fallback to manual until credentials live)
     if (activeGateway === "kora") {
-      if (adminSettings?.kora_public_key) {
-        toast("Kora Pay gateway integration active. Redirecting to checkout...", { icon: "💳" });
-      } else {
-        toast("Using Direct Mobile Money transfer for payment.", { icon: "📱" });
-      }
-      setManualModalPkg(pkg);
+      navigate({ to: "/checkout", search: { pkgId: packageId } });
       return;
     }
 
@@ -992,7 +985,7 @@ function PredictionsPage() {
                             </div>
                           ) : hasPendingPayment(pkg.id) ? (
                             <button
-                              onClick={() => setManualModalPkg(pkg)}
+                              onClick={() => navigate({ to: "/checkout", search: { pkgId: pkg.id } })}
                               className="w-full p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-extrabold text-[13px] flex items-center justify-center gap-2 cursor-pointer transition-all hover:bg-amber-500/20"
                             >
                               <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
@@ -1149,11 +1142,6 @@ function PredictionsPage() {
         </section>
       </main>
 
-      <ManualPaymentModal
-        isOpen={!!manualModalPkg}
-        onClose={() => setManualModalPkg(null)}
-        pkg={manualModalPkg}
-      />
 
       <SiteFooter />
     </div>

@@ -60,10 +60,10 @@ function AdminSettingsPage() {
         paymentGateway: remoteSettings.payment_gateway || "manual",
         paystackPublicKey: remoteSettings.paystack_public_key || "",
         koraPublicKey: remoteSettings.kora_public_key || "",
-        momoNumber: remoteSettings.momo_number || "0550000000",
-        momoName: remoteSettings.momo_name || "A1 Predictions",
+        momoNumber: remoteSettings.momo_number || "0556224818",
+        momoName: remoteSettings.momo_name || "JOHN YEBOAH",
         momoNetwork: remoteSettings.momo_network || "MTN Mobile Money",
-        momoInstructions: remoteSettings.momo_instructions || "Send payment via MoMo to the number above using your Reference Code as the reference/remarks. Once sent, enter your sender phone number and transaction ID below and submit.",
+        momoInstructions: remoteSettings.momo_instructions || "Send to the MoMo number above. Use your Reference Code as the MoMo remarks/narration. Then fill in your details below and submit.",
         telegramLink: remoteSettings.telegram_link || "",
         twitterLink: remoteSettings.twitter_link || "",
       });
@@ -241,7 +241,7 @@ function AdminSettingsPage() {
                   }} />
                 </div>
                 <p style={{ fontSize: "12px", color: "var(--muted-foreground)", margin: 0, lineHeight: 1.4 }}>
-                  Direct Mobile Money transfer. <strong>No gaming commission licence required.</strong> Instant verification in admin.
+                  Direct Mobile Money transfer (MTN/Telecel/AT). <strong>No payment gateway required.</strong> Manual verification in admin.
                 </p>
               </div>
 
@@ -306,14 +306,14 @@ function AdminSettingsPage() {
           {settings.paymentGateway === "manual" && (
             <div style={{ padding: "16px", background: "var(--secondary)", borderRadius: "10px", border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: "16px" }}>
               <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--foreground)" }}>
-                Mobile Money Account Details (Shown to Customers on Checkout)
+                MoMo Account Details (Shown to Customers on Checkout)
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-                {field("MoMo Number", "momoNumber", "tel", "0550000000")}
-                {field("Account Name", "momoName", "text", "A1 Predictions")}
+                {field("MoMo Number", "momoNumber", "tel", "0556224818")}
+                {field("Account Name", "momoName", "text", "JOHN YEBOAH")}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-                {field("Network Name", "momoNetwork", "text", "MTN Mobile Money")}
+                {field("Network", "momoNetwork", "text", "MTN Mobile Money")}
                 {field("Payment Instructions", "momoInstructions", "text", "Include your Reference Code as the MoMo remarks...")}
               </div>
             </div>
