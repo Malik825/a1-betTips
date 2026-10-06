@@ -82,6 +82,7 @@ function AdminPaymentsPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectModalPayment, setRejectModalPayment] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [approveModalPayment, setApproveModalPayment] = useState<any | null>(null);
   const [viewModalPayment, setViewModalPayment] = useState<any | null>(null);
   const [modalProofSrc, setModalProofSrc] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -204,11 +205,13 @@ function AdminPaymentsPage() {
       queryClient.invalidateQueries({ queryKey: ["user_tickets"] });
       toast.success("Payment approved! VIP access successfully activated for customer.");
       setProcessingId(null);
+      setApproveModalPayment(null);
       if (viewModalPayment) setViewModalPayment(null);
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to approve payment");
       setProcessingId(null);
+      setApproveModalPayment(null);
     },
   });
 
@@ -557,11 +560,7 @@ function AdminPaymentsPage() {
                       <button
                         type="button"
                         disabled={isProcessing}
-                        onClick={() => {
-                          if (confirm(`Approve GHS ${payment.amount} for ${userDisplay}?`)) {
-                            approveMutation.mutate(payment);
-                          }
-                        }}
+                        onClick={() => setApproveModalPayment(payment)}
                         className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-success/15 border border-success/30 text-xs font-bold text-success hover:bg-success/25 transition-colors disabled:opacity-50 cursor-pointer"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" /> Approve
@@ -762,11 +761,7 @@ function AdminPaymentsPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               disabled={isProcessing}
-                              onClick={() => {
-                                if (confirm(`Approve GHS ${payment.amount} for ${userDisplay}? VIP access will activate immediately.`)) {
-                                  approveMutation.mutate(payment);
-                                }
-                              }}
+                              onClick={() => setApproveModalPayment(payment)}
                               className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-success hover:bg-success/10 rounded-lg cursor-pointer"
                             >
                               <CheckCircle2 className="w-4 h-4 text-success" /> Approve Payment
@@ -810,11 +805,7 @@ function AdminPaymentsPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               disabled={isProcessing}
-                              onClick={() => {
-                                if (confirm(`Approve GHS ${payment.amount} for ${userDisplay}? VIP access will activate immediately.`)) {
-                                  approveMutation.mutate(payment);
-                                }
-                              }}
+                              onClick={() => setApproveModalPayment(payment)}
                               className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-success hover:bg-success/10 rounded-lg cursor-pointer"
                             >
                               <CheckCircle2 className="w-4 h-4 text-success" /> Approve Payment
@@ -995,11 +986,7 @@ function AdminPaymentsPage() {
                   <button
                     type="button"
                     disabled={isProcessing}
-                    onClick={() => {
-                      if (confirm(`Approve payment for ${userDisplay}? VIP ticket will be activated.`)) {
-                        approveMutation.mutate(p);
-                      }
-                    }}
+                    onClick={() => setApproveModalPayment(p)}
                     className="px-4 py-2 text-xs font-bold rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" /> Approve
@@ -1031,6 +1018,87 @@ function AdminPaymentsPage() {
                 )}
               </div>
 
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Approve Payment Modal ── */}
+      {approveModalPayment && (() => {
+        const p = approveModalPayment;
+        const pkg = vipPackages.find((item: any) => item.id === p.package_id);
+        const userProfile = profiles.find((prof: any) => prof.id === p.user_id);
+        const userDisplay = p.sender_name || userProfile?.username || userProfile?.email?.split("@")[0] || "Customer";
+        const isProcessing = processingId === p.id;
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-card rounded-2xl border border-border p-6 max-w-md w-full shadow-2xl text-foreground space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-success/15 text-success flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">
+                    Approve VIP Payment
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Activate VIP access immediately for this customer.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-section/50 border border-border/70 space-y-2 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Customer</span>
+                  <span className="font-bold text-foreground">{userDisplay}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Package</span>
+                  <span className="font-bold text-foreground">{pkg?.name || p.package_id}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Amount</span>
+                  <span className="font-black text-success">GHS {Number(p.amount || pkg?.price || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Network / Method</span>
+                  <span className="font-semibold text-warning">{p.network || "Mobile Money"}</span>
+                </div>
+                {p.proof_url && (
+                  <div className="pt-2 border-t border-border/60 flex items-center justify-between">
+                    <span className="text-muted-foreground">Proof Screenshot</span>
+                    <a
+                      href={modalProofSrc || p.proof_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline font-semibold flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3 h-3" /> Inspect Image
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  disabled={isProcessing}
+                  onClick={() => setApproveModalPayment(null)}
+                  className="px-4 py-2 text-xs font-semibold rounded-lg border border-border text-foreground hover:bg-section transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isProcessing}
+                  onClick={() => approveMutation.mutate(p)}
+                  className="px-4 py-2 text-xs font-bold rounded-lg bg-success hover:bg-success/90 text-white transition-colors disabled:opacity-50 cursor-pointer shadow-sm flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {isProcessing ? "Activating VIP..." : "Confirm & Activate"}
+                </button>
+              </div>
             </div>
           </div>
         );
