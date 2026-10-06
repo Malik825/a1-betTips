@@ -56,9 +56,7 @@ export function ManualPaymentModal({ isOpen, onClose, pkg }: ManualPaymentModalP
 
   const [activeMerchant, setActiveMerchant] = useState<MerchantKey>("ghana");
   const [senderName, setSenderName] = useState("");
-  const [senderPhone, setSenderPhone] = useState("");
   const [transactionId, setTransactionId] = useState("");
-  const [referenceCode, setReferenceCode] = useState("");
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -94,8 +92,8 @@ export function ManualPaymentModal({ isOpen, onClose, pkg }: ManualPaymentModalP
     staleTime: 1000 * 60 * 30, // cache for 30 min
   });
 
-  const ghanaNumber  = adminSettings?.momo_number  || "0556224818";
-  const ghanaName    = adminSettings?.momo_name    || "JOHN YEBOAH";
+  const ghanaNumber  = adminSettings?.momo_number  || "0597489841";
+  const ghanaName    = adminSettings?.momo_name    || "YAW ASAFO";
   const ghanaNetwork = adminSettings?.momo_network || "MTN Mobile Money";
 
   const priceGHS = Number(pkg?.price ?? 0);
@@ -116,11 +114,6 @@ export function ManualPaymentModal({ isOpen, onClose, pkg }: ManualPaymentModalP
     if (isOpen && pkg) {
       setSubmittedSuccess(false);
       setActiveMerchant("ghana");
-      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-      let code = "A1-";
-      for (let i = 0; i < 6; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
-      setReferenceCode(code);
-      setSenderPhone("");
       setSenderName(user?.user_metadata?.full_name || "");
       setTransactionId("");
       setProofFile(null);
@@ -155,8 +148,8 @@ export function ManualPaymentModal({ isOpen, onClose, pkg }: ManualPaymentModalP
       if (!user) throw new Error("Please log in to continue.");
       if (!pkg)  throw new Error("No package selected.");
       if (!senderName.trim()) throw new Error("Please enter your full name.");
-      if (!transactionId.trim() && !proofFile)
-        throw new Error("Please enter a transaction ID or upload a screenshot.");
+      if (!proofFile)
+        throw new Error("Please upload a payment screenshot.");
 
       let proofUrl: string | null = null;
       if (proofFile) {
@@ -179,9 +172,7 @@ export function ManualPaymentModal({ isOpen, onClose, pkg }: ManualPaymentModalP
         user_id:        user.id,
         package_id:     pkg.id,
         amount:         priceGHS,            // always store in GHS for consistency
-        sender_phone:   senderPhone.trim()  || null,
         sender_name:    senderName.trim(),
-        reference_code: referenceCode,
         transaction_id: transactionId.trim() || null,
         network:        `${merchant.flag} ${networkLabel} (${activeMerchant === "nigeria" ? `₦${amountPaid.toLocaleString()}` : `GHS ${priceGHS.toFixed(2)}`})`,
         proof_url:      proofUrl,
@@ -252,7 +243,7 @@ export function ManualPaymentModal({ isOpen, onClose, pkg }: ManualPaymentModalP
                   {activeMerchant === "nigeria" && priceNGN && (
                     <ReceiptRow label="Amount (NGN)" value={`₦${priceNGN.toLocaleString()}`} valueClass="font-bold text-purple-600 dark:text-purple-400" />
                   )}
-                  <ReceiptRow label="Reference" value={referenceCode} valueClass="font-mono font-black text-green-600 dark:text-green-400" />
+                  <ReceiptRow label="Name"     value={senderName} valueClass="font-semibold text-slate-900 dark:text-slate-100" />
                   <ReceiptRow label="Status"    value="Pending · 5–15 min" valueClass="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1" icon={<Clock className="w-3.5 h-3.5" />} />
                 </div>
               </div>
@@ -364,18 +355,6 @@ export function ManualPaymentModal({ isOpen, onClose, pkg }: ManualPaymentModalP
                       <CopyBtn text={accountName} label="Account name" copiedField={copiedField} onCopy={copy} />
                     </div>
                   </div>
-
-                  {/* Reference */}
-                  <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-4">
-                    <p className="text-[10px] text-green-400 uppercase tracking-wider font-bold mb-1">
-                      ⚡ {activeMerchant === "ghana" ? "MoMo Narration" : "Transfer Narration"} / Reference
-                    </p>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-xl font-black tracking-widest font-mono text-green-400">{referenceCode}</span>
-                      <CopyBtn text={referenceCode} label="Reference" copiedField={copiedField} onCopy={copy} variant="green" />
-                    </div>
-                    <p className="text-[11px] text-green-400/60 mt-1.5">Include this in your transfer narration so we can match your payment.</p>
-                  </div>
                 </div>
 
                 <div className="mt-auto flex items-center gap-2 text-[11px] text-slate-500">
@@ -389,7 +368,7 @@ export function ManualPaymentModal({ isOpen, onClose, pkg }: ManualPaymentModalP
                 <div className="mb-5">
                   <h3 className="text-lg font-black text-slate-900 dark:text-white">Submit Your Proof</h3>
                   <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    After sending, fill in your details and upload a screenshot.
+                    After sending, enter your name and upload a screenshot.
                   </p>
                 </div>
 
@@ -404,24 +383,9 @@ export function ManualPaymentModal({ isOpen, onClose, pkg }: ManualPaymentModalP
                     </label>
                     <input
                       type="text" required
-                      placeholder="Your name as it appears on your account"
+                      placeholder="Your name as it appears on your MoMo account"
                       value={senderName}
                       onChange={(e) => setSenderName(e.target.value)}
-                      className="w-full px-4 py-3 text-sm rounded-xl border-2 border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:border-green-500 placeholder:text-slate-400 transition-colors"
-                    />
-                  </div>
-
-                  {/* Phone */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                      {activeMerchant === "ghana" ? "MoMo" : "Bank"} Phone Number
-                      <span className="text-slate-400 font-normal ml-1">(Optional)</span>
-                    </label>
-                    <input
-                      type="tel"
-                      placeholder={activeMerchant === "ghana" ? "e.g. 0551234567" : "e.g. 08012345678"}
-                      value={senderPhone}
-                      onChange={(e) => setSenderPhone(e.target.value)}
                       className="w-full px-4 py-3 text-sm rounded-xl border-2 border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:border-green-500 placeholder:text-slate-400 transition-colors"
                     />
                   </div>
@@ -430,7 +394,7 @@ export function ManualPaymentModal({ isOpen, onClose, pkg }: ManualPaymentModalP
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                       Transaction / Session ID
-                      <span className="text-slate-400 font-normal ml-1">(From SMS)</span>
+                      <span className="text-slate-400 font-normal ml-1">(From SMS — Optional)</span>
                     </label>
                     <input
                       type="text"
@@ -445,7 +409,6 @@ export function ManualPaymentModal({ isOpen, onClose, pkg }: ManualPaymentModalP
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                       Payment Screenshot <span className="text-red-500">*</span>
-                      <span className="text-slate-400 font-normal ml-1">(if no transaction ID)</span>
                     </label>
                     <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
                       onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
@@ -487,7 +450,7 @@ export function ManualPaymentModal({ isOpen, onClose, pkg }: ManualPaymentModalP
                   {/* Alert */}
                   <div className="flex gap-2.5 p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl text-xs text-amber-800 dark:text-amber-300">
                     <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
-                    <span>Include <strong>{referenceCode}</strong> in your {activeMerchant === "ghana" ? "MoMo narration" : "transfer description"} so we can match your payment quickly.</span>
+                    <span>Make sure the <strong>sender name</strong> on your screenshot matches the name you entered above. We verify payments using your name and proof image.</span>
                   </div>
 
                   {/* Submit */}
