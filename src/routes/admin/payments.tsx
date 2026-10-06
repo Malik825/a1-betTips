@@ -394,8 +394,11 @@ function AdminPaymentsPage() {
               Verified Revenue
             </p>
             <h3 className="text-2xl font-black text-foreground mt-1">
-              GHS {totalApprovedAmount.toFixed(0)}
+              GH₵ {totalApprovedAmount.toFixed(0)}
             </h3>
+            <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+              ≈ ₦{Math.ceil(totalApprovedAmount * 115).toLocaleString()}
+            </p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center">
             <CreditCard size={18} />
@@ -515,8 +518,11 @@ function AdminPaymentsPage() {
                   <div className="flex items-center justify-between gap-3 text-xs">
                     <div>
                       <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Amount</span>
-                      <span className="font-black text-foreground">GHS {Number(payment.amount || pkg?.price || 0).toFixed(0)}</span>
-                      <span className="text-warning font-semibold ml-1 text-[11px]">{payment.network || "MTN"}</span>
+                      <span className="font-black text-foreground">GH₵ {Number(payment.amount || pkg?.price || 0).toFixed(0)}</span>
+                      <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 block">
+                        ≈ ₦{Math.ceil(Number(payment.amount || pkg?.price || 0) * 115).toLocaleString()}
+                      </span>
+                      <span className="text-warning font-semibold text-[11px]">{payment.network || "MTN"}</span>
                     </div>
                     <div>
                       <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Date</span>
@@ -675,7 +681,10 @@ function AdminPaymentsPage() {
                       {/* AMOUNT */}
                       <td className="py-4 px-4">
                         <div className="font-black text-sm text-foreground">
-                          GHS {Number(payment.amount || pkg?.price || 0).toFixed(0)}
+                          GH₵ {Number(payment.amount || pkg?.price || 0).toFixed(0)}
+                        </div>
+                        <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                          ≈ ₦{Math.ceil(Number(payment.amount || pkg?.price || 0) * 115).toLocaleString()}
                         </div>
                         <div className="text-xs font-semibold text-warning mt-0.5">
                           {payment.network || "MTN"} • {payment.sender_name || userDisplay}
@@ -890,8 +899,11 @@ function AdminPaymentsPage() {
                   )}
                 </div>
                 <div className="text-right">
-                  <span className="text-xs text-muted-foreground">Amount: </span>
-                  <span className="font-black text-sm text-primary">GHS {Number(p.amount || pkg?.price || 0).toFixed(2)}</span>
+                  <span className="text-xs text-muted-foreground block">Amount</span>
+                  <span className="font-black text-sm text-primary">GH₵ {Number(p.amount || pkg?.price || 0).toFixed(2)}</span>
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block">
+                    ≈ ₦{Math.ceil(Number(p.amount || pkg?.price || 0) * 115).toLocaleString()}
+                  </span>
                 </div>
               </div>
 
@@ -1059,7 +1071,12 @@ function AdminPaymentsPage() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Amount</span>
-                  <span className="font-black text-success">GHS {Number(p.amount || pkg?.price || 0).toFixed(2)}</span>
+                  <div className="text-right">
+                    <span className="font-black text-success block">GH₵ {Number(p.amount || pkg?.price || 0).toFixed(2)}</span>
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block">
+                      ≈ ₦{Math.ceil(Number(p.amount || pkg?.price || 0) * 115).toLocaleString()}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Network / Method</span>

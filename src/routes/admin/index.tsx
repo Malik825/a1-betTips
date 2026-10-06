@@ -7,12 +7,12 @@ export const Route = createFileRoute("/admin/")({
   component: AdminDashboardIndex,
 });
 
-function StatCard({ label, value, icon: Icon, color }: { label: string; value: string; icon: any; color: string }) {
+function StatCard({ label, value, subValue, icon: Icon, color }: { label: string; value: string; subValue?: React.ReactNode; icon: any; color: string }) {
   return (
     <div style={{
       background: "var(--card)",
       border: "1px solid var(--border)",
-      padding: "22px",
+      padding: "20px 22px",
       borderRadius: "12px",
       display: "flex",
       alignItems: "center",
@@ -20,8 +20,13 @@ function StatCard({ label, value, icon: Icon, color }: { label: string; value: s
       gap: "16px",
     }}>
       <div>
-        <p style={{ color: "var(--muted-foreground)", fontSize: "13px", fontWeight: 500, margin: 0 }}>{label}</p>
-        <h2 style={{ fontSize: "26px", fontWeight: 700, color: "var(--foreground)", margin: "6px 0 0" }}>{value}</h2>
+        <p style={{ color: "var(--muted-foreground)", fontSize: "12px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", margin: 0 }}>{label}</p>
+        <h2 style={{ fontSize: "24px", fontWeight: 700, color: "var(--foreground)", margin: "6px 0 0" }}>{value}</h2>
+        {subValue && (
+          <div style={{ marginTop: "4px" }}>
+            {subValue}
+          </div>
+        )}
       </div>
       <div style={{
         width: "46px", height: "46px", borderRadius: "50%",
@@ -99,9 +104,22 @@ function AdminDashboardIndex() {
   const activeGamesCount = (vipSelections as any[]).filter((s) => s.result_status === "pending").length;
   const totalSubs = realTickets.length;
 
+  const totalSalesGHS = totalSales;
+  const totalSalesNGN = Math.ceil(totalSalesGHS * 115);
+
   const stats = [
     { label: "Registered Users", value: totalUsers.toString(), icon: Users, color: "#3b82f6" },
-    { label: "Total Revenue", value: `GHS ${totalSales.toFixed(2)}`, icon: CreditCard, color: "#10b981" },
+    {
+      label: "Total Revenue",
+      value: `GH₵ ${totalSalesGHS.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      subValue: (
+        <span style={{ color: "#10b981", fontSize: "13px", fontWeight: 700 }}>
+          ≈ ₦{totalSalesNGN.toLocaleString()} NGN
+        </span>
+      ),
+      icon: CreditCard,
+      color: "#10b981",
+    },
     { label: "Active Predictions", value: activeGamesCount.toString(), icon: Gamepad2, color: "#f59e0b" },
     { label: "Total VIP Subs", value: totalSubs.toString(), icon: Crown, color: "#8b5cf6" },
   ];
@@ -111,10 +129,14 @@ function AdminDashboardIndex() {
     const profile = (allUsers as any[]).find((u) => u.id === ticket.user_id);
     const userLabel = profile?.email || profile?.username || `user_${ticket.user_id.substring(0, 8)}`;
     const isTest = ticket.payment_ref?.startsWith("test_ref_");
+    const amountGHS = Number(ticket.amount_paid || pkg?.price || 0);
+    const amountNGN = Math.ceil(amountGHS * 115);
     return {
       id: ticket.id,
       user: userLabel,
       action: `Purchased ${pkg?.name || "Package"}`,
+      amountGHS,
+      amountNGN,
       date: new Date(ticket.purchased_at).toLocaleString("en-GB", {
         day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
       }),
@@ -146,7 +168,8 @@ function AdminDashboardIndex() {
             <thead>
               <tr>
                 <th>User</th>
-                <th>Action</th>
+                <th>Package</th>
+                <th>Amount</th>
                 <th>Date</th>
                 <th>Status</th>
               </tr>
@@ -154,7 +177,7 @@ function AdminDashboardIndex() {
             <tbody>
               {recentActivities.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: "center", color: "var(--muted-foreground)", padding: "32px" }}>
+                  <td colSpan={5} style={{ textAlign: "center", color: "var(--muted-foreground)", padding: "32px" }}>
                     No recent purchases found.
                   </td>
                 </tr>
@@ -162,6 +185,10 @@ function AdminDashboardIndex() {
                 <tr key={activity.id}>
                   <td style={{ fontWeight: 600 }}>{activity.user}</td>
                   <td style={{ color: "var(--muted-foreground)" }}>{activity.action}</td>
+                  <td>
+                    <div style={{ fontWeight: 700, color: "var(--foreground)" }}>GH₵ {activity.amountGHS.toFixed(2)}</div>
+                    <div style={{ fontSize: "11px", fontWeight: 600, color: "#10b981" }}>≈ ₦{activity.amountNGN.toLocaleString()}</div>
+                  </td>
                   <td style={{ color: "var(--muted-foreground)" }}>{activity.date}</td>
                   <td>
                     {activity.isTest ? (
