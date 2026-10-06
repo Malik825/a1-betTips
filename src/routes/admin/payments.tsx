@@ -124,11 +124,12 @@ function AdminPaymentsPage() {
 
       // 2. Insert into user_tickets
       const ticketId = `ticket_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const fallbackRef = payment.reference_code || payment.transaction_id || `MOMO-${payment.sender_name?.replace(/\s+/g, '_') || payment.id.substring(0, 8)}`;
       const ticketPayload: any = {
         id: ticketId,
         user_id: payment.user_id,
         package_id: payment.package_id,
-        payment_ref: payment.reference_code,
+        payment_ref: fallbackRef,
         booking_code: pkg?.booking_code || null,
         snapshot: snapshot.length > 0 ? snapshot : null,
         amount_paid: Number(payment.amount || pkg?.price || 0),
@@ -142,7 +143,7 @@ function AdminPaymentsPage() {
           id: ticketPayload.id,
           user_id: payment.user_id,
           package_id: payment.package_id,
-          payment_ref: payment.reference_code,
+          payment_ref: fallbackRef,
         });
         if (fallbackError) throw fallbackError;
       }
@@ -470,8 +471,8 @@ function AdminPaymentsPage() {
                     )}
                   </div>
 
-                  {/* Middle row: amount + date + ref */}
-                  <div className="flex items-center gap-4 text-xs">
+                  {/* Middle row: amount + date + proof */}
+                  <div className="flex items-center justify-between gap-3 text-xs">
                     <div>
                       <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Amount</span>
                       <span className="font-black text-foreground">GHS {Number(payment.amount || pkg?.price || 0).toFixed(0)}</span>
@@ -482,14 +483,24 @@ function AdminPaymentsPage() {
                       <span className="font-bold text-foreground">{dateInfo.top}</span>
                       <span className="text-muted-foreground ml-1">{dateInfo.bottom}</span>
                     </div>
-                    <div className="min-w-0">
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Ref</span>
-                      <span
-                        className="font-mono font-bold text-foreground tracking-wider truncate"
-                        title={payment.transaction_id || payment.reference_code}
-                      >
-                        {truncateRef(payment.transaction_id || payment.reference_code, 12)}
-                      </span>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Proof</span>
+                      {payment.proof_url ? (
+                        <button
+                          type="button"
+                          onClick={() => setViewModalPayment(payment)}
+                          className="flex items-center gap-1.5 font-bold text-primary text-[11px] mt-0.5 hover:underline cursor-pointer"
+                        >
+                          <img
+                            src={payment.proof_url}
+                            alt="Proof"
+                            className="w-7 h-7 object-cover rounded border border-border"
+                          />
+                          <span>View</span>
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground italic">None</span>
+                      )}
                     </div>
                   </div>
 
@@ -567,6 +578,7 @@ function AdminPaymentsPage() {
                 </th>
                 <th className="py-3.5 px-4">USER</th>
                 <th className="py-3.5 px-4">AMOUNT</th>
+                <th className="py-3.5 px-4">PROOF</th>
                 <th className="py-3.5 px-4">DATE</th>
                 <th className="py-3.5 px-4">TXN REF</th>
                 <th className="py-3.5 px-4">STATUS</th>
@@ -576,14 +588,14 @@ function AdminPaymentsPage() {
             <tbody className="divide-y divide-border/60">
               {paymentsLoading ? (
                 <tr>
-                  <td colSpan={7} className="text-center text-muted-foreground py-16 text-sm">
+                  <td colSpan={8} className="text-center text-muted-foreground py-16 text-sm">
                     <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 opacity-50" />
                     Loading payments...
                   </td>
                 </tr>
               ) : filteredPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center text-muted-foreground py-16 text-sm">
+                  <td colSpan={8} className="text-center text-muted-foreground py-16 text-sm">
                     No payment records found matching your filter.
                   </td>
                 </tr>
@@ -629,6 +641,31 @@ function AdminPaymentsPage() {
                         <div className="text-xs font-semibold text-warning mt-0.5">
                           {payment.network || "MTN"} • {payment.sender_name || userDisplay}
                         </div>
+                      </td>
+
+                      {/* PROOF */}
+                      <td className="py-4 px-4">
+                        {payment.proof_url ? (
+                          <button
+                            type="button"
+                            onClick={() => setViewModalPayment(payment)}
+                            className="flex items-center gap-2 group cursor-pointer focus:outline-none"
+                            title="Click to view full payment screenshot"
+                          >
+                            <img
+                              src={payment.proof_url}
+                              alt="Proof"
+                              className="w-9 h-9 object-cover rounded-lg border border-border group-hover:border-primary group-hover:scale-105 transition-all shadow-sm"
+                            />
+                            <span className="text-xs font-semibold text-primary group-hover:underline flex items-center gap-1">
+                              <ImageIcon className="w-3.5 h-3.5" /> View
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic flex items-center gap-1">
+                            <AlertCircle className="w-3.5 h-3.5 opacity-50" /> No proof
+                          </span>
+                        )}
                       </td>
 
                       {/* DATE */}
@@ -786,7 +823,7 @@ function AdminPaymentsPage() {
                     Payment Details
                   </h3>
                   <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                    Ref: {p.reference_code}
+                    {p.reference_code ? `Ref: ${p.reference_code}` : `Sender: ${p.sender_name || userDisplay}`}
                   </p>
                 </div>
                 <button
@@ -851,14 +888,14 @@ function AdminPaymentsPage() {
                 <div className="p-3 rounded-xl bg-section/40 border border-border/60 space-y-1">
                   <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Payment Method</span>
                   <p className="font-bold text-warning">{p.network || "Mobile Money"}</p>
-                  <p className="text-muted-foreground font-mono">Phone: {p.sender_phone || "—"}</p>
-                  <p className="text-foreground">Sender: {p.sender_name}</p>
+                  <p className="font-semibold text-foreground">Sender: {p.sender_name || userDisplay}</p>
+                  {p.sender_phone && <p className="text-muted-foreground font-mono">Phone: {p.sender_phone}</p>}
                 </div>
 
                 <div className="p-3 rounded-xl bg-section/40 border border-border/60 space-y-1">
                   <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Transaction Data</span>
-                  <p className="font-mono text-foreground truncate">TxID: {p.transaction_id || "None"}</p>
-                  <p className="font-mono text-primary font-bold">Ref: {p.reference_code}</p>
+                  {p.transaction_id && <p className="font-mono text-foreground truncate">TxID: {p.transaction_id}</p>}
+                  {p.reference_code && <p className="font-mono text-primary font-bold">Ref: {p.reference_code}</p>}
                   <p className="text-muted-foreground text-[10px]">
                     {new Date(p.created_at).toLocaleString("en-GB")}
                   </p>
@@ -867,29 +904,35 @@ function AdminPaymentsPage() {
 
               {/* Screenshot Proof */}
               <div>
-                <span className="text-[11px] uppercase font-bold text-muted-foreground tracking-wider block mb-2">
-                  Payment Proof Screenshot
-                </span>
-                {p.proof_url ? (
-                  <div className="relative rounded-xl overflow-hidden border border-border group bg-section/30">
-                    <img
-                      src={p.proof_url}
-                      alt="Payment proof"
-                      className="w-full max-h-64 object-contain rounded-xl"
-                    />
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] uppercase font-bold text-muted-foreground tracking-wider block">
+                    Payment Proof Screenshot
+                  </span>
+                  {p.proof_url && (
                     <a
                       href={p.proof_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="absolute bottom-3 right-3 bg-background/90 hover:bg-background text-foreground text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors border border-border shadow-md"
+                      className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       <ExternalLink className="w-3.5 h-3.5" /> Full Resolution
+                    </a>
+                  )}
+                </div>
+                {p.proof_url ? (
+                  <div className="relative rounded-xl overflow-hidden border border-border group bg-section/30 p-2">
+                    <a href={p.proof_url} target="_blank" rel="noopener noreferrer" className="block cursor-zoom-in">
+                      <img
+                        src={p.proof_url}
+                        alt="Payment proof"
+                        className="w-full max-h-72 object-contain rounded-lg hover:opacity-95 transition-opacity"
+                      />
                     </a>
                   </div>
                 ) : (
                   <div className="p-6 rounded-xl border border-dashed border-border bg-section/20 text-center text-muted-foreground text-xs">
                     <ImageIcon className="w-8 h-8 opacity-40 mx-auto mb-1.5" />
-                    No screenshot uploaded (User verified via Transaction ID)
+                    No screenshot uploaded
                   </div>
                 )}
               </div>

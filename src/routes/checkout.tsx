@@ -53,33 +53,22 @@ type MerchantKey = keyof typeof MERCHANTS;
 function CheckoutPage() {
   const { pkgId } = useSearch({ from: "/checkout" });
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeMerchant, setActiveMerchant] = useState<MerchantKey>("ghana");
   const [senderName, setSenderName] = useState("");
-  const [senderPhone, setSenderPhone] = useState("");
-  const [transactionId, setTransactionId] = useState("");
-  const [referenceCode, setReferenceCode] = useState("");
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // Generate reference once on mount
+  // Redirect to login if not authenticated (wait until auth finishes loading)
   useEffect(() => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let code = "A1-";
-    for (let i = 0; i < 6; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
-    setReferenceCode(code);
-  }, []);
-
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (user === null) navigate({ to: "/login" });
-  }, [user]);
+    if (!authLoading && !user) navigate({ to: "/login" });
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     if (user?.user_metadata?.full_name) setSenderName(user.user_metadata.full_name);
@@ -117,8 +106,8 @@ function CheckoutPage() {
   const exchangeRate = 115;
 
   // ── Derived values ────────────────────────────────────────────────────────
-  const ghanaNumber = adminSettings?.momo_number || "0556224818";
-  const ghanaName = adminSettings?.momo_name || "JOHN YEBOAH";
+  const ghanaNumber = adminSettings?.momo_number || "0597489841";
+  const ghanaName = adminSettings?.momo_name || "YAW ASAFO";
   const ghanaNetwork = adminSettings?.momo_network || "MTN Mobile Money";
 
   const priceGHS = Number(pkg?.price ?? 0);
@@ -155,8 +144,8 @@ function CheckoutPage() {
       if (!user) throw new Error("Please log in to continue.");
       if (!pkg) throw new Error("Package not found.");
       if (!senderName.trim()) throw new Error("Please enter your full name.");
-      if (!transactionId.trim() && !proofFile)
-        throw new Error("Please provide a transaction ID or upload a screenshot.");
+      if (!proofFile)
+        throw new Error("Please upload a payment screenshot.");
 
       let proofUrl: string | null = null;
       if (proofFile) {
@@ -165,12 +154,18 @@ function CheckoutPage() {
         const { data: up, error: upErr } = await supabase.storage
           .from("payment-proofs")
           .upload(path, proofFile, { upsert: false });
-        if (!upErr && up) {
-          const { data: urlData } = supabase.storage
-            .from("payment-proofs")
-            .getPublicUrl(up.path);
-          proofUrl = urlData?.publicUrl || null;
+        if (upErr || !up) {
+          console.error("Storage upload error:", upErr);
+          throw new Error(upErr?.message ? `Failed to upload screenshot: ${upErr.message}` : "Failed to upload screenshot.");
         }
+        const { data: urlData } = supabase.storage
+          .from("payment-proofs")
+          .getPublicUrl(up.path);
+        proofUrl = urlData?.publicUrl || null;
+      }
+
+      if (!proofUrl) {
+        throw new Error("Payment screenshot is required to complete submission.");
       }
 
       const amountPaid = activeMerchant === "nigeria" && priceNGN ? priceNGN : priceGHS;
@@ -179,10 +174,8 @@ function CheckoutPage() {
         user_id: user.id,
         package_id: pkg.id,
         amount: priceGHS,
-        sender_phone: senderPhone.trim() || null,
         sender_name: senderName.trim(),
-        reference_code: referenceCode,
-        transaction_id: transactionId.trim() || null,
+        transaction_id: null,
         network: `${MERCHANTS[activeMerchant].flag} ${networkLabel} (${activeMerchant === "nigeria" ? `₦${amountPaid.toLocaleString()}` : `GHS ${priceGHS.toFixed(2)}`})`,
         proof_url: proofUrl,
         status: "pending",
@@ -198,6 +191,15 @@ function CheckoutPage() {
     onError: (err: any) => toast.error(err.message || "Submission failed. Please try again."),
   });
 
+  // ── Loading ───────────────────────────────────────────────────────────────
+  if (authLoading || pkgLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-7 h-7 animate-spin text-green-500" />
+      </div>
+    );
+  }
+
   // ── Guard: no pkgId ───────────────────────────────────────────────────────
   if (!pkgId) {
     return (
@@ -207,15 +209,6 @@ function CheckoutPage() {
           className="px-5 py-2.5 bg-green-600 text-white font-bold rounded-xl text-sm">
           Browse Packages
         </button>
-      </div>
-    );
-  }
-
-  // ── Loading ───────────────────────────────────────────────────────────────
-  if (pkgLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-7 h-7 animate-spin text-green-500" />
       </div>
     );
   }
@@ -244,8 +237,8 @@ function CheckoutPage() {
             <div className="divide-y divide-slate-100 dark:divide-white/5 text-sm">
               <ReceiptRow label="Package" value={pkg?.name || ""} />
               <ReceiptRow label="Amount" value={`GHS ${priceGHS.toFixed(2)}`} />
-              <ReceiptRow label="Reference" value={referenceCode}
-                valueClass="font-mono font-black text-green-600 dark:text-green-400" />
+              <ReceiptRow label="Name" value={senderName}
+                valueClass="font-semibold text-slate-900 dark:text-slate-100" />
               <ReceiptRow label="Status" value="Pending · 5–15 min"
                 valueClass="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1"
                 icon={<Clock className="w-3.5 h-3.5" />} />
@@ -296,7 +289,7 @@ function CheckoutPage() {
           <div className="mb-8">
             <h1 className="text-2xl font-black text-slate-900 dark:text-white">Secure Checkout</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Pay via Mobile Money and submit your proof — we verify within 15 minutes.
+              Pay via Mobile Money and upload your proof — we verify within 15 minutes.
             </p>
           </div>
 
@@ -407,22 +400,6 @@ function CheckoutPage() {
                   </div>
                 </div>
 
-                {/* Reference */}
-                <div className="rounded-xl bg-green-50 dark:bg-green-500/10 border-2 border-green-200 dark:border-green-500/30 p-4">
-                  <p className="text-[10px] text-green-700 dark:text-green-400 uppercase tracking-wider font-black mb-2">
-                    ⚡ Use as {activeMerchant === "ghana" ? "MoMo" : "Transfer"} Narration / Reference
-                  </p>
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-2xl font-black tracking-widest font-mono text-green-700 dark:text-green-400">
-                      {referenceCode}
-                    </span>
-                    <CopyBtn text={referenceCode} label="reference" copiedField={copiedField} onCopy={copy} variant="green" />
-                  </div>
-                  <p className="text-xs text-green-600/70 dark:text-green-400/60 mt-2">
-                    Add this code to your transfer narration so we can match your payment instantly.
-                  </p>
-                </div>
-
                 <div className="flex items-center gap-2 text-xs text-slate-400 pt-1">
                   <Lock className="w-3.5 h-3.5 shrink-0" />
                   Payments verified by our team within 15 minutes
@@ -440,23 +417,11 @@ function CheckoutPage() {
                   <h2 className="text-lg font-black text-slate-900 dark:text-white">Submit Your Proof</h2>
                 </div>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  After sending payment, fill in your details and upload a screenshot for fast verification.
+                  After sending payment, enter your name and upload a screenshot for fast verification.
                 </p>
               </div>
 
               <form onSubmit={(e) => { e.preventDefault(); submitMutation.mutate(); }} className="space-y-4">
-
-                {/* Reference reminder */}
-                <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Your Reference</p>
-                    <p className="font-mono font-black text-green-600 dark:text-green-400">{referenceCode}</p>
-                  </div>
-                  <button type="button" onClick={() => copy(referenceCode, "reference")}
-                    className="text-xs text-slate-400 hover:text-green-600 flex items-center gap-1 font-semibold transition-colors">
-                    <Copy className="w-3.5 h-3.5" /> Copy
-                  </button>
-                </div>
 
                 {/* Full name */}
                 <div>
@@ -464,37 +429,9 @@ function CheckoutPage() {
                     Full Name <span className="text-red-500">*</span>
                   </label>
                   <input type="text" required
-                    placeholder="Your name on the account"
+                    placeholder="Your name as it appears on your MoMo account"
                     value={senderName}
                     onChange={(e) => setSenderName(e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm rounded-md border border-slate-300 dark:border-white/15 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 placeholder:text-slate-400 transition-colors"
-                  />
-                </div>
-
-                {/* Phone */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    {activeMerchant === "ghana" ? "MoMo" : "Phone"} Number
-                    <span className="text-slate-400 font-normal ml-1">(Optional)</span>
-                  </label>
-                  <input type="tel"
-                    placeholder={activeMerchant === "ghana" ? "e.g. 0556224818" : "e.g. 08012345678"}
-                    value={senderPhone}
-                    onChange={(e) => setSenderPhone(e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm rounded-md border border-slate-300 dark:border-white/15 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 placeholder:text-slate-400 transition-colors"
-                  />
-                </div>
-
-                {/* Transaction ID */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    Transaction ID
-                    <span className="text-slate-400 font-normal ml-1">(From your SMS — Optional)</span>
-                  </label>
-                  <input type="text"
-                    placeholder="e.g. TRF2938472910"
-                    value={transactionId}
-                    onChange={(e) => setTransactionId(e.target.value)}
                     className="w-full px-3 py-2.5 text-sm rounded-md border border-slate-300 dark:border-white/15 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 placeholder:text-slate-400 transition-colors"
                   />
                 </div>
@@ -502,8 +439,7 @@ function CheckoutPage() {
                 {/* Screenshot upload */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    Payment Screenshot
-                    <span className="text-slate-400 font-normal ml-1">(Required if no transaction ID)</span>
+                    Payment Screenshot <span className="text-red-500">*</span>
                   </label>
                   <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
@@ -544,7 +480,7 @@ function CheckoutPage() {
                 {/* Alert */}
                 <div className="flex gap-2.5 p-3.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl text-xs text-amber-800 dark:text-amber-300">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
-                  <span>Remember to include <strong>{referenceCode}</strong> in your {activeMerchant === "ghana" ? "MoMo narration" : "transfer description"} when making the payment.</span>
+                  <span>Make sure the <strong>sender name</strong> on your screenshot matches the name you entered above. We verify payments using your name and proof image.</span>
                 </div>
 
                 {/* Submit button */}
