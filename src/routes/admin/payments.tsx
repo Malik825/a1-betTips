@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Search, Check, X, Clock, RefreshCw, CreditCard, 
   Smartphone, AlertCircle, ArrowUpRight, CheckCircle2, 
@@ -38,6 +38,42 @@ function truncateRef(ref: string | null | undefined, max = 12) {
   return `${ref.slice(0, 10)}...`;
 }
 
+function ProofImage({
+  url,
+  alt = "Payment proof",
+  className = "",
+  onSignedUrl,
+}: {
+  url: string;
+  alt?: string;
+  className?: string;
+  onSignedUrl?: (signedUrl: string) => void;
+}) {
+  const [src, setSrc] = useState(url);
+
+  useEffect(() => {
+    setSrc(url);
+  }, [url]);
+
+  const handleError = async () => {
+    try {
+      const parts = url.split("/payment-proofs/");
+      const storagePath = parts.length > 1 ? decodeURIComponent(parts[1].split("?")[0]) : url;
+      const { data, error } = await supabase.storage
+        .from("payment-proofs")
+        .createSignedUrl(storagePath, 7200);
+      if (data?.signedUrl && !error) {
+        setSrc(data.signedUrl);
+        onSignedUrl?.(data.signedUrl);
+      }
+    } catch (err) {
+      console.warn("Could not sign URL for proof:", err);
+    }
+  };
+
+  return <img src={src} alt={alt} className={className} onError={handleError} />;
+}
+
 function AdminPaymentsPage() {
   const { user: currentAdmin } = useAuth();
   const queryClient = useQueryClient();
@@ -47,6 +83,7 @@ function AdminPaymentsPage() {
   const [rejectModalPayment, setRejectModalPayment] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [viewModalPayment, setViewModalPayment] = useState<any | null>(null);
+  const [modalProofSrc, setModalProofSrc] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // 1. Fetch manual payments
@@ -488,11 +525,14 @@ function AdminPaymentsPage() {
                       {payment.proof_url ? (
                         <button
                           type="button"
-                          onClick={() => setViewModalPayment(payment)}
+                          onClick={() => {
+                            setModalProofSrc(payment.proof_url);
+                            setViewModalPayment(payment);
+                          }}
                           className="flex items-center gap-1.5 font-bold text-primary text-[11px] mt-0.5 hover:underline cursor-pointer"
                         >
-                          <img
-                            src={payment.proof_url}
+                          <ProofImage
+                            url={payment.proof_url}
                             alt="Proof"
                             className="w-7 h-7 object-cover rounded border border-border"
                           />
@@ -648,12 +688,15 @@ function AdminPaymentsPage() {
                         {payment.proof_url ? (
                           <button
                             type="button"
-                            onClick={() => setViewModalPayment(payment)}
+                            onClick={() => {
+                              setModalProofSrc(payment.proof_url);
+                              setViewModalPayment(payment);
+                            }}
                             className="flex items-center gap-2 group cursor-pointer focus:outline-none"
                             title="Click to view full payment screenshot"
                           >
-                            <img
-                              src={payment.proof_url}
+                            <ProofImage
+                              url={payment.proof_url}
                               alt="Proof"
                               className="w-9 h-9 object-cover rounded-lg border border-border group-hover:border-primary group-hover:scale-105 transition-all shadow-sm"
                             />
@@ -910,7 +953,7 @@ function AdminPaymentsPage() {
                   </span>
                   {p.proof_url && (
                     <a
-                      href={p.proof_url}
+                      href={modalProofSrc || p.proof_url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer"
@@ -921,11 +964,12 @@ function AdminPaymentsPage() {
                 </div>
                 {p.proof_url ? (
                   <div className="relative rounded-xl overflow-hidden border border-border group bg-section/30 p-2">
-                    <a href={p.proof_url} target="_blank" rel="noopener noreferrer" className="block cursor-zoom-in">
-                      <img
-                        src={p.proof_url}
+                    <a href={modalProofSrc || p.proof_url} target="_blank" rel="noopener noreferrer" className="block cursor-zoom-in">
+                      <ProofImage
+                        url={p.proof_url}
                         alt="Payment proof"
                         className="w-full max-h-72 object-contain rounded-lg hover:opacity-95 transition-opacity"
+                        onSignedUrl={(signed) => setModalProofSrc(signed)}
                       />
                     </a>
                   </div>

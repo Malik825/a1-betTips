@@ -175,6 +175,8 @@ function CheckoutPage() {
         package_id: pkg.id,
         amount: priceGHS,
         sender_name: senderName.trim(),
+        sender_phone: "N/A",
+        reference_code: `MOMO-${Date.now().toString(36).toUpperCase()}`,
         transaction_id: null,
         network: `${MERCHANTS[activeMerchant].flag} ${networkLabel} (${activeMerchant === "nigeria" ? `₦${amountPaid.toLocaleString()}` : `GHS ${priceGHS.toFixed(2)}`})`,
         proof_url: proofUrl,
