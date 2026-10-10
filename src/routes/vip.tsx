@@ -59,7 +59,7 @@ function VipPage() {
   };
 
   const { data: vipPackages = [], isLoading } = useQuery({
-    queryKey: ["vip_packages"],
+    queryKey: ["public_vip_packages"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("secure_vip_packages")
@@ -68,7 +68,7 @@ function VipPage() {
         .neq("id", "recovery")
         .order("id");
       if (error) throw error;
-      return data || [];
+      return (data || []).filter((p: any) => p.id !== "recovery");
     },
   });
 
@@ -243,11 +243,13 @@ function VipPage() {
         )}
 
         {(() => {
-          const visiblePackages = vipPackages.filter((pkg) => {
-            const pkgSels = vipSelections.filter((s) => s.package_id === pkg.id);
-            const purchased = hasPurchased(pkg.id);
-            return pkgSels.length > 0 || purchased;
-          });
+          const visiblePackages = vipPackages
+            .filter((pkg) => pkg.id !== "recovery")
+            .filter((pkg) => {
+              const pkgSels = vipSelections.filter((s) => s.package_id === pkg.id);
+              const purchased = hasPurchased(pkg.id);
+              return pkgSels.length > 0 || purchased;
+            });
 
           return (
             <>

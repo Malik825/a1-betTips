@@ -29,9 +29,10 @@ export function BookingCodesSection({ hideWhenEmpty = false, freeBetCode, freeBe
         .from("secure_vip_packages")
         .select("*")
         .in("availability_status", ["available", "sold_out"])
+        .neq("id", "recovery")
         .order("id");
       if (error) throw error;
-      return data || [];
+      return (data || []).filter((p: any) => p.id !== "recovery");
     },
     staleTime: 1000 * 60 * 5,
   });
@@ -74,10 +75,12 @@ export function BookingCodesSection({ hideWhenEmpty = false, freeBetCode, freeBe
   };
 
   // Only show packages that have at least one game OR that the user has purchased
-  const visiblePkgs = vipPackages.filter((pkg: any) => {
-    const hasGames = vipSelections.some((s: any) => s.package_id === pkg.id);
-    return hasGames || hasPurchased(pkg.id);
-  });
+  const visiblePkgs = vipPackages
+    .filter((pkg: any) => pkg.id !== "recovery")
+    .filter((pkg: any) => {
+      const hasGames = vipSelections.some((s: any) => s.package_id === pkg.id);
+      return hasGames || hasPurchased(pkg.id);
+    });
 
   const availablePkgs = visiblePkgs.filter((p: any) => p.availability_status === "available");
 

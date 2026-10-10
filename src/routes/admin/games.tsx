@@ -167,6 +167,7 @@ function AdminGamesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vip_package_fixtures"] });
       queryClient.invalidateQueries({ queryKey: ["vip_packages"] });
+      queryClient.invalidateQueries({ queryKey: ["public_vip_packages"] });
       toast.success("Removed from package.");
     },
     onError: (err: any) => toast.error(err.message),
@@ -206,6 +207,7 @@ function AdminGamesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vip_package_fixtures"] });
       queryClient.invalidateQueries({ queryKey: ["vip_packages"] });
+      queryClient.invalidateQueries({ queryKey: ["public_vip_packages"] });
       toast.success("Result updated.");
     },
     onError: (err: any) => toast.error(err.message),
@@ -233,6 +235,7 @@ function AdminGamesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vip_packages"] });
+      queryClient.invalidateQueries({ queryKey: ["public_vip_packages"] });
       toast.success("Package updated!");
       setEditingPkg(null);
     },
@@ -310,6 +313,7 @@ function AdminGamesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vip_package_fixtures"] });
       queryClient.invalidateQueries({ queryKey: ["vip_packages"] });
+      queryClient.invalidateQueries({ queryKey: ["public_vip_packages"] });
       toast.success("Package cleared and reset to Draft.");
     },
     onError: (err: any) => toast.error(err.message),
@@ -536,6 +540,7 @@ function AdminGamesPage() {
       queryClient.invalidateQueries({ queryKey: ["vip_package_fixtures"] });
       queryClient.invalidateQueries({ queryKey: ["predictions"] });
       queryClient.invalidateQueries({ queryKey: ["vip_packages"] });
+      queryClient.invalidateQueries({ queryKey: ["public_vip_packages"] });
       queryClient.invalidateQueries({ queryKey: ["daily_settings"] });
       refetchDailySettings();
       toast.success(`Imported! ${count} games loaded and booking code saved.`);

@@ -199,7 +199,7 @@ function PredictionsPage() {
 
 
   const { data: vipPackages = [], isLoading: vipLoading } = useQuery({
-    queryKey: ["vip_packages"],
+    queryKey: ["public_vip_packages"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vip_packages")
@@ -208,7 +208,7 @@ function PredictionsPage() {
         .neq("id", "recovery")
         .order("id");
       if (error) throw error;
-      return data || [];
+      return (data || []).filter((p: any) => p.id !== "recovery");
     },
     staleTime: 1000 * 30,
     refetchOnWindowFocus: true,
@@ -784,11 +784,13 @@ function PredictionsPage() {
                 ))}
               </div>
             ) : (() => {
-              const allVisible = vipPackages.filter((pkg) => {
-                const pkgSels = vipSelections.filter((s) => s.package_id === pkg.id);
-                const purchased = hasPurchased(pkg.id);
-                return pkgSels.length > 0 || purchased;
-              });
+              const allVisible = vipPackages
+                .filter((pkg) => pkg.id !== "recovery")
+                .filter((pkg) => {
+                  const pkgSels = vipSelections.filter((s) => s.package_id === pkg.id);
+                  const purchased = hasPurchased(pkg.id);
+                  return pkgSels.length > 0 || purchased;
+                });
 
               const activePackages = allVisible.filter(pkg => pkgResult(pkg.id, pkg) === "pending");
               const resultsPackages = allVisible.filter(pkg => pkgResult(pkg.id, pkg) !== "pending");

@@ -68,7 +68,8 @@ function CheckoutPage() {
   // Redirect to login if not authenticated (wait until auth finishes loading)
   useEffect(() => {
     if (!authLoading && !user) navigate({ to: "/login" });
-  }, [user, authLoading, navigate]);
+    if (pkgId === "recovery") navigate({ to: "/dashboard" });
+  }, [user, authLoading, pkgId, navigate]);
 
   useEffect(() => {
     if (user?.user_metadata?.full_name) setSenderName(user.user_metadata.full_name);
