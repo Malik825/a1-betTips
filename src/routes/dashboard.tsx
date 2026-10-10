@@ -38,6 +38,9 @@ function ResultBadge({ result }: { result: string }) {
   );
 }
 
+// TOGGLE: Set to true when ready to open recovery claim submissions to customers (e.g. for testing in the evening)
+export const RECOVERY_CLAIMS_ENABLED = false;
+
 function DashboardPage() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -199,6 +202,11 @@ function DashboardPage() {
   const handleSubmitClaim = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!claimModalTicket || !user) return;
+    if (!RECOVERY_CLAIMS_ENABLED) {
+      toast.info("Recovery package claims are coming soon and will open later today.");
+      setClaimModalTicket(null);
+      return;
+    }
 
     if (!senderName.trim()) {
       toast.error("Please enter your name");
@@ -513,6 +521,26 @@ function DashboardPage() {
                                 Reason: {ticketRecovery.rejection_reason || "Unable to verify previous purchase slip or payment details."}
                               </p>
                             </div>
+                          </div>
+                        ) : !RECOVERY_CLAIMS_ENABLED ? (
+                          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-900 dark:text-amber-200 animate-in fade-in">
+                            <div className="flex items-start gap-3">
+                              <RotateCcw className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-extrabold text-xs m-0">Game Spoilt? Free Recovery Package</p>
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                    Coming Soon
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 m-0 mt-1">
+                                  Our replacement recovery claim system is being finalized. Free replacement claims for spoilt games will open later today.
+                                </p>
+                              </div>
+                            </div>
+                            <span className="w-full sm:w-auto px-4 py-2 bg-slate-200/60 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 rounded-lg font-bold text-xs shrink-0 text-center cursor-not-allowed">
+                              Claims Opening Soon
+                            </span>
                           </div>
                         ) : isRecoveryAvailable ? (
                           <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-emerald-900 dark:text-emerald-200 animate-in fade-in">
