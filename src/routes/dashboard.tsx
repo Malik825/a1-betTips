@@ -38,8 +38,8 @@ function ResultBadge({ result }: { result: string }) {
   );
 }
 
-// TOGGLE: Set to true when ready to open recovery claim submissions to customers (e.g. for testing in the evening)
-export const RECOVERY_CLAIMS_ENABLED = false;
+// TOGGLE: Set to true when ready to open recovery claim submissions to customers
+export const RECOVERY_CLAIMS_ENABLED = true;
 
 function DashboardPage() {
   const { user, isLoading } = useAuth();
