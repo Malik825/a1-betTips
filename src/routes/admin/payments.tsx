@@ -4,7 +4,8 @@ import {
   Search, Check, X, Clock, RefreshCw, CreditCard, 
   Smartphone, AlertCircle, ArrowUpRight, CheckCircle2, 
   XCircle, Filter, ChevronDown, MoreVertical, Eye,
-  ExternalLink, Calendar, User, Hash, FileText, Image as ImageIcon
+  ExternalLink, Calendar, User, Hash, FileText, Image as ImageIcon,
+  RotateCcw
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -77,13 +78,20 @@ function ProofImage({
 function AdminPaymentsPage() {
   const { user: currentAdmin } = useAuth();
   const queryClient = useQueryClient();
+  const [activeMainTab, setActiveMainTab] = useState<"payments" | "recovery">("payments");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
+  const [recoverySearch, setRecoverySearch] = useState("");
+  const [recoveryStatusFilter, setRecoveryStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectModalPayment, setRejectModalPayment] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [approveModalPayment, setApproveModalPayment] = useState<any | null>(null);
   const [viewModalPayment, setViewModalPayment] = useState<any | null>(null);
+  const [approveModalRecovery, setApproveModalRecovery] = useState<any | null>(null);
+  const [rejectModalRecovery, setRejectModalRecovery] = useState<any | null>(null);
+  const [recoveryRejectReason, setRecoveryRejectReason] = useState("");
+  const [viewModalRecovery, setViewModalRecovery] = useState<any | null>(null);
   const [modalProofSrc, setModalProofSrc] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
@@ -134,6 +142,22 @@ function AdminPaymentsPage() {
     queryFn: async () => {
       const { data, error } = await supabase.from("profiles").select("id, email, username");
       if (error) return [];
+      return data || [];
+    },
+  });
+
+  // 5. Fetch recovery requests
+  const { data: recoveryRequests = [], isLoading: recoveryLoading } = useQuery({
+    queryKey: ["admin_recovery_requests"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recovery_requests")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.warn("Error fetching recovery_requests:", error);
+        return [];
+      }
       return data || [];
     },
   });
@@ -275,6 +299,105 @@ function AdminPaymentsPage() {
     },
   });
 
+  // Approve Recovery Mutation
+  const approveRecoveryMutation = useMutation({
+    mutationFn: async (req: any) => {
+      setProcessingId(req.id);
+      const recPkg = vipPackages.find((p: any) => p.id === "recovery");
+      const recSels = vipSelections.filter((s: any) => s.package_id === "recovery");
+
+      const snapshot = recSels.map((sel: any) => {
+        const fix = sel.fixtures || null;
+        return {
+          id: sel.id,
+          fixture_id: sel.fixture_id,
+          match: fix ? `${fix.home_team} vs ${fix.away_team}` : sel.fixture_id,
+          competition: fix?.competition || "",
+          match_time: fix?.match_time || "",
+          match_date: fix?.match_date_iso || "",
+          prediction: sel.prediction,
+        };
+      });
+
+      // 1. Insert into user_tickets for this user
+      const ticketId = `ticket_rec_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const { error: ticketError } = await supabase.from("user_tickets").insert({
+        id: ticketId,
+        user_id: req.user_id,
+        package_id: "recovery",
+        payment_ref: `RECOVERY-${req.id.substring(0, 8)}`,
+        booking_code: recPkg?.booking_code || null,
+        snapshot: snapshot.length > 0 ? snapshot : null,
+        amount_paid: 0,
+        purchased_at: new Date().toISOString(),
+      });
+
+      if (ticketError) {
+        console.warn("Standard user_tickets insert failed for recovery, attempting fallback:", ticketError);
+        await supabase.from("user_tickets").insert({
+          id: ticketId,
+          user_id: req.user_id,
+          package_id: "recovery",
+          purchased_at: new Date().toISOString(),
+        });
+      }
+
+      // 2. Update recovery_requests status to approved
+      const { error: reqError } = await supabase
+        .from("recovery_requests")
+        .update({
+          status: "approved",
+          reviewed_by: currentAdmin?.id || null,
+          reviewed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", req.id);
+      if (reqError) throw reqError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin_recovery_requests"] });
+      queryClient.invalidateQueries({ queryKey: ["all_user_tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["user_tickets"] });
+      toast.success("Recovery claim approved! Package opened for user.");
+      setApproveModalRecovery(null);
+      setProcessingId(null);
+      if (viewModalRecovery) setViewModalRecovery(null);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to approve recovery");
+      setProcessingId(null);
+    },
+  });
+
+  // Reject Recovery Mutation
+  const rejectRecoveryMutation = useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason?: string }) => {
+      setProcessingId(id);
+      const { error } = await supabase
+        .from("recovery_requests")
+        .update({
+          status: "rejected",
+          rejection_reason: reason || null,
+          reviewed_by: currentAdmin?.id || null,
+          reviewed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin_recovery_requests"] });
+      toast.success("Recovery request declined.");
+      setRejectModalRecovery(null);
+      setProcessingId(null);
+      if (viewModalRecovery) setViewModalRecovery(null);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to reject recovery");
+      setProcessingId(null);
+    },
+  });
+
   // Stats
   const totalCount = payments.length;
   const pendingCount = payments.filter((p: any) => p.status === "pending").length;
@@ -283,6 +406,30 @@ function AdminPaymentsPage() {
   const totalApprovedAmount = payments
     .filter((p: any) => p.status === "approved")
     .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+
+  // Recovery Stats
+  const totalRecoveryCount = recoveryRequests.length;
+  const pendingRecoveryCount = recoveryRequests.filter((r: any) => r.status === "pending").length;
+  const approvedRecoveryCount = recoveryRequests.filter((r: any) => r.status === "approved").length;
+  const rejectedRecoveryCount = recoveryRequests.filter((r: any) => r.status === "rejected").length;
+
+  // Recovery Filtering
+  const filteredRecoveryRequests = recoveryRequests.filter((r: any) => {
+    if (recoveryStatusFilter !== "all" && r.status !== recoveryStatusFilter) return false;
+    if (!recoverySearch.trim()) return true;
+
+    const term = recoverySearch.toLowerCase();
+    const pkg = vipPackages.find((pkgItem: any) => pkgItem.id === r.original_package_id);
+    const userProfile = profiles.find((prof: any) => prof.id === r.user_id);
+
+    return (
+      (r.sender_phone || "").toLowerCase().includes(term) ||
+      (r.sender_name || "").toLowerCase().includes(term) ||
+      (pkg?.name || "").toLowerCase().includes(term) ||
+      (userProfile?.email || "").toLowerCase().includes(term) ||
+      (userProfile?.username || "").toLowerCase().includes(term)
+    );
+  });
 
   // Filtering
   const filteredPayments = payments.filter((p: any) => {
@@ -325,27 +472,70 @@ function AdminPaymentsPage() {
         <div>
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2.5">
             <CreditCard className="text-primary w-5 h-5" />
-            Direct Payments Management
+            Direct Payments & Recovery Control
           </h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Review incoming mobile transfers, inspect proof screenshots, and manage VIP customer activations.
+            Review incoming mobile transfers, inspect payment & recovery proof screenshots, and manage VIP customer activations.
           </p>
         </div>
 
         <button
-          onClick={() => queryClient.invalidateQueries({ queryKey: ["admin_manual_payments"] })}
+          onClick={() => {
+            queryClient.invalidateQueries({ queryKey: ["admin_manual_payments"] });
+            queryClient.invalidateQueries({ queryKey: ["admin_recovery_requests"] });
+          }}
           className="flex items-center gap-2 text-xs py-2 px-3.5 rounded-lg border border-border bg-card text-foreground hover:bg-section transition-colors cursor-pointer"
         >
           <RefreshCw size={13} /> Refresh
         </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        
-        {/* Pending Card */}
-        <div 
-          onClick={() => setStatusFilter("pending")}
+      {/* Main Tab Switcher */}
+      <div className="flex items-center gap-2 border-b border-border pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveMainTab("payments")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition-all cursor-pointer border-none ${
+            activeMainTab === "payments"
+              ? "bg-foreground text-background shadow-xs"
+              : "text-muted-foreground hover:text-foreground hover:bg-card bg-transparent"
+          }`}
+        >
+          <span>VIP Payments</span>
+          {pendingCount > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-warning text-black font-extrabold">
+              {pendingCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveMainTab("recovery")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition-all cursor-pointer border-none ${
+            activeMainTab === "recovery"
+              ? "bg-foreground text-background shadow-xs"
+              : "text-muted-foreground hover:text-foreground hover:bg-card bg-transparent"
+          }`}
+        >
+          <RotateCcw size={13} />
+          <span>Recovery Claims</span>
+          {pendingRecoveryCount > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-500 text-black font-extrabold animate-pulse">
+              {pendingRecoveryCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeMainTab === "payments" && (
+        <>
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            {/* Pending Card */}
+            <div 
+              onClick={() => setStatusFilter("pending")}
           className={`cursor-pointer bg-card p-4 rounded-xl border transition-all flex items-center justify-between ${
             statusFilter === "pending"
               ? "border-warning shadow-md shadow-warning/10 ring-2 ring-warning/30"
@@ -845,8 +1035,263 @@ function AdminPaymentsPage() {
           </table>
         </div>
       </div>
+    </>
+  )}
 
-      {/* ── View Payment Modal ── */}
+  {/* ───────────────────────────────────────────────────────────── 
+      RECOVERY CLAIMS VIEW
+  ───────────────────────────────────────────────────────────── */}
+  {activeMainTab === "recovery" && (
+    <>
+      {/* Recovery Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Pending Recovery Card */}
+        <div 
+          onClick={() => setRecoveryStatusFilter("pending")}
+          className={`cursor-pointer bg-card p-4 rounded-xl border transition-all flex items-center justify-between ${
+            recoveryStatusFilter === "pending"
+              ? "border-warning shadow-md shadow-warning/10 ring-2 ring-warning/30"
+              : "border-border hover:border-border/80"
+          }`}
+        >
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Pending Review
+            </p>
+            <h3 className="text-2xl font-black text-warning mt-1">
+              {pendingRecoveryCount}
+            </h3>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-warning/15 text-warning flex items-center justify-center">
+            <Clock size={18} />
+          </div>
+        </div>
+
+        {/* Approved Recovery Card */}
+        <div 
+          onClick={() => setRecoveryStatusFilter("approved")}
+          className={`cursor-pointer bg-card p-4 rounded-xl border transition-all flex items-center justify-between ${
+            recoveryStatusFilter === "approved"
+              ? "border-success shadow-md shadow-success/10 ring-2 ring-success/30"
+              : "border-border hover:border-border/80"
+          }`}
+        >
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Approved & Opened
+            </p>
+            <h3 className="text-2xl font-black text-success mt-1">
+              {approvedRecoveryCount}
+            </h3>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-success/15 text-success flex items-center justify-center">
+            <CheckCircle2 size={18} />
+          </div>
+        </div>
+
+        {/* Rejected Recovery Card */}
+        <div 
+          onClick={() => setRecoveryStatusFilter("rejected")}
+          className={`cursor-pointer bg-card p-4 rounded-xl border transition-all flex items-center justify-between ${
+            recoveryStatusFilter === "rejected"
+              ? "border-destructive shadow-md shadow-destructive/10 ring-2 ring-destructive/30"
+              : "border-border hover:border-border/80"
+          }`}
+        >
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Declined Claims
+            </p>
+            <h3 className="text-2xl font-black text-destructive mt-1">
+              {rejectedRecoveryCount}
+            </h3>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-destructive/15 text-destructive flex items-center justify-center">
+            <XCircle size={18} />
+          </div>
+        </div>
+
+        {/* Total Claims Card */}
+        <div 
+          onClick={() => setRecoveryStatusFilter("all")}
+          className={`cursor-pointer bg-card p-4 rounded-xl border transition-all flex items-center justify-between ${
+            recoveryStatusFilter === "all"
+              ? "border-primary shadow-md shadow-primary/10 ring-2 ring-primary/30"
+              : "border-border hover:border-border/80"
+          }`}
+        >
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Total Claims
+            </p>
+            <h3 className="text-2xl font-black text-foreground mt-1">
+              {totalRecoveryCount}
+            </h3>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center">
+            <RotateCcw size={18} />
+          </div>
+        </div>
+      </div>
+
+      {/* Recovery Filter Tabs & Search */}
+      <div className="bg-card p-3 rounded-xl border border-border flex flex-col md:flex-row items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+          {(["pending", "approved", "rejected", "all"] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setRecoveryStatusFilter(tab)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap capitalize ${
+                recoveryStatusFilter === tab
+                  ? "bg-foreground text-background shadow-xs"
+                  : "text-muted-foreground hover:text-foreground hover:bg-section"
+              }`}
+            >
+              {tab === "all" ? "All Claims" : tab}
+              <span className="ml-1.5 opacity-70">
+                ({tab === "pending" ? pendingRecoveryCount : tab === "approved" ? approvedRecoveryCount : tab === "rejected" ? rejectedRecoveryCount : totalRecoveryCount})
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="relative w-full md:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search by customer, phone, package..."
+            value={recoverySearch}
+            onChange={(e) => setRecoverySearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+      </div>
+
+      {/* Recovery Claims Table */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="bg-section/50 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                <th className="py-3 px-4">Customer</th>
+                <th className="py-3 px-4">Spoilt VIP Game</th>
+                <th className="py-3 px-4">Contact Phone</th>
+                <th className="py-3 px-4">Proof Screenshot</th>
+                <th className="py-3 px-4">Claim Date</th>
+                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filteredRecoveryRequests.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                    <RotateCcw className="w-8 h-8 opacity-40 mx-auto mb-2" />
+                    <p className="font-semibold text-xs">No recovery claims found</p>
+                  </td>
+                </tr>
+              ) : (
+                filteredRecoveryRequests.map((req: any) => {
+                  const userProfile = profiles.find((prof: any) => prof.id === req.user_id);
+                  const userDisplay = req.sender_name || userProfile?.username || userProfile?.email?.split("@")[0] || "User";
+                  const origPkg = vipPackages.find((p: any) => p.id === req.original_package_id);
+                  const isProcessing = processingId === req.id;
+
+                  return (
+                    <tr key={req.id} className="hover:bg-section/30 transition-colors">
+                      <td className="py-3.5 px-4">
+                        <span className="font-bold text-foreground block">{userDisplay}</span>
+                        <span className="text-[11px] text-muted-foreground font-mono block">{userProfile?.email || "No email"}</span>
+                      </td>
+                      <td className="py-3.5 px-4 font-bold text-foreground">
+                        {origPkg?.name || req.original_package_id}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-muted-foreground">
+                        {req.sender_phone || "—"}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        {req.proof_url ? (
+                          <button
+                            type="button"
+                            onClick={() => setViewModalRecovery(req)}
+                            className="group flex items-center gap-2 p-1 rounded-lg border border-border hover:border-primary/50 bg-section/30 transition-all cursor-pointer"
+                          >
+                            <ProofImage
+                              url={req.proof_url}
+                              alt="Recovery proof"
+                              className="w-8 h-8 object-cover rounded shrink-0"
+                            />
+                            <span className="text-[11px] font-semibold text-primary group-hover:underline flex items-center gap-1">
+                              <Eye size={12} /> View Slip
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="text-muted-foreground italic">No image</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-muted-foreground">
+                        {new Date(req.created_at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        {req.status === "pending" && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-warning/15 text-warning border border-warning/30">
+                            <Clock className="w-3 h-3" /> Pending
+                          </span>
+                        )}
+                        {req.status === "approved" && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-success/15 text-success border border-success/30">
+                            <CheckCircle2 className="w-3 h-3" /> Approved
+                          </span>
+                        )}
+                        {req.status === "rejected" && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-destructive/15 text-destructive border border-destructive/30">
+                            <XCircle className="w-3 h-3" /> Rejected
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        {req.status === "pending" ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              disabled={isProcessing}
+                              onClick={() => setApproveModalRecovery(req)}
+                              className="px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                            >
+                              <Check className="w-3.5 h-3.5" /> Approve
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isProcessing}
+                              onClick={() => setRejectModalRecovery(req)}
+                              className="px-2.5 py-1 text-xs font-bold rounded-lg bg-destructive hover:opacity-90 text-destructive-foreground flex items-center gap-1 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                            >
+                              <X className="w-3.5 h-3.5" /> Reject
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setViewModalRecovery(req)}
+                            className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-border text-foreground hover:bg-section transition-colors cursor-pointer"
+                          >
+                            View Details
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  )}
+
+  {/* ── View Payment Modal ── */}
       {viewModalPayment && (() => {
         const p = viewModalPayment;
         const pkg = vipPackages.find((item: any) => item.id === p.package_id);
@@ -1171,6 +1616,245 @@ function AdminPaymentsPage() {
           </div>
         </div>
       )}
+
+      {/* ── Approve Recovery Modal ── */}
+      {approveModalRecovery && (() => {
+        const req = approveModalRecovery;
+        const origPkg = vipPackages.find((p: any) => p.id === req.original_package_id);
+        const userProfile = profiles.find((prof: any) => prof.id === req.user_id);
+        const userDisplay = req.sender_name || userProfile?.username || userProfile?.email?.split("@")[0] || "Customer";
+        const isProcessing = processingId === req.id;
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-card rounded-2xl border border-border p-6 max-w-md w-full shadow-2xl text-foreground space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <RotateCcw className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground">
+                    Approve Recovery Claim
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Unlock the recovery VIP package immediately for this customer.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-section/50 border border-border/70 space-y-2 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Customer</span>
+                  <span className="font-bold text-foreground">{userDisplay}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Spoilt Package</span>
+                  <span className="font-bold text-destructive">{origPkg?.name || req.original_package_id}</span>
+                </div>
+                {req.sender_phone && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Sender Phone</span>
+                    <span className="font-mono font-semibold text-foreground">{req.sender_phone}</span>
+                  </div>
+                )}
+                {req.proof_url && (
+                  <div className="pt-2 border-t border-border/60 flex items-center justify-between">
+                    <span className="text-muted-foreground">Proof Image</span>
+                    <a
+                      href={req.proof_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline font-semibold flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3 h-3" /> View Screenshot
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-[11px] text-muted-foreground">
+                Confirming will issue a free Recovery ticket to this user. The recovery package booking code and tips will open for them automatically.
+              </p>
+
+              <div className="flex justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  disabled={isProcessing}
+                  onClick={() => setApproveModalRecovery(null)}
+                  className="px-4 py-2 text-xs font-semibold rounded-lg border border-border text-foreground hover:bg-section transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isProcessing}
+                  onClick={() => approveRecoveryMutation.mutate(req)}
+                  className="px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50 cursor-pointer shadow-sm flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {isProcessing ? "Unlocking Recovery..." : "Confirm & Unlock Package"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Reject Recovery Modal ── */}
+      {rejectModalRecovery && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl border border-border p-6 max-w-md w-full shadow-2xl text-foreground space-y-4">
+            <h3 className="text-base font-bold text-foreground">
+              Reject Recovery Claim
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Provide a reason for rejecting this recovery claim (e.g. invalid slip, ticket already claimed, payment not found).
+            </p>
+
+            <div>
+              <label className="block text-xs font-bold text-foreground mb-1.5">Rejection Reason</label>
+              <textarea
+                rows={3}
+                placeholder="e.g. Invalid slip or previous game does not match records."
+                value={recoveryRejectReason}
+                onChange={(e) => setRecoveryRejectReason(e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-destructive resize-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectModalRecovery(null);
+                  setRecoveryRejectReason("");
+                }}
+                className="px-4 py-2 text-xs font-semibold rounded-lg border border-border text-foreground hover:bg-section transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={rejectRecoveryMutation.isPending}
+                onClick={() => {
+                  rejectRecoveryMutation.mutate({
+                    id: rejectModalRecovery.id,
+                    reason: recoveryRejectReason,
+                  });
+                }}
+                className="px-4 py-2 text-xs font-bold rounded-lg bg-destructive hover:opacity-90 text-destructive-foreground transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+              >
+                {rejectRecoveryMutation.isPending ? "Rejecting..." : "Confirm Rejection"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── View Recovery Modal ── */}
+      {viewModalRecovery && (() => {
+        const req = viewModalRecovery;
+        const origPkg = vipPackages.find((p: any) => p.id === req.original_package_id);
+        const userProfile = profiles.find((prof: any) => prof.id === req.user_id);
+        const userDisplay = req.sender_name || userProfile?.username || userProfile?.email?.split("@")[0] || "Customer";
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-card border border-border rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl p-6 text-foreground space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                  <RotateCcw className="w-4 h-4 text-emerald-500" />
+                  Recovery Claim Details
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setViewModalRecovery(null)}
+                  className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-section transition-colors cursor-pointer border-none bg-transparent"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="p-3 rounded-xl bg-section/40 border border-border/60">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">Customer</span>
+                  <p className="font-bold text-foreground m-0">{userDisplay}</p>
+                  <p className="font-mono text-[11px] text-muted-foreground truncate m-0">{userProfile?.email || "No email"}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-section/40 border border-border/60">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">Spoilt Package</span>
+                  <p className="font-bold text-foreground m-0">{origPkg?.name || req.original_package_id}</p>
+                  <p className="font-mono text-[11px] text-muted-foreground m-0">{req.sender_phone ? `Phone: ${req.sender_phone}` : `Ticket: ${req.ticket_id?.slice(0, 8)}...`}</p>
+                </div>
+              </div>
+
+              {req.proof_url && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] uppercase font-bold text-muted-foreground">Proof Screenshot</span>
+                    <a
+                      href={req.proof_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> Full Resolution
+                    </a>
+                  </div>
+                  <div className="rounded-xl overflow-hidden border border-border bg-section/30 p-2">
+                    <ProofImage
+                      url={req.proof_url}
+                      alt="Recovery proof"
+                      className="w-full max-h-72 object-contain rounded-lg"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {req.status === "rejected" && req.rejection_reason && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl text-xs text-destructive">
+                  <strong className="block font-bold mb-0.5">Rejection Reason:</strong>
+                  {req.rejection_reason}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setViewModalRecovery(null)}
+                  className="px-4 py-2 text-xs font-semibold rounded-lg border border-border text-foreground hover:bg-section transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+                {req.status === "pending" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setViewModalRecovery(null);
+                        setRejectModalRecovery(req);
+                      }}
+                      className="px-4 py-2 text-xs font-bold rounded-lg bg-destructive hover:opacity-90 text-destructive-foreground transition-colors cursor-pointer shadow-sm"
+                    >
+                      Reject
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setViewModalRecovery(null);
+                        setApproveModalRecovery(req);
+                      }}
+                      className="px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors cursor-pointer shadow-sm"
+                    >
+                      Approve & Open Package
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );

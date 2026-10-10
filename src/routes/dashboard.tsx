@@ -1,12 +1,13 @@
-import { useEffect } from "react";
-import { createFileRoute, redirect, Link } from "@tanstack/react-router";
+import { useEffect, useState, useRef } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { supabase } from "@/lib/supabase";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
-import { Check, X, Ticket, ExternalLink, Clock } from "lucide-react";
+import { Check, X, Ticket, ExternalLink, Clock, RotateCcw, Upload, AlertCircle, Trash2, Camera, ShieldCheck } from "lucide-react";
 import { isTicketValidForPackage } from "@/lib/ticket-utils";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -37,11 +38,39 @@ function ResultBadge({ result }: { result: string }) {
   );
 }
 
-import { useNavigate } from "@tanstack/react-router";
-
 function DashboardPage() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  // Recovery Claim Modal State
+  const [claimModalTicket, setClaimModalTicket] = useState<any | null>(null);
+  const [senderName, setSenderName] = useState("");
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const [submittingClaim, setSubmittingClaim] = useState(false);
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const getFriendlyErrorMessage = (err: any) => {
+    const msg = err?.message || String(err || "");
+    if (msg.includes("schema cache") || msg.includes("recovery_requests") || msg.includes("42P01")) {
+      return "The recovery system is currently being configured on the server. Please check back in a moment or contact support.";
+    }
+    if (err?.code === "23505" || msg.includes("unique") || msg.includes("already submitted")) {
+      return "You have already submitted a recovery claim for this spoilt ticket. Your request is under review.";
+    }
+    if (msg.includes("Bucket not found") || msg.includes("NoSuchBucket")) {
+      return "Upload storage is temporarily unavailable. Please try again in a few minutes.";
+    }
+    if (msg.includes("Failed to upload") || msg.includes("storage")) {
+      return "Could not upload the screenshot. Please ensure it is a valid image under 10MB.";
+    }
+    if (msg.includes("permission") || msg.includes("row-level security") || msg.includes("JWT")) {
+      return "Your login session may have expired. Please refresh the page and try again.";
+    }
+    return msg || "Something went wrong while submitting your claim. Please try again.";
+  };
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -77,6 +106,39 @@ function DashboardPage() {
       return data || [];
     },
     enabled: !!user,
+  });
+
+  // Fetch user's recovery requests
+  const { data: userRecoveryRequests = [] } = useQuery({
+    queryKey: ["user_recovery_requests", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("recovery_requests")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.warn("Could not fetch recovery_requests:", error);
+        return [];
+      }
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  // Fetch recovery package status & target settings
+  const { data: recoveryPackage } = useQuery({
+    queryKey: ["public_recovery_package"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vip_packages")
+        .select("*")
+        .eq("id", "recovery")
+        .maybeSingle();
+      if (error) return null;
+      return data;
+    },
   });
 
   const activePendingPayments = userPendingPayments.filter((p: any) => p.status === "pending");
@@ -117,15 +179,89 @@ function DashboardPage() {
   const resolveFixture = (sel: any) =>
     sel.fixtures ?? fixtures.find((f: any) => f.id === sel.fixture_id) ?? null;
 
-  const overallResult = (pkgId: string): string => {
-    const sels = vipSelections.filter((s) => s.package_id === pkgId);
-    if (!sels.length) return "pending";
-    if (sels.some((s) => s.result_status === "lost")) return "lost";
-    if (sels.every((s) => s.result_status === "won")) return "won";
-    return "pending";
+  const displayName = user?.email?.split("@")[0] || "there";
+
+  // Handle Proof File selection
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("File size must be under 10MB");
+        return;
+      }
+      setProofFile(file);
+      const url = URL.createObjectURL(file);
+      setProofPreview(url);
+    }
   };
 
-  const displayName = user?.email?.split("@")[0] || "there";
+  // Submit Claim
+  const handleSubmitClaim = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!claimModalTicket || !user) return;
+
+    if (!senderName.trim()) {
+      toast.error("Please enter your name");
+      return;
+    }
+    if (!proofFile) {
+      toast.error("Please upload a proof screenshot (slip or payment receipt)");
+      return;
+    }
+
+    setSubmittingClaim(true);
+    setClaimError(null);
+    try {
+      // 1. Upload file to Supabase storage
+      const ext = proofFile.name.split(".").pop() || "png";
+      const fileName = `${user.id}/recovery_${claimModalTicket.id}_${Date.now()}.${ext}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("payment-proofs")
+        .upload(fileName, proofFile, { upsert: true });
+
+      if (uploadError) {
+        throw new Error(uploadError.message || "Failed to upload proof image");
+      }
+
+      const { data: urlData } = supabase.storage
+        .from("payment-proofs")
+        .getPublicUrl(uploadData.path);
+
+      const proofUrl = urlData.publicUrl;
+
+      // 2. Insert into recovery_requests
+      const { error: insertError } = await supabase.from("recovery_requests").insert({
+        user_id: user.id,
+        ticket_id: claimModalTicket.id,
+        original_package_id: claimModalTicket.package_id,
+        recovery_package_id: "recovery",
+        sender_name: senderName.trim(),
+        proof_url: proofUrl,
+        status: "pending",
+      });
+
+      if (insertError) {
+        if (insertError.code === "23505") {
+          throw new Error("You have already submitted a recovery claim for this ticket.");
+        }
+        throw new Error(insertError.message || "Failed to submit recovery request");
+      }
+
+      toast.success("Recovery request submitted! Admin will verify and open your package shortly.");
+      queryClient.invalidateQueries({ queryKey: ["user_recovery_requests"] });
+      setClaimModalTicket(null);
+      setProofFile(null);
+      setProofPreview(null);
+      setClaimError(null);
+    } catch (err: any) {
+      const friendlyMsg = getFriendlyErrorMessage(err);
+      setClaimError(friendlyMsg);
+      toast.error(friendlyMsg);
+    } finally {
+      setSubmittingClaim(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 font-sans transition-colors">
@@ -138,7 +274,7 @@ function DashboardPage() {
             Welcome back, <span className="text-green-500">{displayName}!</span>
           </h1>
           <p className="text-slate-400 text-sm font-medium m-0">
-            Your purchased VIP packages and booking codes are here.
+            Your purchased VIP packages, recovery games and booking codes are here.
           </p>
         </div>
       </div>
@@ -210,9 +346,11 @@ function DashboardPage() {
         ) : (
           <div className="flex flex-col gap-7">
             {userTickets.map((ticket) => {
-              const pkg = vipPackages.find((p) => p.id === ticket.package_id);
+              const isRecoveryTicket = ticket.package_id === "recovery";
+              const pkg = vipPackages.find((p) => p.id === ticket.package_id) || (isRecoveryTicket ? { id: "recovery", name: "Recovery Package 🔄", price: 0, booking_code: ticket.booking_code } : null);
               if (!pkg) return null;
-              const isValidTicket = isTicketValidForPackage(ticket, pkg);
+              
+              const isValidTicket = isRecoveryTicket ? true : isTicketValidForPackage(ticket, pkg);
               // Get selections: if valid batch with selections, use live selections; else use ticket snapshot
               const rawSels = (isValidTicket && vipSelections.filter((s) => s.package_id === pkg.id).length > 0)
                 ? vipSelections.filter((s) => s.package_id === pkg.id)
@@ -245,16 +383,36 @@ function DashboardPage() {
               // The booking code the user actually bought (snapshot), falls back to current pkg code if still valid
               const displayBookingCode = ticket.booking_code || (isValidTicket ? pkg.booking_code : null);
 
+              // Check if there is an existing recovery request for this ticket
+              const ticketRecovery = userRecoveryRequests.find((r: any) => r.ticket_id === ticket.id);
+
+              // Check if recovery package is currently active & eligible for this ticket's package
+              const isRecoveryAvailable =
+                recoveryPackage &&
+                recoveryPackage.availability_status === "available" &&
+                (recoveryPackage.target_packages === "all" ||
+                  !recoveryPackage.target_packages ||
+                  recoveryPackage.target_packages.split(",").map((s: string) => s.trim()).includes(ticket.package_id));
+
               return (
                 <div key={ticket.id} className="bg-white dark:bg-slate-900/60 backdrop-blur-xl rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-lg dark:shadow-2xl dark:shadow-black/50 transition-colors">
                   {/* Card top bar */}
-                  <div className={`h-1 ${result === "won" ? "bg-green-500" : result === "lost" ? "bg-red-500" : "bg-green-500"}`} />
+                  <div className={`h-1 ${result === "won" ? "bg-green-500" : result === "lost" ? "bg-red-500" : isRecoveryTicket ? "bg-emerald-500" : "bg-green-500"}`} />
 
                   {/* Header */}
                   <div className="px-7 py-5 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-black/20 flex justify-between items-center flex-wrap gap-3">
                     <div>
-                      <h3 className="text-lg font-extrabold text-slate-900 dark:text-white mb-1">{pkg.name}</h3>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium m-0">
+                      <div className="flex items-center gap-2.5">
+                        <h3 className="text-lg font-extrabold text-slate-900 dark:text-white m-0">
+                          {isRecoveryTicket ? "Recovery VIP Package 🔄" : pkg.name}
+                        </h3>
+                        {isRecoveryTicket && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                            Unlocked via Recovery
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium m-0 mt-1">
                         Purchased: {new Date(ticket.purchased_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                       </p>
                     </div>
@@ -322,6 +480,72 @@ function DashboardPage() {
                         </table>
                       </div>
                     </div>
+
+                    {/* ── RECOVERY BOX (For Lost/Spoilt Games) ────────────────── */}
+                    {result === "lost" && !isRecoveryTicket && (
+                      <div className="mt-6 pt-6 border-t border-slate-100 dark:border-white/5">
+                        {ticketRecovery?.status === "pending" ? (
+                          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 text-amber-900 dark:text-amber-200 animate-in fade-in">
+                            <Clock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5 animate-pulse" />
+                            <div>
+                              <p className="font-extrabold text-xs m-0">Recovery Verification in Progress</p>
+                              <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 m-0 mt-1">
+                                We received your recovery proof. Our admin team will verify it shortly, and your replacement recovery package will unlock automatically in your dashboard.
+                              </p>
+                            </div>
+                          </div>
+                        ) : ticketRecovery?.status === "approved" ? (
+                          <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30 flex items-start gap-3 text-green-900 dark:text-green-200 animate-in fade-in">
+                            <ShieldCheck className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-extrabold text-xs m-0">Recovery Claim Verified & Opened</p>
+                              <p className="text-[11px] text-green-800/80 dark:text-green-300/80 m-0 mt-1">
+                                Your proof was confirmed. Your Recovery VIP Package has been opened above with active predictions and booking code.
+                              </p>
+                            </div>
+                          </div>
+                        ) : ticketRecovery?.status === "rejected" ? (
+                          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-3 text-red-900 dark:text-red-200 animate-in fade-in">
+                            <X className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-extrabold text-xs m-0">Recovery Request Declined</p>
+                              <p className="text-[11px] text-red-800/80 dark:text-red-300/80 m-0 mt-1">
+                                Reason: {ticketRecovery.rejection_reason || "Unable to verify previous purchase slip or payment details."}
+                              </p>
+                            </div>
+                          </div>
+                        ) : isRecoveryAvailable ? (
+                          <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-emerald-900 dark:text-emerald-200 animate-in fade-in">
+                            <div className="flex items-start gap-3">
+                              <RotateCcw className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                              <div>
+                                <p className="font-extrabold text-xs m-0">Game Spoilt? Free Recovery Available 🔄</p>
+                                <p className="text-[11px] text-emerald-800/80 dark:text-emerald-300/80 m-0 mt-1">
+                                  You are eligible for a replacement recovery game. Upload your purchase proof to submit for admin confirmation.
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setClaimModalTicket(ticket);
+                                setSenderName(user?.user_metadata?.full_name || displayName);
+                                setClaimError(null);
+                              }}
+                              className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs shrink-0 cursor-pointer transition-all shadow-sm flex items-center justify-center gap-2"
+                            >
+                              <Upload size={14} /> Claim Recovery Package
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="p-4 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center gap-3 text-slate-500 dark:text-slate-400">
+                            <AlertCircle className="w-4 h-4 text-slate-400 shrink-0" />
+                            <p className="text-xs font-semibold m-0">
+                              There is no recovery package available for this game at the moment.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -330,9 +554,190 @@ function DashboardPage() {
         )}
       </main>
 
+      {/* ── CLAIM RECOVERY MODAL ─────────────────────────────────────── */}
+      {claimModalTicket && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => !submittingClaim && setClaimModalTicket(null)}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="px-6 py-5 border-b border-slate-100 dark:border-white/5 flex items-center justify-between bg-slate-50 dark:bg-black/20">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <RotateCcw size={16} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900 dark:text-white m-0">
+                    Claim Recovery Package
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 m-0">
+                    Upload your proof to unlock today's recovery game
+                  </p>
+                </div>
+              </div>
+              <button
+                disabled={submittingClaim}
+                onClick={() => setClaimModalTicket(null)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer border-none bg-transparent"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleSubmitClaim} className="p-6 flex flex-col gap-4">
+              
+              {/* Error banner if any */}
+              {claimError && (
+                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-2.5 text-red-600 dark:text-red-400 text-xs animate-in fade-in">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
+                  <div className="flex-1">
+                    <p className="font-bold m-0">{claimError}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Spoilt Ticket Info Banner */}
+              <div className="p-3.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold block">
+                    Spoilt VIP Package
+                  </span>
+                  <span className="font-extrabold text-slate-900 dark:text-white">
+                    {vipPackages.find((p) => p.id === claimModalTicket.package_id)?.name || claimModalTicket.package_id}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold block">
+                    Purchase Date
+                  </span>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    {new Date(claimModalTicket.purchased_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Sender Name */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Your Full Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. John Doe"
+                  value={senderName}
+                  onChange={(e) => setSenderName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white text-xs outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                />
+              </div>
+
+
+
+              {/* Proof Screenshot Upload */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Upload Proof Screenshot <span className="text-red-500">*</span>
+                </label>
+                
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+
+                {!proofPreview ? (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-300 dark:border-white/20 rounded-xl p-5 text-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-500/5 transition-all flex flex-col items-center justify-center gap-2"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                      <Camera size={18} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200 m-0">
+                        Click to upload slip or payment screenshot
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 m-0">
+                        PNG, JPG, WEBP up to 10MB
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-black/40 p-2 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={proofPreview}
+                        alt="Proof preview"
+                        className="w-12 h-12 object-cover rounded-lg border border-slate-200 dark:border-white/10"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-[200px] m-0">
+                          {proofFile?.name}
+                        </p>
+                        <p className="text-[10px] text-slate-400 m-0">
+                          {((proofFile?.size || 0) / (1024 * 1024)).toFixed(2)} MB • Ready
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProofFile(null);
+                        setProofPreview(null);
+                      }}
+                      className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer border-none bg-transparent"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+
+
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 m-0">
+                🔒 Works once per spoilt ticket. Opens once confirmed by admin.
+              </p>
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-white/5 mt-2">
+                <button
+                  type="button"
+                  disabled={submittingClaim}
+                  onClick={() => setClaimModalTicket(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-bold text-xs hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer bg-transparent"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingClaim}
+                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 transition-all cursor-pointer border-none flex items-center gap-2 disabled:opacity-60"
+                >
+                  {submittingClaim ? (
+                    <>
+                      <Clock size={14} className="animate-spin" /> Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={14} /> Submit Proof for Verification
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <SiteFooter />
     </div>
   );
 }
-
-

@@ -205,6 +205,7 @@ function PredictionsPage() {
         .from("vip_packages")
         .select("*")
         .in("availability_status", ["available", "sold_out"])
+        .neq("id", "recovery")
         .order("id");
       if (error) throw error;
       return data || [];

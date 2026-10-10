@@ -65,6 +65,7 @@ function VipPage() {
         .from("secure_vip_packages")
         .select("id, name, price, availability_status, result_status, booking_code, combined_odds, expires_at, updated_at")
         .in("availability_status", ["available", "sold_out", "expired"])
+        .neq("id", "recovery")
         .order("id");
       if (error) throw error;
       return data || [];

@@ -7,7 +7,7 @@ import { Edit2, Upload, Plus, ChevronDown, Trash2, RotateCcw } from "lucide-reac
 
 export const Route = createFileRoute("/admin/games")({ component: AdminGamesPage });
 
-type PackageTab = "free" | "vip_1" | "vip_2" | "vvip_1" | "vvip_2" | "supreme_vvip";
+type PackageTab = "free" | "vip_1" | "vip_2" | "vvip_1" | "vvip_2" | "supreme_vvip" | "recovery";
 type ResultStatus = "pending" | "won" | "lost";
 type AvailabilityStatus = "draft" | "available" | "sold_out";
 
@@ -115,6 +115,22 @@ function AdminGamesPage() {
     }
   }, [dailySettings]);
 
+  // Auto-seed recovery package in vip_packages if missing
+  useEffect(() => {
+    if (vipPackages.length > 0 && !vipPackages.some((p: any) => p.id === "recovery")) {
+      supabase.from("vip_packages").upsert({
+        id: "recovery",
+        name: "Recovery Package 🔄",
+        price: 0,
+        availability_status: "draft",
+        result_status: "pending",
+        is_published: false,
+      }, { onConflict: "id" }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ["vip_packages"] });
+      });
+    }
+  }, [vipPackages, queryClient]);
+
   // Save daily settings
   const saveDailySettings = async () => {
     setDailySettingsSaving(true);
@@ -202,7 +218,18 @@ function AdminGamesPage() {
         ...updates,
         updated_at: new Date().toISOString(),
       }).eq("id", id);
-      if (error) throw error;
+      if (error) {
+        if (error.message?.includes("target_packages") && updates.target_packages) {
+          const { target_packages, ...restUpdates } = updates;
+          const { error: fallbackError } = await supabase.from("vip_packages").update({
+            ...restUpdates,
+            updated_at: new Date().toISOString(),
+          }).eq("id", id);
+          if (fallbackError) throw fallbackError;
+          return;
+        }
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vip_packages"] });
@@ -575,6 +602,7 @@ function AdminGamesPage() {
     { key: "vvip_1", label: "VVIP 1" },
     { key: "vvip_2", label: "VVIP 2" },
     { key: "supreme_vvip", label: "SUPREME VVIP 👑" },
+    { key: "recovery", label: "Recovery 🔄" },
   ];
 
   const activeVipPkg = vipPackages.find((p) => p.id === activeTab);
@@ -954,12 +982,12 @@ function AdminGamesPage() {
                 <div style={{ display: "flex", gap: 8 }}>
                   {!isEditing ? (
                     <button style={{ ...btnGhost, display: "flex", alignItems: "center", gap: 6 }}
-                      onClick={() => { setEditingPkg(pkg.id); setPkgEdits({ price: pkg.price, availability_status: pkg.availability_status }); }}>
+                      onClick={() => { setEditingPkg(pkg.id); setPkgEdits({ price: pkg.price, availability_status: pkg.availability_status, target_packages: pkg.target_packages || "all" }); }}>
                       <Edit2 size={14} /> Edit Package
                     </button>
                   ) : (
                     <>
-                      <button style={btnGreen} onClick={() => updatePackageMutation.mutate({ id: pkg.id, updates: { price: Number(pkgEdits.price), availability_status: pkgEdits.availability_status } })}>
+                      <button style={btnGreen} onClick={() => updatePackageMutation.mutate({ id: pkg.id, updates: { price: Number(pkgEdits.price || 0), availability_status: pkgEdits.availability_status, target_packages: pkgEdits.target_packages || "all" } })}>
                         Save
                       </button>
                       <button style={btnGhost} onClick={() => setEditingPkg(null)}>Cancel</button>
@@ -969,6 +997,34 @@ function AdminGamesPage() {
               </div>
 
               <div style={{ padding: "24px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 24 }}>
+                {pkg.id === "recovery" ? (
+                  <div key="target_packages">
+                    <p style={{ fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", margin: "0 0 6px", letterSpacing: "0.4px" }}>Eligible Spoilt Package(s)</p>
+                    {isEditing ? (
+                      <select
+                        style={{ ...inputStyle }}
+                        value={pkgEdits.target_packages || "all"}
+                        onChange={(e) => setPkgEdits((prev: any) => ({ ...prev, target_packages: e.target.value }))}
+                      >
+                        <option value="all">All Spoilt VIP Packages</option>
+                        <option value="vip_1">VIP 1 Only</option>
+                        <option value="vip_2">VIP 2 Only</option>
+                        <option value="vvip_1">VVIP 1 Only</option>
+                        <option value="vvip_2">VVIP 2 Only</option>
+                        <option value="supreme_vvip">SUPREME VVIP Only</option>
+                      </select>
+                    ) : (
+                      <p style={{ fontSize: 18, fontWeight: 800, color: "#22c55e", margin: 0 }}>
+                        {pkg.target_packages === "vip_1" ? "VIP 1 Only" :
+                         pkg.target_packages === "vip_2" ? "VIP 2 Only" :
+                         pkg.target_packages === "vvip_1" ? "VVIP 1 Only" :
+                         pkg.target_packages === "vvip_2" ? "VVIP 2 Only" :
+                         pkg.target_packages === "supreme_vvip" ? "SUPREME VVIP Only" :
+                         "All Spoilt Packages"}
+                      </p>
+                    )}
+                  </div>
+                ) : (
                   <div key="price">
                     <p style={{ fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", margin: "0 0 6px", letterSpacing: "0.4px" }}>Price (GHS)</p>
                     {isEditing ? (
@@ -985,6 +1041,7 @@ function AdminGamesPage() {
                       </p>
                     )}
                   </div>
+                )}
 
                   <div>
                     <p style={{ fontSize: 12, fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", margin: "0 0 6px", letterSpacing: "0.4px" }}>Combined Odds</p>
