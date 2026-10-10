@@ -1,6 +1,8 @@
 import { toast } from "sonner";
 
-export const PAYSTACK_ENABLED = true;
+// Set to true when Paystack gaming compliance is approved and keys are live.
+// Keep false to route all purchases through manual MoMo checkout.
+export const PAYSTACK_ENABLED = false;
 
 declare global {
   interface Window {
