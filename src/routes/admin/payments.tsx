@@ -78,11 +78,15 @@ function ProofImage({
 function AdminPaymentsPage() {
   const { user: currentAdmin } = useAuth();
   const queryClient = useQueryClient();
-  const [activeMainTab, setActiveMainTab] = useState<"payments" | "recovery">("payments");
+  const [activeMainTab, setActiveMainTab] = useState<"payments" | "recovery" | "subscriptions">("payments");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
   const [recoverySearch, setRecoverySearch] = useState("");
   const [recoveryStatusFilter, setRecoveryStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
+  const [subSearch, setSubSearch] = useState("");
+  const [subStatusFilter, setSubStatusFilter] = useState<"all" | "pending" | "active" | "expired">("pending");
+  const [approvingSubId, setApprovingSubId] = useState<string | null>(null);
+  const [rejectingSubId, setRejectingSubId] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectModalPayment, setRejectModalPayment] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -161,6 +165,24 @@ function AdminPaymentsPage() {
       return data || [];
     },
   });
+
+  // 6. Fetch subscriptions
+  const { data: allSubscriptions = [], isLoading: subsLoading } = useQuery({
+    queryKey: ["admin_subscriptions"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.warn("Error fetching subscriptions:", error);
+        return [];
+      }
+      return data || [];
+    },
+  });
+
+  const pendingSubsCount = allSubscriptions.filter((s: any) => s.status === "pending").length;
 
   // Approve Payment Mutation
   const approveMutation = useMutation({
@@ -523,6 +545,23 @@ function AdminPaymentsPage() {
           {pendingRecoveryCount > 0 && (
             <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-500 text-black font-extrabold animate-pulse">
               {pendingRecoveryCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveMainTab("subscriptions")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition-all cursor-pointer border-none ${
+            activeMainTab === "subscriptions"
+              ? "bg-foreground text-background shadow-xs"
+              : "text-muted-foreground hover:text-foreground hover:bg-card bg-transparent"
+          }`}
+        >
+          <span>Subscriptions</span>
+          {pendingSubsCount > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-500 text-white font-extrabold animate-pulse">
+              {pendingSubsCount}
             </span>
           )}
         </button>
@@ -1852,6 +1891,223 @@ function AdminPaymentsPage() {
                 )}
               </div>
             </div>
+          </div>
+        );
+      })()}
+
+      {/* ── SUBSCRIPTIONS TAB ──────────────────────────────────────────── */}
+      {activeMainTab === "subscriptions" && (() => {
+        const SUB_TYPE_LABELS: Record<string, string> = {
+          all_access: "All-Access VIP Pass",
+          supreme_vvip: "Supreme VVIP Monthly 👑",
+          supreme: "Supreme VVIP Monthly 👑",
+          vvip_combo: "VVIP Combo (VVIP 1 & 2)",
+          vip_combo: "VIP Combo (VIP 1 & 2)",
+          vip_1: "VIP 1 Monthly",
+          vip_2: "VIP 2 Monthly",
+          vvip_1: "VVIP 1 Monthly",
+          vvip_2: "VVIP 2 Monthly",
+          silver: "Silver VIP",
+          gold: "Gold VIP",
+          platinum: "Platinum VIP",
+          vip1: "VIP 1 Monthly",
+          vip2: "VIP 2 Monthly",
+          vip3: "VIP 3 Monthly",
+        };
+
+        const filteredSubs = allSubscriptions
+          .filter((s: any) => subStatusFilter === "all" || s.status === subStatusFilter)
+          .filter((s: any) => {
+            if (!subSearch.trim()) return true;
+            const profile = profiles.find((p: any) => p.id === s.user_id);
+            const needle = subSearch.toLowerCase();
+            return (
+              (profile?.email || "").toLowerCase().includes(needle) ||
+              (profile?.username || "").toLowerCase().includes(needle) ||
+              (s.subscription_type || "").toLowerCase().includes(needle) ||
+              (s.payment_ref || "").toLowerCase().includes(needle)
+            );
+          });
+
+        const approveSubscription = async (sub: any) => {
+          setApprovingSubId(sub.id);
+          try {
+            const now = new Date();
+            const expiresAt = new Date(now);
+            expiresAt.setDate(expiresAt.getDate() + 30);
+            const { error } = await supabase
+              .from("subscriptions")
+              .update({
+                status: "active",
+                starts_at: now.toISOString(),
+                expires_at: expiresAt.toISOString(),
+                approved_by: currentAdmin?.id || null,
+                updated_at: now.toISOString(),
+              })
+              .eq("id", sub.id);
+            if (error) throw error;
+
+            // Send in-app notification
+            await supabase.from("app_notifications").insert({
+              user_id: sub.user_id,
+              type: "subscription_active",
+              title: "🎉 Subscription Activated!",
+              body: `Your ${SUB_TYPE_LABELS[sub.subscription_type] || sub.subscription_type} is now active and expires on ${expiresAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}.`,
+              is_read: false,
+            });
+
+            queryClient.invalidateQueries({ queryKey: ["admin_subscriptions"] });
+            toast.success("Subscription activated — 30 days access granted!");
+          } catch (err: any) {
+            toast.error(err.message || "Failed to approve subscription");
+          } finally {
+            setApprovingSubId(null);
+          }
+        };
+
+        const rejectSubscription = async (subId: string) => {
+          setRejectingSubId(subId);
+          try {
+            const { error } = await supabase
+              .from("subscriptions")
+              .update({ status: "cancelled", updated_at: new Date().toISOString() })
+              .eq("id", subId);
+            if (error) throw error;
+            queryClient.invalidateQueries({ queryKey: ["admin_subscriptions"] });
+            toast.success("Subscription request rejected.");
+          } catch (err: any) {
+            toast.error(err.message || "Failed to reject subscription");
+          } finally {
+            setRejectingSubId(null);
+          }
+        };
+
+        return (
+          <div className="space-y-5 animate-in fade-in duration-200">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search by email, plan, ref..."
+                  value={subSearch}
+                  onChange={(e) => setSubSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-border bg-card text-foreground outline-none focus:ring-1 focus:ring-primary/30"
+                />
+              </div>
+              {(["all", "pending", "active", "expired"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSubStatusFilter(s)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer capitalize ${
+                    subStatusFilter === s
+                      ? "bg-emerald-600 text-white border-emerald-500"
+                      : "border-border bg-card text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {s === "all"
+                    ? `All (${allSubscriptions.length})`
+                    : `${s} (${allSubscriptions.filter((x: any) => x.status === s).length})`}
+                </button>
+              ))}
+            </div>
+
+            {subsLoading ? (
+              <div className="text-center py-12 text-muted-foreground text-sm">Loading subscriptions...</div>
+            ) : filteredSubs.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground text-sm">No subscription requests found.</div>
+            ) : (
+              <div className="border border-border rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="bg-section border-b border-border text-left">
+                        <th className="p-3.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">User</th>
+                        <th className="p-3.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Plan</th>
+                        <th className="p-3.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Amount</th>
+                        <th className="p-3.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Status</th>
+                        <th className="p-3.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Expires</th>
+                        <th className="p-3.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Submitted</th>
+                        <th className="p-3.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {filteredSubs.map((sub: any) => {
+                        const profile = profiles.find((p: any) => p.id === sub.user_id);
+                        const isApproving = approvingSubId === sub.id;
+                        const isRejecting = rejectingSubId === sub.id;
+                        const isExpired = sub.expires_at && new Date(sub.expires_at) < new Date();
+                        return (
+                          <tr key={sub.id} className="hover:bg-section/50 transition-colors">
+                            <td className="p-3.5">
+                              <div className="text-[12px] font-semibold text-foreground">
+                                {profile?.email || sub.user_id.slice(0, 12) + "..."}
+                              </div>
+                              {profile?.username && (
+                                <div className="text-[10px] text-muted-foreground">@{profile.username}</div>
+                              )}
+                            </td>
+                            <td className="p-3.5">
+                              <span className="text-[12px] font-bold text-emerald-600 dark:text-emerald-400">
+                                {SUB_TYPE_LABELS[sub.subscription_type] || sub.subscription_type}
+                              </span>
+                            </td>
+                            <td className="p-3.5">
+                              <span className="text-[12px] font-bold text-foreground">
+                                GH₵ {Number(sub.amount_paid || 0).toFixed(2)}
+                              </span>
+                            </td>
+                            <td className="p-3.5">
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                                sub.status === "active" && !isExpired
+                                  ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30"
+                                  : sub.status === "pending"
+                                  ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                                  : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30"
+                              }`}>
+                                {sub.status === "active" && isExpired ? "Expired" : sub.status}
+                              </span>
+                            </td>
+                            <td className="p-3.5 text-[12px] text-muted-foreground">
+                              {sub.expires_at
+                                ? new Date(sub.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" })
+                                : "—"}
+                            </td>
+                            <td className="p-3.5 text-[12px] text-muted-foreground">
+                              {new Date(sub.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" })}
+                            </td>
+                            <td className="p-3.5 text-right">
+                              {sub.status === "pending" ? (
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => approveSubscription(sub)}
+                                    disabled={isApproving}
+                                    className="px-3 py-1.5 text-[11px] font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors cursor-pointer disabled:opacity-60 border-none"
+                                  >
+                                    {isApproving ? "Activating..." : "Approve"}
+                                  </button>
+                                  <button
+                                    onClick={() => rejectSubscription(sub.id)}
+                                    disabled={isRejecting}
+                                    className="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-60 bg-transparent"
+                                  >
+                                    {isRejecting ? "Rejecting..." : "Reject"}
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-[11px] text-muted-foreground italic">
+                                  {sub.status === "active" && !isExpired ? "Active" : "—"}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         );
       })()}

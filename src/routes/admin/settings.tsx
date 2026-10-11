@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Save, Settings as SettingsIcon, CreditCard, MessageCircle, Share2, ShieldAlert, KeyRound } from "lucide-react";
+import { Save, Settings as SettingsIcon, CreditCard, MessageCircle, Share2, ShieldAlert, KeyRound, Repeat, Sparkles, Tag, DollarSign, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -9,6 +9,158 @@ import { useAuth } from "@/lib/auth-context";
 export const Route = createFileRoute("/admin/settings")({
   component: AdminSettingsPage,
 });
+
+const DEFAULT_SUBSCRIPTION_PLANS = [
+  {
+    id: "sub_all_access",
+    name: "All-Access VIP Master Pass",
+    badge: "Most Popular",
+    price: 350,
+    original_price: 500,
+    category: "combo",
+    duration_days: 30,
+    tagline: "Gives you access to all 5 VIP and VVIP packages every day for a full month.",
+    packages_covered: ["VIP 1", "VIP 2", "VVIP 1", "VVIP 2", "SUPREME VVIP 👑"],
+    features: [
+      "Unlocks all 5 VIP packages every day",
+      "VIP 1 & VIP 2 safe banker slips",
+      "VVIP 1 & VVIP 2 high odds accumulators",
+      "SUPREME VVIP 👑 top predictions",
+      "SportyBet booking codes ready to copy & place",
+      "Safety Net: Replacement game when slips fail (as-needed cover)",
+      "Direct WhatsApp priority support",
+      "Valid for 30 full days",
+    ],
+    is_active: true,
+    admin_notes: "",
+    sort_order: 1,
+  },
+  {
+    id: "sub_supreme_vvip",
+    name: "Supreme VVIP Pass 👑",
+    badge: "Big Odds",
+    price: 280,
+    original_price: 350,
+    category: "combo",
+    duration_days: 30,
+    tagline: "Our biggest odds daily games with maximum winning potential.",
+    packages_covered: ["SUPREME VVIP 👑"],
+    features: [
+      "Daily SUPREME VVIP 👑 top predictions",
+      "High odds slips (25.0 to 50.0+ odds)",
+      "SportyBet booking codes included daily",
+      "Deep match analysis on every game",
+      "Safety Net: Replacement game when slips fail (as-needed cover)",
+      "Valid for 30 full days",
+    ],
+    is_active: true,
+    admin_notes: "",
+    sort_order: 2,
+  },
+  {
+    id: "sub_vvip_combo",
+    name: "VVIP Combo Pass",
+    badge: "High Odds Combo",
+    price: 220,
+    original_price: 280,
+    category: "combo",
+    duration_days: 30,
+    tagline: "Covers BOTH VVIP 1 & VVIP 2 — higher odds and accumulator games.",
+    packages_covered: ["VVIP 1", "VVIP 2"],
+    features: [
+      "Daily access to both VVIP 1 and VVIP 2 slips",
+      "Odds from 5.0 up to 30.0+",
+      "SportyBet booking codes updated daily",
+      "Safety Net: Replacement game when slips fail (as-needed cover)",
+      "Valid for 30 full days",
+    ],
+    is_active: true,
+    admin_notes: "",
+    sort_order: 3,
+  },
+  {
+    id: "sub_vip_combo",
+    name: "VIP Combo Pass",
+    badge: "Safe & Steady",
+    price: 120,
+    original_price: 160,
+    category: "combo",
+    duration_days: 30,
+    tagline: "Covers BOTH VIP 1 & VIP 2 — safe banker slips for steady, daily winning.",
+    packages_covered: ["VIP 1", "VIP 2"],
+    features: [
+      "Daily access to both VIP 1 and VIP 2 slips",
+      "Safe banker odds (2.0 to 7.0 odds)",
+      "SportyBet booking codes ready to bet",
+      "Best for members growing their money safely",
+      "Safety Net: Replacement game when slips fail (as-needed cover)",
+      "Valid for 30 full days",
+    ],
+    is_active: true,
+    admin_notes: "",
+    sort_order: 4,
+  },
+  {
+    id: "sub_vip_1",
+    name: "VIP 1 Monthly Pass",
+    badge: "Daily Bankers",
+    price: 70,
+    original_price: 90,
+    category: "single",
+    duration_days: 30,
+    tagline: "Safe daily banker games (2.00 – 3.50 odds) engineered for steady wins.",
+    packages_covered: ["VIP 1"],
+    features: ["Daily VIP 1 banker predictions", "2.00 – 3.50 Odds", "Booking code included", "Valid for 30 days"],
+    is_active: true,
+    admin_notes: "",
+    sort_order: 5,
+  },
+  {
+    id: "sub_vip_2",
+    name: "VIP 2 Monthly Pass",
+    badge: "Value Multis",
+    price: 70,
+    original_price: 90,
+    category: "single",
+    duration_days: 30,
+    tagline: "Balanced multi-bets (3.50 – 7.00 odds) across top European leagues.",
+    packages_covered: ["VIP 2"],
+    features: ["Daily VIP 2 value predictions", "3.50 – 7.00 Odds", "Booking code included", "Valid for 30 days"],
+    is_active: true,
+    admin_notes: "",
+    sort_order: 6,
+  },
+  {
+    id: "sub_vvip_1",
+    name: "VVIP 1 Monthly Pass",
+    badge: "Premium Picks",
+    price: 130,
+    original_price: 160,
+    category: "single",
+    duration_days: 30,
+    tagline: "Premium slips (5.00 – 15.00 odds) with higher payouts.",
+    packages_covered: ["VVIP 1"],
+    features: ["Daily VVIP 1 premium predictions", "5.00 – 15.00 Odds", "Booking code included", "Valid for 30 days"],
+    is_active: true,
+    admin_notes: "",
+    sort_order: 7,
+  },
+  {
+    id: "sub_vvip_2",
+    name: "VVIP 2 Monthly Pass",
+    badge: "Accumulators",
+    price: 130,
+    original_price: 160,
+    category: "single",
+    duration_days: 30,
+    tagline: "Big odds accumulator slips (10.00 – 30.00+ odds) for major wins.",
+    packages_covered: ["VVIP 2"],
+    features: ["Daily VVIP 2 mega accumulator", "10.00 – 30.00+ Odds", "Booking code included", "Valid for 30 days"],
+    is_active: true,
+    admin_notes: "",
+    sort_order: 8,
+  },
+];
 
 function SectionCard({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
@@ -69,6 +221,77 @@ function AdminSettingsPage() {
       });
     }
   }, [remoteSettings]);
+
+  // ── Subscription Plans Management ──
+  const [plans, setPlans] = useState<any[]>(DEFAULT_SUBSCRIPTION_PLANS);
+  const [editingPlanCategory, setEditingPlanCategory] = useState<"all" | "combo" | "single">("all");
+
+  const { data: dbSubscriptionPlans } = useQuery({
+    queryKey: ["subscription_plans_admin"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("subscription_plans")
+        .select("*")
+        .order("sort_order", { ascending: true });
+      if (error) {
+        console.warn("Could not load subscription_plans:", error);
+        return [];
+      }
+      return data || [];
+    },
+  });
+
+  useEffect(() => {
+    if (dbSubscriptionPlans && dbSubscriptionPlans.length > 0) {
+      const merged = DEFAULT_SUBSCRIPTION_PLANS.map((def) => {
+        const found = dbSubscriptionPlans.find((p: any) => p.id === def.id);
+        return found ? { ...def, ...found } : def;
+      });
+      const customOnes = dbSubscriptionPlans.filter(
+        (p: any) => !DEFAULT_SUBSCRIPTION_PLANS.some((def) => def.id === p.id)
+      );
+      setPlans([...merged, ...customOnes]);
+    }
+  }, [dbSubscriptionPlans]);
+
+  const savePlansMutation = useMutation({
+    mutationFn: async () => {
+      const payload = plans.map((p, idx) => ({
+        id: p.id,
+        name: p.name,
+        badge: p.badge || null,
+        price: Number(p.price || 0),
+        original_price: p.original_price ? Number(p.original_price) : null,
+        duration_days: Number(p.duration_days || 30),
+        tagline: p.tagline || "",
+        category: p.category || "combo",
+        packages_covered: p.packages_covered || [],
+        features: p.features || [],
+        is_active: p.is_active ?? true,
+        sort_order: p.sort_order ?? (idx + 1),
+        admin_notes: p.admin_notes || "",
+        updated_at: new Date().toISOString(),
+      }));
+
+      const { error } = await supabase
+        .from("subscription_plans")
+        .upsert(payload, { onConflict: "id" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["subscription_plans"] });
+      queryClient.invalidateQueries({ queryKey: ["subscription_plans_admin"] });
+      queryClient.invalidateQueries({ queryKey: ["checkout_pkg"] });
+      toast.success("Subscription plans & prices updated successfully!");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to update subscription plans");
+    },
+  });
+
+  const handlePlanChange = (planId: string, field: string, value: any) => {
+    setPlans(prev => prev.map(p => p.id === planId ? { ...p, [field]: value } : p));
+  };
 
   const { user } = useAuth();
   const [pwForm, setPwForm] = useState({ current: "", newPw: "", confirm: "" });
@@ -339,6 +562,209 @@ function AdminSettingsPage() {
               </p>
             </div>
           )}
+        </SectionCard>
+
+        {/* VIP Subscription Plans & Pricing Control */}
+        <SectionCard icon={<Repeat size={17} />} title="VIP Subscription Plans & Pricing (Negotiation & Discounts)">
+          <div style={{ marginBottom: "16px" }}>
+            <div style={{
+              background: "rgba(16, 185, 129, 0.08)",
+              border: "1px solid rgba(16, 185, 129, 0.25)",
+              padding: "14px 16px",
+              borderRadius: "10px",
+              marginBottom: "16px",
+              fontSize: "12px",
+              color: "var(--foreground)",
+              lineHeight: 1.5,
+            }}>
+              <strong style={{ color: "#10b981" }}>💡 Admin Pricing & Negotiation Leverage:</strong>
+              <p style={{ margin: "4px 0 0", color: "var(--muted-foreground)" }}>
+                Edit the live monthly prices here. The <strong>Original Price</strong> is shown as a strikethrough discount on the website (e.g. <span style={{ textDecoration: "line-through" }}>GHS 500</span> GHS 350) which provides immediate perceived value. Use <strong>Admin Notes</strong> to track custom negotiated deals (e.g. for VIP groups or WhatsApp customers).
+              </p>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px", marginBottom: "16px" }}>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <button
+                  type="button"
+                  onClick={() => setEditingPlanCategory("all")}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid var(--border)",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    background: editingPlanCategory === "all" ? "var(--foreground)" : "var(--secondary)",
+                    color: editingPlanCategory === "all" ? "var(--background)" : "var(--muted-foreground)",
+                  }}
+                >
+                  All Plans ({plans.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingPlanCategory("combo")}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid var(--border)",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    background: editingPlanCategory === "combo" ? "var(--foreground)" : "var(--secondary)",
+                    color: editingPlanCategory === "combo" ? "var(--background)" : "var(--muted-foreground)",
+                  }}
+                >
+                  Tier Combos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingPlanCategory("single")}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid var(--border)",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    background: editingPlanCategory === "single" ? "var(--foreground)" : "var(--secondary)",
+                    color: editingPlanCategory === "single" ? "var(--background)" : "var(--muted-foreground)",
+                  }}
+                >
+                  Single Passes
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => savePlansMutation.mutate()}
+                disabled={savePlansMutation.isPending}
+                className="admin-btn-green"
+                style={{ fontSize: "12px", padding: "8px 16px" }}
+              >
+                <Save size={14} /> {savePlansMutation.isPending ? "Saving Plans..." : "Save Plans & Prices"}
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {plans
+                .filter(p => editingPlanCategory === "all" || p.category === editingPlanCategory)
+                .map((plan) => (
+                  <div
+                    key={plan.id}
+                    style={{
+                      padding: "16px",
+                      borderRadius: "10px",
+                      border: "1px solid var(--border)",
+                      background: "var(--secondary)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "12px",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span style={{ fontWeight: 700, fontSize: "14px", color: "var(--foreground)" }}>
+                          {plan.name}
+                        </span>
+                        <span style={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          padding: "2px 8px",
+                          borderRadius: "12px",
+                          background: plan.category === "combo" ? "rgba(16, 185, 129, 0.15)" : "rgba(59, 130, 246, 0.15)",
+                          color: plan.category === "combo" ? "#10b981" : "#3b82f6",
+                          textTransform: "uppercase",
+                        }}>
+                          {plan.category === "combo" ? "Tier Combo" : "Single Package"}
+                        </span>
+                      </div>
+
+                      <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "12px", color: "var(--foreground)" }}>
+                        <input
+                          type="checkbox"
+                          checked={plan.is_active ?? true}
+                          onChange={(e) => handlePlanChange(plan.id, "is_active", e.target.checked)}
+                          style={{ width: "16px", height: "16px", accentColor: "#10b981", cursor: "pointer" }}
+                        />
+                        <span>Active on site</span>
+                      </label>
+                    </div>
+
+                    <p style={{ margin: 0, fontSize: "11px", color: "var(--muted-foreground)" }}>
+                      {plan.tagline}
+                    </p>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "12px" }}>
+                      <div>
+                        <label className="admin-label" style={{ fontSize: "11px" }}>
+                          Selling Price (GHS)
+                        </label>
+                        <input
+                          className="admin-input"
+                          type="number"
+                          step="1"
+                          value={plan.price}
+                          onChange={(e) => handlePlanChange(plan.id, "price", Number(e.target.value))}
+                          style={{ fontWeight: 700, color: "#10b981" }}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="admin-label" style={{ fontSize: "11px" }}>
+                          Original / Strikethrough (GHS)
+                        </label>
+                        <input
+                          className="admin-input"
+                          type="number"
+                          step="1"
+                          placeholder="e.g. 500"
+                          value={plan.original_price ?? ""}
+                          onChange={(e) => handlePlanChange(plan.id, "original_price", e.target.value ? Number(e.target.value) : null)}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="admin-label" style={{ fontSize: "11px" }}>
+                          Badge Tag
+                        </label>
+                        <input
+                          className="admin-input"
+                          type="text"
+                          placeholder="e.g. Most Popular, 30% OFF"
+                          value={plan.badge ?? ""}
+                          onChange={(e) => handlePlanChange(plan.id, "badge", e.target.value)}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="admin-label" style={{ fontSize: "11px" }}>
+                          Admin Notes (Private Negotiation Log)
+                        </label>
+                        <input
+                          className="admin-input"
+                          type="text"
+                          placeholder="e.g. Negotiated 250 for WhatsApp VIPs"
+                          value={plan.admin_notes ?? ""}
+                          onChange={(e) => handlePlanChange(plan.id, "admin_notes", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+            <div style={{ marginTop: "16px", display: "flex", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => savePlansMutation.mutate()}
+                disabled={savePlansMutation.isPending}
+                className="admin-btn-green"
+              >
+                <Save size={15} /> {savePlansMutation.isPending ? "Saving Changes..." : "Save All Subscription Plans"}
+              </button>
+            </div>
+          </div>
         </SectionCard>
 
         {/* Support */}
