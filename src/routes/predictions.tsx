@@ -1,11 +1,11 @@
-import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, redirect, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { supabase } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Lock, ShoppingCart, Clock, Crown, Check, Copy, Eye, EyeOff, Search, Trophy, Filter, Sparkles } from "lucide-react";
+import { Lock, ShoppingCart, Clock, Crown, Check, Copy, Eye, EyeOff, Search, Trophy, Filter, Sparkles, Repeat } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { PAYSTACK_ENABLED, paystackPay } from "@/lib/paystack";
 import { hasUserPurchasedPackage } from "@/lib/ticket-utils";
@@ -764,6 +764,15 @@ function PredictionsPage() {
               <p className="text-slate-500 dark:text-slate-400 text-sm mt-3 mb-0 font-medium max-w-md mx-auto">
                 Unlock exclusive high-odds predictions and guaranteed returns with our premium tiers.
               </p>
+              <div className="mt-5 flex items-center justify-center">
+                <Link
+                  to="/subscriptions"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold text-xs border border-emerald-500/20 transition-all hover:scale-105 no-underline shadow-sm"
+                >
+                  <Repeat className="w-3.5 h-3.5 text-emerald-500" />
+                  Looking for unlimited packages? Monthly Subscriptions from GHS 50/mo →
+                </Link>
+              </div>
             </div>
 
             {packagesIsLoading ? (

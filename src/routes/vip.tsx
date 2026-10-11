@@ -1,12 +1,12 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { supabase } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
-import { Lock, ShoppingCart, Check, Crown, Gift, ArrowRight, Clock } from "lucide-react";
+import { Lock, ShoppingCart, Check, Crown, Gift, ArrowRight, Clock, Sparkles, Star, Zap, BadgeCheck, CalendarDays, Repeat } from "lucide-react";
 import { PAYSTACK_ENABLED, paystackPay } from "@/lib/paystack";
 import { hasUserPurchasedPackage } from "@/lib/ticket-utils";
 
@@ -68,9 +68,42 @@ function VipPage() {
         .neq("id", "recovery")
         .order("id");
       if (error) throw error;
-      return (data || []).filter((p: any) => p.id !== "recovery");
+      // Exclude recovery and subscription virtual packages from the regular grid
+      return (data || []).filter((p: any) => p.id !== "recovery" && !p.id.startsWith("sub_"));
     },
   });
+
+  // Fetch user's active subscriptions
+  const { data: userSubscriptions = [] } = useQuery({
+    queryKey: ["user_subscriptions", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) return [];
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  // If user already has an active All-Access VIP pass, redirect them to dashboard
+  const activeAllAccess = userSubscriptions.find(
+    (s: any) =>
+      s.status === "active" &&
+      s.subscription_type === "all_access" &&
+      s.expires_at &&
+      new Date(s.expires_at) > new Date()
+  );
+
+  useEffect(() => {
+    if (activeAllAccess) {
+      toast.info("Your All-Access VIP Pass is active! All games and booking codes are unlocked on your dashboard.");
+      navigate({ to: "/dashboard" });
+    }
+  }, [activeAllAccess, navigate]);
 
   const { data: vipSelections = [] } = useQuery({
     queryKey: ["vip_package_fixtures"],
@@ -113,6 +146,22 @@ function VipPage() {
     sel.fixtures ?? allFixtures.find((f: any) => f.id === sel.fixture_id) ?? null;
 
   const hasPurchased = (pkgId: string) => {
+    // 1. Check active VIP monthly subscription covering this package
+    const now = new Date();
+    const hasActiveSub = userSubscriptions.some((s: any) => {
+      if (s.status !== "active") return false;
+      if (s.expires_at && new Date(s.expires_at) < now) return false;
+      const t = s.subscription_type;
+      if (t === "all_access") return true;
+      if (t === pkgId || t === `sub_${pkgId}`) return true;
+      if ((t === "vip_combo" || t === "silver") && (pkgId === "vip_1" || pkgId === "vip_2")) return true;
+      if ((t === "vvip_combo" || t === "gold") && (pkgId === "vvip_1" || pkgId === "vvip_2")) return true;
+      if ((t === "supreme_vvip" || t === "supreme" || t === "platinum") && pkgId === "supreme_vvip") return true;
+      return false;
+    });
+    if (hasActiveSub) return true;
+
+    // 2. Individual ticket check
     const pkg = vipPackages.find((p) => p.id === pkgId);
     return pkg ? hasUserPurchasedPackage(userTickets, pkg) : false;
   };
@@ -235,6 +284,16 @@ function VipPage() {
         <p className="mx-auto text-slate-600 dark:text-slate-400 text-base font-medium w-[95%] sm:w-[92%] max-w-4xl leading-relaxed">
           Premium multi-match prediction packages with our highest confidence ratings. Purchase to instantly unlock the booking code.
         </p>
+
+        <div className="mt-8 flex items-center justify-center gap-3 flex-wrap">
+          <Link
+            to="/subscriptions"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold text-xs border border-emerald-500/20 transition-all hover:scale-105 no-underline shadow-sm"
+          >
+            <Repeat className="w-3.5 h-3.5 text-emerald-500" />
+            Prefer unlimited access? View Monthly VIP Subscriptions →
+          </Link>
+        </div>
       </div>
 
       <main className="flex-1 w-[95%] sm:w-[92%] max-w-7xl mx-auto px-5 pb-24 relative z-10">
@@ -479,6 +538,31 @@ function VipPage() {
         })()}
       </main>
 
+      {/* ── MONTHLY SUBSCRIPTION PROMO BANNER ─────────────────────────── */}
+      <section className="w-[95%] sm:w-[92%] max-w-7xl mx-auto px-5 pb-24">
+        <div className="relative rounded-3xl p-8 sm:p-12 bg-gradient-to-r from-slate-900 via-slate-900 to-black text-white border border-emerald-500/30 overflow-hidden shadow-2xl">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
+            <div className="max-w-2xl">
+              <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-xs mb-4 border border-emerald-500/30">
+                <Repeat className="w-3.5 h-3.5" /> Save Up To 60%
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-black mb-3 tracking-tight">
+                Get Unlimited Access with a Monthly Subscription
+              </h2>
+              <p className="text-slate-300 text-sm leading-relaxed m-0">
+                Never miss an upload or repurchased individual slip. Monthly membership gives you continuous automatic access to all VIP packages and daily booking codes directly in your dashboard.
+              </p>
+            </div>
+            <Link
+              to="/subscriptions"
+              className="shrink-0 px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-sm rounded-xl transition-all hover:scale-105 shadow-lg shadow-emerald-500/25 flex items-center gap-2 no-underline"
+            >
+              Explore Monthly Plans <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
 
       <SiteFooter />
 

@@ -75,6 +75,19 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Align global green palette to the sophisticated emerald pricing/subscription tone */
+  --color-green-50: #ECFDF5;
+  --color-green-100: #D1FAE5;
+  --color-green-200: #A7F3D0;
+  --color-green-300: #6EE7B7;
+  --color-green-400: #34D399;
+  --color-green-500: #10B981;
+  --color-green-600: #059669;
+  --color-green-700: #047857;
+  --color-green-800: #065F46;
+  --color-green-900: #064E3B;
+  --color-green-950: #022C22;
 }
 
 :root {
@@ -105,7 +118,7 @@
   --border: #E2E8F0;
   --input: #E2E8F0;
   --ring: #047857;
-  --success: #16A34A;
+  --success: #059669;
   --warning: #F59E0B;
   
   --chart-1: #16A34A;
@@ -152,7 +165,7 @@
   --border: #243449;
   --input: #243449;
   --ring: #10B981;
-  --success: #22C55E;
+  --success: #10B981;
   --warning: #FBBF24;
   
   --chart-1: #10B981;

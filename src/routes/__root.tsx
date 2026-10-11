@@ -12,7 +12,7 @@ import {
 import { useEffect, useState, type ReactNode } from "react";
 import {
   Home, Target, Crown, User, LayoutDashboard,
-  CreditCard, Settings, LogOut, X, ChevronRight,
+  CreditCard, Settings, LogOut, X, ChevronRight, Repeat,
 } from "lucide-react";
 
 import appCss from "../styles.css?url";
@@ -222,6 +222,12 @@ function AccountDrawer({ open, onClose }: { open: boolean; onClose: () => void }
             label="VIP Packages"
             description="Browse premium tips"
             onClick={() => go("/vip")}
+          />
+          <DrawerItem
+            icon={<Repeat className="w-[18px] h-[18px] text-emerald-500" />}
+            label="VIP Subscriptions"
+            description="Unlimited monthly packages"
+            onClick={() => go("/subscriptions")}
           />
           <DrawerItem
             icon={<Settings className="w-[18px] h-[18px]" />}

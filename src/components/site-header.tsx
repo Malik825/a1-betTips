@@ -2,7 +2,7 @@ import React from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Logo } from "@/components/logo";
-import { LogOut, ChevronDown, User, LayoutDashboard, Settings, Home, Target, Crown, Info } from "lucide-react";
+import { LogOut, ChevronDown, User, LayoutDashboard, Settings, Home, Target, Crown, Info, Repeat } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { useQuery } from "@tanstack/react-query";
@@ -19,6 +19,7 @@ const nav = [
   { label: "Home", to: "/" },
   { label: "Analytics", to: "/predictions" },
   { label: "VIP Access", to: "/vip" },
+  { label: "Subscriptions", to: "/subscriptions" },
   { label: "About Us", to: "/about" },
   { label: "Contact", to: "/contact" },
 ] as const;
@@ -49,6 +50,28 @@ export function SiteHeader() {
     enabled: !!user,
   });
 
+  const { data: userSubscriptions = [] } = useQuery({
+    queryKey: ["user_subscriptions_header", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .select("subscription_type, status, expires_at")
+        .eq("user_id", user.id)
+        .eq("status", "active");
+      if (error) return [];
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  const hasAllAccess = userSubscriptions.some(
+    (s: any) =>
+      s.subscription_type === "all_access" &&
+      s.expires_at &&
+      new Date(s.expires_at) > new Date()
+  );
+
   const isAdmin = profile?.role === "admin" || user?.app_metadata?.role === "admin";
   const displayName = user?.user_metadata?.name || user?.email?.split("@")[0] || "there";
 
@@ -63,17 +86,26 @@ export function SiteHeader() {
           </Link>
 
           <nav className="hidden flex-1 items-center justify-center gap-8 md:flex">
-            {nav.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                className="text-sm font-semibold transition-colors text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
-                activeProps={{ className: "text-green-500" }}
-                activeOptions={{ exact: item.to === "/" }}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {nav.map((item) => {
+              const target = (hasAllAccess && (item.to === "/vip" || item.to === "/subscriptions"))
+                ? "/dashboard"
+                : item.to;
+              const label = (hasAllAccess && item.to === "/subscriptions")
+                ? "👑 VIP Dashboard"
+                : item.label;
+
+              return (
+                <Link
+                  key={item.to}
+                  to={target}
+                  className="text-sm font-semibold transition-colors text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+                  activeProps={{ className: "text-emerald-500 font-bold" }}
+                  activeOptions={{ exact: item.to === "/" }}
+                >
+                  {label}
+                </Link>
+              );
+            })}
           </nav>
 
           <div className="hidden items-center gap-4 md:flex">
@@ -81,22 +113,28 @@ export function SiteHeader() {
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors outline-none focus:ring-2 focus:ring-green-500/50 border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10">
+                  <button className="flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors outline-none focus:ring-2 focus:ring-emerald-500/50 border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10">
                     <User className="size-4" />
                     <span className="max-w-32 truncate">Hi, {displayName}</span>
                     <ChevronDown className="size-4 opacity-50" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 font-medium">
+                <DropdownMenuContent align="end" className="w-52 font-medium">
                   <DropdownMenuItem asChild>
                     <Link to="/dashboard" className="cursor-pointer flex items-center">
                       <LayoutDashboard className="mr-2 size-4" />
                       Dashboard
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/subscriptions" className="cursor-pointer flex items-center">
+                      <Repeat className="mr-2 size-4 text-emerald-500" />
+                      VIP Subscriptions
+                    </Link>
+                  </DropdownMenuItem>
                   {isAdmin && (
                     <DropdownMenuItem asChild>
-                      <Link to="/admin" className="cursor-pointer flex items-center text-green-500 hover:text-green-600 focus:text-green-600">
+                      <Link to="/admin" className="cursor-pointer flex items-center text-emerald-500 hover:text-emerald-600 focus:text-emerald-600">
                         <Settings className="mr-2 size-4" />
                         Admin Console
                       </Link>

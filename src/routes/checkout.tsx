@@ -75,11 +75,52 @@ function CheckoutPage() {
     if (user?.user_metadata?.full_name) setSenderName(user.user_metadata.full_name);
   }, [user]);
 
+  // Local subscription package config (covers all game packages in the system)
+  const SUBSCRIPTION_PACKAGES: Record<string, { id: string; name: string; price: number }> = {
+    sub_all_access:   { id: "sub_all_access",   name: "All-Access VIP Monthly Pass",          price: 350 },
+    sub_supreme_vvip: { id: "sub_supreme_vvip", name: "Supreme VVIP Monthly Pass 👑",        price: 280 },
+    sub_supreme:      { id: "sub_supreme",      name: "Supreme VVIP Monthly Pass 👑",        price: 280 },
+    sub_vvip_combo:   { id: "sub_vvip_combo",   name: "VVIP Combo Monthly Pass (VVIP 1 & 2)", price: 220 },
+    sub_vip_combo:    { id: "sub_vip_combo",    name: "VIP Combo Monthly Pass (VIP 1 & 2)",   price: 120 },
+    sub_vip_1:        { id: "sub_vip_1",        name: "VIP 1 Monthly Pass",                   price: 70  },
+    sub_vip_2:        { id: "sub_vip_2",        name: "VIP 2 Monthly Pass",                   price: 70  },
+    sub_vvip_1:       { id: "sub_vvip_1",       name: "VVIP 1 Monthly Pass",                  price: 130 },
+    sub_vvip_2:       { id: "sub_vvip_2",       name: "VVIP 2 Monthly Pass",                  price: 130 },
+    // Backwards compatibility for legacy plans
+    sub_silver:       { id: "sub_silver",       name: "Silver VIP Monthly Subscription",      price: 100 },
+    sub_gold:         { id: "sub_gold",         name: "Gold VIP Monthly Subscription",        price: 180 },
+    sub_platinum:     { id: "sub_platinum",     name: "Platinum VIP Monthly Subscription",    price: 250 },
+    sub_vip1:         { id: "sub_vip1",         name: "VIP 1 Monthly Subscription",           price: 70  },
+    sub_vip2:         { id: "sub_vip2",         name: "VIP 2 Monthly Subscription",           price: 70  },
+    sub_vip3:         { id: "sub_vip3",         name: "VIP 3 Monthly Subscription",           price: 70  },
+  };
+  const isSubscription = pkgId?.startsWith("sub_");
+
   // ── Data ──────────────────────────────────────────────────────────────────
   const { data: pkg, isLoading: pkgLoading } = useQuery({
     queryKey: ["checkout_pkg", pkgId],
     queryFn: async () => {
       if (!pkgId) return null;
+      // Subscription packages: query dynamic admin-configured price first
+      if (isSubscription) {
+        try {
+          const { data: dbSubPlan } = await supabase
+            .from("subscription_plans")
+            .select("id, name, price")
+            .eq("id", pkgId)
+            .maybeSingle();
+          if (dbSubPlan) {
+            return {
+              id: dbSubPlan.id,
+              name: dbSubPlan.name,
+              price: Number(dbSubPlan.price),
+            };
+          }
+        } catch (e) {
+          console.warn("Could not load dynamic subscription plan, using fallback:", e);
+        }
+        return SUBSCRIPTION_PACKAGES[pkgId] ?? null;
+      }
       const { data, error } = await supabase
         .from("secure_vip_packages")
         .select("id, name, price, combined_odds")
@@ -170,24 +211,42 @@ function CheckoutPage() {
       }
 
       const amountPaid = activeMerchant === "nigeria" && priceNGN ? priceNGN : priceGHS;
+      const refCode = `MOMO-${Date.now().toString(36).toUpperCase()}`;
 
+      // Always insert into manual_payments so admin sees it in the payments tab
       const { error } = await supabase.from("manual_payments").insert({
         user_id: user.id,
         package_id: pkg.id,
         amount: priceGHS,
         sender_name: senderName.trim(),
         sender_phone: "N/A",
-        reference_code: `MOMO-${Date.now().toString(36).toUpperCase()}`,
+        reference_code: refCode,
         transaction_id: null,
         network: `${MERCHANTS[activeMerchant].flag} ${networkLabel} (${activeMerchant === "nigeria" ? `₦${amountPaid.toLocaleString()}` : `GHS ${priceGHS.toFixed(2)}`})`,
         proof_url: proofUrl,
         status: "pending",
       });
       if (error) throw error;
+
+      // For subscription packages, also create a subscriptions row
+      if (isSubscription) {
+        const subscriptionType = pkgId.replace("sub_", ""); // e.g. "sub_all_access" → "all_access"
+        const { error: subError } = await supabase.from("subscriptions").insert({
+          user_id: user.id,
+          subscription_type: subscriptionType,
+          status: "pending",
+          amount_paid: priceGHS,
+          payment_ref: refCode,
+          proof_url: proofUrl,
+        });
+        if (subError) console.warn("Could not create subscription row:", subError);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user_manual_payments"] });
       queryClient.invalidateQueries({ queryKey: ["admin_manual_payments"] });
+      queryClient.invalidateQueries({ queryKey: ["user_subscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin_subscriptions"] });
       setSuccess(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
@@ -309,9 +368,9 @@ function CheckoutPage() {
                   <div>
                     <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500 mb-1">You're purchasing</p>
                     <h2 className="text-xl font-black text-white">{pkg?.name}</h2>
-                    {pkg?.combined_odds && (
+                    {(pkg as any)?.combined_odds && (
                       <p className="text-xs text-slate-400 mt-1">
-                        Combined Odds: <span className="font-bold text-white">{Number(pkg.combined_odds).toFixed(2)}</span>
+                        Combined Odds: <span className="font-bold text-white">{Number((pkg as any).combined_odds).toFixed(2)}</span>
                       </p>
                     )}
                   </div>

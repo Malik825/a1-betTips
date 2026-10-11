@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
-import { Crown, MessageCircle, Send, ShieldCheck, Target, TrendingUp, Lock, Copy, Check, ArrowRight, Zap, Star, Trophy, Clock } from "lucide-react";
+import { Crown, MessageCircle, Send, ShieldCheck, Target, TrendingUp, Lock, Copy, Check, ArrowRight, Zap, Star, Trophy, Clock, Repeat } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -581,11 +581,17 @@ function HomePage() {
               >
                 View All Predictions <ArrowRight className="w-4 h-4" />
               </Link>
+              <Link
+                to="/subscriptions"
+                className="inline-flex items-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-bold text-[12px] px-6 py-3 rounded-xl no-underline transition-all hover:-translate-y-0.5"
+              >
+                <Repeat className="w-4 h-4 text-emerald-500" /> Monthly VIP Plans
+              </Link>
             </div>
           </div>
         </section>
 
-        {/* â”€â”€â”€ FINAL CTA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ─── FINAL CTA ──────────────────────────────────────────────── */}
         <section ref={ctaRef} className="py-24 px-6 bg-slate-900 dark:bg-slate-950 text-center transition-colors relative overflow-hidden">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(34,197,94,0.08)_0%,_transparent_70%)] pointer-events-none" />
           <div className="relative z-10 w-[95%] sm:w-[92%] max-w-4xl mx-auto">
@@ -604,9 +610,15 @@ function HomePage() {
               <Link
                 to="/vip"
                 id="cta-access-vip"
-                className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-black font-black text-[13px] px-10 py-4 rounded-xl no-underline shadow-[0_4px_24px_rgba(34,197,94,0.35)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(34,197,94,0.4)]"
+                className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-black font-black text-[13px] px-8 py-4 rounded-xl no-underline shadow-[0_4px_24px_rgba(34,197,94,0.35)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(34,197,94,0.4)]"
               >
                 <Crown className="w-5 h-5" /> Access VIP Now
+              </Link>
+              <Link
+                to="/subscriptions"
+                className="inline-flex items-center gap-2 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 font-bold text-[13px] px-8 py-4 rounded-xl no-underline transition-all hover:-translate-y-0.5"
+              >
+                <Repeat className="w-4 h-4 text-emerald-400" /> Monthly Subscriptions
               </Link>
               <Link
                 to="/register"
