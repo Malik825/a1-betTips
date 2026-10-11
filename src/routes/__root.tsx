@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
@@ -147,6 +147,24 @@ function AccountDrawer({ open, onClose }: { open: boolean; onClose: () => void }
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  const { data: profile } = useQuery({
+    queryKey: ["drawer_profile_role", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const ADMIN_ROLES = ["admin", "superadmin", "super-admin", "super_admin"];
+  const checkRole = (r?: any) => Boolean(r && typeof r === "string" && ADMIN_ROLES.includes(r.toLowerCase().trim()));
+  const isAdmin = checkRole(profile?.role) || checkRole(user?.app_metadata?.role) || checkRole(user?.user_metadata?.role);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     onClose();
@@ -205,6 +223,14 @@ function AccountDrawer({ open, onClose }: { open: boolean; onClose: () => void }
 
         {/* Menu items */}
         <div className="px-3 py-3 space-y-1">
+          {isAdmin && (
+            <DrawerItem
+              icon={<Settings className="w-[18px] h-[18px] text-emerald-500" />}
+              label="Admin Console"
+              description="Manage games, payments & users"
+              onClick={() => go("/admin")}
+            />
+          )}
           <DrawerItem
             icon={<LayoutDashboard className="w-[18px] h-[18px]" />}
             label="Dashboard"

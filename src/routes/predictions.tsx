@@ -208,7 +208,7 @@ function PredictionsPage() {
         .neq("id", "recovery")
         .order("id");
       if (error) throw error;
-      return (data || []).filter((p: any) => p.id !== "recovery");
+      return (data || []).filter((p: any) => p.id !== "recovery" && !p.id.startsWith("sub_"));
     },
     staleTime: 1000 * 30,
     refetchOnWindowFocus: true,
@@ -794,7 +794,7 @@ function PredictionsPage() {
               </div>
             ) : (() => {
               const allVisible = vipPackages
-                .filter((pkg) => pkg.id !== "recovery")
+                .filter((pkg) => pkg.id !== "recovery" && !pkg.id.startsWith("sub_"))
                 .filter((pkg) => {
                   const pkgSels = vipSelections.filter((s) => s.package_id === pkg.id);
                   const purchased = hasPurchased(pkg.id);

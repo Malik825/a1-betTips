@@ -85,6 +85,31 @@ function AdminLayout() {
   // Mobile open state (drawer overlay)
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Check profile role as well as JWT app_metadata / user_metadata
+  const { data: profile, isLoading: isProfileLoading } = useQuery({
+    queryKey: ["admin_profile_role", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const ADMIN_ROLES = ["admin", "superadmin", "super-admin", "super_admin"];
+  const checkRole = (r?: any) => Boolean(r && typeof r === "string" && ADMIN_ROLES.includes(r.toLowerCase().trim()));
+
+  const isAdmin =
+    checkRole(user?.app_metadata?.role) ||
+    checkRole(user?.user_metadata?.role) ||
+    checkRole(profile?.role);
+
+  const checkingAuth = isLoading || (!!user && isProfileLoading && !isAdmin);
+
   // Pending payments count query - must be called before any conditional return
   const { data: pendingPaymentsCount = 0 } = useQuery({
     queryKey: ["admin_pending_payments_count"],
@@ -96,19 +121,19 @@ function AdminLayout() {
       if (error) return 0;
       return count || 0;
     },
-    enabled: !isLoading && !!user && user.app_metadata?.role === "admin",
+    enabled: !checkingAuth && !!user && isAdmin,
     refetchInterval: 20000,
   });
 
   useEffect(() => {
-    if (!isLoading) {
+    if (!checkingAuth) {
       if (!user) {
         navigate({ to: "/login", replace: true });
-      } else if (user.app_metadata?.role !== "admin") {
+      } else if (!isAdmin) {
         navigate({ to: "/", replace: true });
       }
     }
-  }, [user, isLoading, navigate]);
+  }, [user, checkingAuth, isAdmin, navigate]);
 
   useEffect(() => {
     setIsClient(true);
@@ -128,7 +153,7 @@ function AdminLayout() {
   // Close mobile drawer on route change
   useEffect(() => { setMobileOpen(false); }, [currentPath]);
 
-  if (isLoading || !user || user.app_metadata?.role !== "admin") {
+  if (checkingAuth || !user || !isAdmin) {
     return null; // or a loading spinner
   }
 
