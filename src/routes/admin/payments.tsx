@@ -5,7 +5,7 @@ import {
   Smartphone, AlertCircle, ArrowUpRight, CheckCircle2, 
   XCircle, Filter, ChevronDown, MoreVertical, Eye,
   ExternalLink, Calendar, User, Hash, FileText, Image as ImageIcon,
-  RotateCcw
+  RotateCcw, Bell, Copy, Crown
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -84,9 +84,11 @@ function AdminPaymentsPage() {
   const [recoverySearch, setRecoverySearch] = useState("");
   const [recoveryStatusFilter, setRecoveryStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
   const [subSearch, setSubSearch] = useState("");
-  const [subStatusFilter, setSubStatusFilter] = useState<"all" | "pending" | "active" | "expired">("pending");
+  const [subStatusFilter, setSubStatusFilter] = useState<"all" | "pending" | "active" | "cancelled" | "expired">("all");
   const [approvingSubId, setApprovingSubId] = useState<string | null>(null);
   const [rejectingSubId, setRejectingSubId] = useState<string | null>(null);
+  const [notifyingSubId, setNotifyingSubId] = useState<string | null>(null);
+  const [notifyingAll, setNotifyingAll] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectModalPayment, setRejectModalPayment] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -98,6 +100,10 @@ function AdminPaymentsPage() {
   const [viewModalRecovery, setViewModalRecovery] = useState<any | null>(null);
   const [modalProofSrc, setModalProofSrc] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [viewModalSub, setViewModalSub] = useState<any | null>(null);
+  const [approveModalSub, setApproveModalSub] = useState<any | null>(null);
+  const [rejectModalSub, setRejectModalSub] = useState<any | null>(null);
+  const [subRejectReason, setSubRejectReason] = useState("");
 
   // 1. Fetch manual payments
   const { data: payments = [], isLoading: paymentsLoading } = useQuery({
@@ -182,6 +188,16 @@ function AdminPaymentsPage() {
     },
   });
 
+  // 7. Fetch subscription plans
+  const { data: subscriptionPlans = [] } = useQuery({
+    queryKey: ["admin_subscription_plans"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("subscription_plans").select("*");
+      if (error) return [];
+      return data || [];
+    },
+  });
+
   const pendingSubsCount = allSubscriptions.filter((s: any) => s.status === "pending").length;
 
   // Approve Payment Mutation
@@ -206,30 +222,48 @@ function AdminPaymentsPage() {
         };
       });
 
-      // 2. Insert into user_tickets
-      const ticketId = `ticket_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-      const fallbackRef = payment.reference_code || payment.transaction_id || `MOMO-${payment.sender_name?.replace(/\s+/g, '_') || payment.id.substring(0, 8)}`;
-      const ticketPayload: any = {
-        id: ticketId,
-        user_id: payment.user_id,
-        package_id: payment.package_id,
-        payment_ref: fallbackRef,
-        booking_code: pkg?.booking_code || null,
-        snapshot: snapshot.length > 0 ? snapshot : null,
-        amount_paid: Number(payment.amount || pkg?.price || 0),
-        purchased_at: new Date().toISOString(),
-      };
+      // 2. Insert into user_tickets OR activate subscription
+      if (payment.package_id?.startsWith("sub_")) {
+        const now = new Date();
+        const expiresAt = new Date(now);
+        expiresAt.setDate(expiresAt.getDate() + 30);
 
-      const { error: ticketError } = await supabase.from("user_tickets").insert(ticketPayload);
-      if (ticketError) {
-        console.warn("Standard user_tickets insert failed, attempting fallback:", ticketError);
-        const { error: fallbackError } = await supabase.from("user_tickets").insert({
-          id: ticketPayload.id,
+        const { error: subError } = await supabase
+          .from("subscriptions")
+          .update({
+            status: "active",
+            starts_at: now.toISOString(),
+            expires_at: expiresAt.toISOString(),
+            approved_by: currentAdmin?.id || null,
+            updated_at: now.toISOString(),
+          })
+          .match({ user_id: payment.user_id, status: "pending" });
+        if (subError) console.warn("Could not activate subscription:", subError);
+      } else {
+        const ticketId = `ticket_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        const fallbackRef = payment.reference_code || payment.transaction_id || `MOMO-${payment.sender_name?.replace(/\s+/g, '_') || payment.id.substring(0, 8)}`;
+        const ticketPayload: any = {
+          id: ticketId,
           user_id: payment.user_id,
           package_id: payment.package_id,
           payment_ref: fallbackRef,
-        });
-        if (fallbackError) throw fallbackError;
+          booking_code: pkg?.booking_code || null,
+          snapshot: snapshot.length > 0 ? snapshot : null,
+          amount_paid: Number(payment.amount || pkg?.price || 0),
+          purchased_at: new Date().toISOString(),
+        };
+
+        const { error: ticketError } = await supabase.from("user_tickets").insert(ticketPayload);
+        if (ticketError) {
+          console.warn("Standard user_tickets insert failed, attempting fallback:", ticketError);
+          const { error: fallbackError } = await supabase.from("user_tickets").insert({
+            id: ticketPayload.id,
+            user_id: payment.user_id,
+            package_id: payment.package_id,
+            payment_ref: fallbackRef,
+          });
+          if (fallbackError) throw fallbackError;
+        }
       }
 
       // 3. Mark manual payment as approved
@@ -247,9 +281,11 @@ function AdminPaymentsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin_manual_payments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin_subscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["user_subscriptions"] });
       queryClient.invalidateQueries({ queryKey: ["all_user_tickets"] });
       queryClient.invalidateQueries({ queryKey: ["user_tickets"] });
-      toast.success("Payment approved! VIP access successfully activated for customer.");
+      toast.success("Payment approved! Access successfully activated for customer.");
       setProcessingId(null);
       setApproveModalPayment(null);
       if (viewModalPayment) setViewModalPayment(null);
@@ -265,6 +301,8 @@ function AdminPaymentsPage() {
   const rejectMutation = useMutation({
     mutationFn: async ({ paymentId, reason }: { paymentId: string; reason: string }) => {
       setProcessingId(paymentId);
+      const payment = payments.find((p: any) => p.id === paymentId);
+
       const { error } = await supabase
         .from("manual_payments")
         .update({
@@ -277,9 +315,40 @@ function AdminPaymentsPage() {
         .eq("id", paymentId);
 
       if (error) throw error;
+
+      if (payment) {
+        if (payment.package_id?.startsWith("sub_")) {
+          await supabase
+            .from("subscriptions")
+            .update({ status: "cancelled", updated_at: new Date().toISOString() })
+            .match({ user_id: payment.user_id, status: "pending" });
+
+          await supabase
+            .from("user_tickets")
+            .delete()
+            .eq("user_id", payment.user_id)
+            .eq("package_id", payment.package_id);
+        }
+
+        if (payment.reference_code) {
+          await supabase
+            .from("user_tickets")
+            .delete()
+            .eq("payment_ref", payment.reference_code);
+
+          await supabase
+            .from("subscriptions")
+            .update({ status: "cancelled", updated_at: new Date().toISOString() })
+            .eq("payment_ref", payment.reference_code);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin_manual_payments"] });
+      queryClient.invalidateQueries({ queryKey: ["admin_subscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["user_subscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["all_user_tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["user_tickets"] });
       toast.success("Payment marked as rejected.");
       setRejectModalPayment(null);
       setRejectReason("");
@@ -1898,33 +1967,49 @@ function AdminPaymentsPage() {
       {/* ── SUBSCRIPTIONS TAB ──────────────────────────────────────────── */}
       {activeMainTab === "subscriptions" && (() => {
         const SUB_TYPE_LABELS: Record<string, string> = {
-          all_access: "All-Access VIP Pass",
+          all_access: "All-Access VIP Master Pass",
           supreme_vvip: "Supreme VVIP Monthly 👑",
           supreme: "Supreme VVIP Monthly 👑",
           vvip_combo: "VVIP Combo (VVIP 1 & 2)",
           vip_combo: "VIP Combo (VIP 1 & 2)",
-          vip_1: "VIP 1 Monthly",
-          vip_2: "VIP 2 Monthly",
-          vvip_1: "VVIP 1 Monthly",
-          vvip_2: "VVIP 2 Monthly",
+          vip_1: "VIP 1 Monthly Pass",
+          vip_2: "VIP 2 Monthly Pass",
+          vvip_1: "VVIP 1 Monthly Pass",
+          vvip_2: "VVIP 2 Monthly Pass",
           silver: "Silver VIP",
           gold: "Gold VIP",
           platinum: "Platinum VIP",
-          vip1: "VIP 1 Monthly",
-          vip2: "VIP 2 Monthly",
-          vip3: "VIP 3 Monthly",
+          vip1: "VIP 1 Monthly Pass",
+          vip2: "VIP 2 Monthly Pass",
+          vip3: "VIP 3 Monthly Pass",
         };
+
+        // Stats calculations
+        const totalSubs = allSubscriptions.length;
+        const pendingSubs = allSubscriptions.filter((s: any) => s.status === "pending").length;
+        const activeSubs = allSubscriptions.filter((s: any) => s.status === "active").length;
+        const cancelledSubs = allSubscriptions.filter((s: any) => s.status === "cancelled" || s.status === "rejected").length;
+        const totalSubsRevenue = allSubscriptions
+          .filter((s: any) => s.status === "active")
+          .reduce((sum: number, s: any) => sum + Number(s.amount_paid || 0), 0);
 
         const filteredSubs = allSubscriptions
           .filter((s: any) => subStatusFilter === "all" || s.status === subStatusFilter)
           .filter((s: any) => {
             if (!subSearch.trim()) return true;
             const profile = profiles.find((p: any) => p.id === s.user_id);
+            const linkedPayment = payments.find((p: any) =>
+              (p.reference_code && p.reference_code === s.payment_ref) ||
+              (p.user_id === s.user_id && p.package_id?.includes(s.subscription_type))
+            );
             const needle = subSearch.toLowerCase();
             return (
               (profile?.email || "").toLowerCase().includes(needle) ||
               (profile?.username || "").toLowerCase().includes(needle) ||
+              (linkedPayment?.sender_name || "").toLowerCase().includes(needle) ||
+              (linkedPayment?.sender_phone || "").toLowerCase().includes(needle) ||
               (s.subscription_type || "").toLowerCase().includes(needle) ||
+              (SUB_TYPE_LABELS[s.subscription_type] || "").toLowerCase().includes(needle) ||
               (s.payment_ref || "").toLowerCase().includes(needle)
             );
           });
@@ -1947,6 +2032,18 @@ function AdminPaymentsPage() {
               .eq("id", sub.id);
             if (error) throw error;
 
+            if (sub.payment_ref) {
+              await supabase
+                .from("manual_payments")
+                .update({
+                  status: "approved",
+                  reviewed_by: currentAdmin?.id || null,
+                  reviewed_at: now.toISOString(),
+                  updated_at: now.toISOString(),
+                })
+                .eq("reference_code", sub.payment_ref);
+            }
+
             // Send in-app notification
             await supabase.from("app_notifications").insert({
               user_id: sub.user_id,
@@ -1957,7 +2054,10 @@ function AdminPaymentsPage() {
             });
 
             queryClient.invalidateQueries({ queryKey: ["admin_subscriptions"] });
+            queryClient.invalidateQueries({ queryKey: ["admin_manual_payments"] });
+            queryClient.invalidateQueries({ queryKey: ["user_subscriptions"] });
             toast.success("Subscription activated — 30 days access granted!");
+            setApproveModalSub(null);
           } catch (err: any) {
             toast.error(err.message || "Failed to approve subscription");
           } finally {
@@ -1965,16 +2065,57 @@ function AdminPaymentsPage() {
           }
         };
 
-        const rejectSubscription = async (subId: string) => {
+        const rejectSubscription = async (subId: string, reason?: string) => {
           setRejectingSubId(subId);
           try {
+            const sub = allSubscriptions.find((s: any) => s.id === subId);
+            const rejectionReason = reason || subRejectReason || "Subscription request rejected by administrator.";
             const { error } = await supabase
               .from("subscriptions")
               .update({ status: "cancelled", updated_at: new Date().toISOString() })
               .eq("id", subId);
             if (error) throw error;
+
+            if (sub?.payment_ref) {
+              await supabase
+                .from("manual_payments")
+                .update({
+                  status: "rejected",
+                  rejection_reason: rejectionReason,
+                  reviewed_by: currentAdmin?.id || null,
+                  reviewed_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("reference_code", sub.payment_ref);
+            }
+
+            if (sub) {
+              await supabase
+                .from("user_tickets")
+                .delete()
+                .eq("user_id", sub.user_id)
+                .like("package_id", "sub_%");
+            }
+
+            // Notify user
+            if (sub?.user_id) {
+              await supabase.from("app_notifications").insert({
+                user_id: sub.user_id,
+                type: "subscription_rejected",
+                title: "⚠️ Subscription Request Rejected",
+                body: `Your request for ${SUB_TYPE_LABELS[sub.subscription_type] || sub.subscription_type} was rejected: ${rejectionReason}`,
+                is_read: false,
+              });
+            }
+
             queryClient.invalidateQueries({ queryKey: ["admin_subscriptions"] });
+            queryClient.invalidateQueries({ queryKey: ["admin_manual_payments"] });
+            queryClient.invalidateQueries({ queryKey: ["user_subscriptions"] });
+            queryClient.invalidateQueries({ queryKey: ["user_tickets"] });
+            queryClient.invalidateQueries({ queryKey: ["all_user_tickets"] });
             toast.success("Subscription request rejected.");
+            setRejectModalSub(null);
+            setSubRejectReason("");
           } catch (err: any) {
             toast.error(err.message || "Failed to reject subscription");
           } finally {
@@ -1982,26 +2123,188 @@ function AdminPaymentsPage() {
           }
         };
 
+        const resetSubPending = async (subId: string) => {
+          try {
+            const sub = allSubscriptions.find((s: any) => s.id === subId);
+            await supabase
+              .from("subscriptions")
+              .update({ status: "pending", updated_at: new Date().toISOString() })
+              .eq("id", subId);
+
+            if (sub?.payment_ref) {
+              await supabase
+                .from("manual_payments")
+                .update({ status: "pending", rejection_reason: null, updated_at: new Date().toISOString() })
+                .eq("reference_code", sub.payment_ref);
+            }
+
+            queryClient.invalidateQueries({ queryKey: ["admin_subscriptions"] });
+            queryClient.invalidateQueries({ queryKey: ["admin_manual_payments"] });
+            queryClient.invalidateQueries({ queryKey: ["user_subscriptions"] });
+            toast.success("Subscription reset to pending.");
+          } catch (err: any) {
+            toast.error(err.message || "Failed to reset subscription");
+          }
+        };
+
+        const notifyUserProof = async (sub: any) => {
+          setNotifyingSubId(sub.id);
+          try {
+            const planName = SUB_TYPE_LABELS[sub.subscription_type] || sub.subscription_type;
+            const { error } = await supabase.from("app_notifications").insert({
+              user_id: sub.user_id,
+              type: "subscription_proof_required",
+              title: "📸 Payment Proof Screenshot Required",
+              body: `Please upload your payment screenshot for ${planName} on your dashboard so our team can verify and activate your 30-day VIP pass.`,
+              is_read: false,
+            });
+            if (error) throw error;
+            toast.success("Notification sent! User prompted to upload payment proof.");
+          } catch (err: any) {
+            toast.error(err.message || "Failed to send notification.");
+          } finally {
+            setNotifyingSubId(null);
+          }
+        };
+
+        const notifyAllMissingProof = async () => {
+          const targetSubs = allSubscriptions.filter(
+            (s: any) => (!s.proof_url || s.status === "cancelled" || s.status === "pending")
+          );
+          if (targetSubs.length === 0) {
+            toast.info("No subscriptions currently missing proof.");
+            return;
+          }
+
+          setNotifyingAll(true);
+          try {
+            const notifications = targetSubs.map((sub: any) => ({
+              user_id: sub.user_id,
+              type: "subscription_proof_required",
+              title: "📸 Payment Proof Screenshot Required",
+              body: `Please upload your payment screenshot for ${SUB_TYPE_LABELS[sub.subscription_type] || sub.subscription_type} on your dashboard so our team can verify and activate your 30-day VIP pass.`,
+              is_read: false,
+            }));
+
+            const { error } = await supabase.from("app_notifications").insert(notifications);
+            if (error) throw error;
+            toast.success(`Notifications sent to ${targetSubs.length} user(s) to upload payment proof!`);
+          } catch (err: any) {
+            toast.error(err.message || "Failed to broadcast notifications.");
+          } finally {
+            setNotifyingAll(false);
+          }
+        };
+
         return (
-          <div className="space-y-5 animate-in fade-in duration-200">
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* ── Subscriptions Stats Cards (Inferred from VIP payments) ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Pending Card */}
+              <div 
+                onClick={() => setSubStatusFilter("pending")}
+                className={`cursor-pointer bg-card p-4 rounded-xl border transition-all flex items-center justify-between ${
+                  subStatusFilter === "pending"
+                    ? "border-warning shadow-md shadow-warning/10 ring-2 ring-warning/30"
+                    : "border-border hover:border-border/80"
+                }`}
+              >
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Pending Review
+                  </p>
+                  <h3 className="text-2xl font-black text-warning mt-1">
+                    {pendingSubs}
+                  </h3>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-warning/15 text-warning flex items-center justify-center">
+                  <Clock size={18} />
+                </div>
+              </div>
+
+              {/* Active Card */}
+              <div 
+                onClick={() => setSubStatusFilter("active")}
+                className={`cursor-pointer bg-card p-4 rounded-xl border transition-all flex items-center justify-between ${
+                  subStatusFilter === "active"
+                    ? "border-success shadow-md shadow-success/10 ring-2 ring-success/30"
+                    : "border-border hover:border-border/80"
+                }`}
+              >
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Active Passes
+                  </p>
+                  <h3 className="text-2xl font-black text-success mt-1">
+                    {activeSubs}
+                  </h3>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-success/15 text-success flex items-center justify-center">
+                  <CheckCircle2 size={18} />
+                </div>
+              </div>
+
+              {/* Verified Sub Revenue */}
+              <div className="bg-card p-4 rounded-xl border border-border flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Verified Revenue
+                  </p>
+                  <h3 className="text-2xl font-black text-foreground mt-1">
+                    GH₵ {totalSubsRevenue.toFixed(0)}
+                  </h3>
+                  <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                    ≈ ₦{Math.ceil(totalSubsRevenue * 115).toLocaleString()}
+                  </p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center">
+                  <CreditCard size={18} />
+                </div>
+              </div>
+
+              {/* Cancelled / Expired Card */}
+              <div 
+                onClick={() => setSubStatusFilter("cancelled")}
+                className={`cursor-pointer bg-card p-4 rounded-xl border transition-all flex items-center justify-between ${
+                  subStatusFilter === "cancelled"
+                    ? "border-destructive shadow-md shadow-destructive/10 ring-2 ring-destructive/30"
+                    : "border-border hover:border-border/80"
+                }`}
+              >
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Cancelled / Expired
+                  </p>
+                  <h3 className="text-2xl font-black text-destructive mt-1">
+                    {cancelledSubs}
+                  </h3>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-destructive/15 text-destructive flex items-center justify-center">
+                  <XCircle size={18} />
+                </div>
+              </div>
+            </div>
+
+            {/* ── Subscriptions Filter Bar ── */}
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Search by email, plan, ref..."
+                  placeholder="Search by customer, email, plan, ref, phone..."
                   value={subSearch}
                   onChange={(e) => setSubSearch(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-border bg-card text-foreground outline-none focus:ring-1 focus:ring-primary/30"
                 />
               </div>
-              {(["all", "pending", "active", "expired"] as const).map((s) => (
+
+              {(["all", "pending", "active", "cancelled", "expired"] as const).map((s) => (
                 <button
                   key={s}
                   onClick={() => setSubStatusFilter(s)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer capitalize ${
                     subStatusFilter === s
-                      ? "bg-emerald-600 text-white border-emerald-500"
+                      ? "bg-foreground text-background border-foreground shadow-xs"
                       : "border-border bg-card text-muted-foreground hover:text-foreground"
                   }`}
                 >
@@ -2010,95 +2313,454 @@ function AdminPaymentsPage() {
                     : `${s} (${allSubscriptions.filter((x: any) => x.status === s).length})`}
                 </button>
               ))}
+
+              <button
+                type="button"
+                onClick={notifyAllMissingProof}
+                disabled={notifyingAll || allSubscriptions.length === 0}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black border border-amber-400 transition-all cursor-pointer disabled:opacity-60 flex items-center gap-1.5 shadow-sm ml-auto"
+              >
+                <Bell className="w-3.5 h-3.5" />
+                {notifyingAll ? "Notifying Users..." : "Notify Missing Proof"}
+              </button>
             </div>
 
+            {/* ── Subscriptions Content (Mobile Cards & Desktop Table) ── */}
             {subsLoading ? (
-              <div className="text-center py-12 text-muted-foreground text-sm">Loading subscriptions...</div>
+              <div className="text-center py-16 text-muted-foreground text-sm border border-border rounded-xl bg-card">
+                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 opacity-50" />
+                Loading subscriptions...
+              </div>
             ) : filteredSubs.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground text-sm">No subscription requests found.</div>
+              <div className="text-center py-16 text-muted-foreground text-sm border border-border rounded-xl bg-card">
+                No subscription records found matching your filter.
+              </div>
             ) : (
-              <div className="border border-border rounded-xl overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
+              <div className="border border-border rounded-xl bg-card overflow-hidden shadow-xs">
+                {/* ── Mobile Cards (hidden on sm screens) ── */}
+                <div className="sm:hidden divide-y divide-border">
+                  {filteredSubs.map((sub: any) => {
+                    const profile = profiles.find((p: any) => p.id === sub.user_id);
+                    const linkedPayment = payments.find((p: any) =>
+                      (p.reference_code && p.reference_code === sub.payment_ref) ||
+                      (p.user_id === sub.user_id && p.package_id?.includes(sub.subscription_type))
+                    );
+                    const plan = subscriptionPlans.find((pl: any) => pl.id === `sub_${sub.subscription_type}` || pl.id === sub.subscription_type);
+                    const planName = plan?.name || SUB_TYPE_LABELS[sub.subscription_type] || sub.subscription_type;
+                    const userDisplay = linkedPayment?.sender_name || profile?.username || profile?.email?.split("@")[0] || "Subscriber";
+                    const userEmail = profile?.email || `ID: ${sub.user_id.slice(0, 8)}...`;
+                    const amount = Number(sub.amount_paid || linkedPayment?.amount || plan?.price || 0);
+                    const proofUrl = sub.proof_url || linkedPayment?.proof_url;
+                    const isProcessing = approvingSubId === sub.id || rejectingSubId === sub.id;
+                    const dateInfo = formatPaymentDate(sub.created_at);
+                    const isExpired = sub.expires_at && new Date(sub.expires_at) < new Date();
+                    const expiresDate = sub.expires_at
+                      ? new Date(sub.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" })
+                      : null;
+                    const txnRef = sub.payment_ref || linkedPayment?.reference_code || "—";
+
+                    return (
+                      <div key={sub.id} className="p-4 space-y-3">
+                        {/* Top row: user info + status badge */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="font-bold text-sm text-foreground truncate block">{userDisplay}</span>
+                            <span className="text-xs text-muted-foreground truncate block">{userEmail}</span>
+                            <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                              👑 {planName}
+                            </span>
+                          </div>
+                          <div>
+                            {sub.status === "pending" && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-warning/15 border border-warning/30 text-warning">
+                                <Clock className="w-3 h-3" /> Pending
+                              </span>
+                            )}
+                            {sub.status === "active" && !isExpired && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-success/15 border border-success/30 text-success">
+                                <CheckCircle2 className="w-3 h-3" /> Active
+                              </span>
+                            )}
+                            {sub.status === "active" && isExpired && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-muted border border-border text-muted-foreground">
+                                <Clock className="w-3 h-3" /> Expired
+                              </span>
+                            )}
+                            {(sub.status === "cancelled" || sub.status === "rejected") && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-destructive/15 border border-destructive/30 text-destructive">
+                                <XCircle className="w-3 h-3" /> Cancelled
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Middle row: amount + dates + proof */}
+                        <div className="flex items-center justify-between gap-3 text-xs pt-1 border-t border-border/60">
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Amount</span>
+                            <span className="font-black text-foreground">GH₵ {amount.toFixed(0)}</span>
+                            <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 block">
+                              ≈ ₦{Math.ceil(amount * 115).toLocaleString()}
+                            </span>
+                            <span className="text-warning font-semibold text-[11px]">{linkedPayment?.network || "Mobile Money"}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Created / Expires</span>
+                            <span className="font-bold text-foreground">{dateInfo.top}</span>
+                            <span className="text-muted-foreground ml-1">{dateInfo.bottom}</span>
+                            <span className="text-[11px] text-muted-foreground block">
+                              {expiresDate ? `Exp: ${expiresDate}` : "30 days"}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Proof</span>
+                            {proofUrl ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setModalProofSrc(proofUrl);
+                                  setViewModalSub(sub);
+                                }}
+                                className="flex items-center gap-1.5 font-bold text-primary text-[11px] mt-0.5 hover:underline cursor-pointer"
+                              >
+                                <ProofImage
+                                  url={proofUrl}
+                                  alt="Proof"
+                                  className="w-7 h-7 object-cover rounded border border-border"
+                                />
+                                <span>View</span>
+                              </button>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground italic">None</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Txn reference */}
+                        <div className="text-xs flex items-center justify-between bg-section/40 p-2 rounded-lg">
+                          <span className="text-muted-foreground text-[11px]">Ref:</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(txnRef);
+                              toast.success("Reference copied!");
+                            }}
+                            className="font-mono font-bold text-[11px] text-foreground flex items-center gap-1 hover:text-primary"
+                          >
+                            <span>{txnRef}</span>
+                            <Copy className="w-3 h-3 text-muted-foreground" />
+                          </button>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setViewModalSub(sub)}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-border text-xs font-semibold text-foreground hover:bg-section transition-colors cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-muted-foreground" /> View
+                          </button>
+                          {sub.status !== "active" && (
+                            <button
+                              type="button"
+                              disabled={isProcessing}
+                              onClick={() => setApproveModalSub(sub)}
+                              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-success/15 border border-success/30 text-xs font-bold text-success hover:bg-success/25 transition-colors disabled:opacity-50 cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Approve
+                            </button>
+                          )}
+                          {sub.status !== "cancelled" && sub.status !== "rejected" && (
+                            <button
+                              type="button"
+                              disabled={isProcessing}
+                              onClick={() => setRejectModalSub(sub)}
+                              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-destructive/15 border border-destructive/30 text-xs font-bold text-destructive hover:bg-destructive/25 transition-colors disabled:opacity-50 cursor-pointer"
+                            >
+                              <XCircle className="w-3.5 h-3.5" /> Reject
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* ── Desktop Table (Inferred from VIP payments table structure) ── */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full border-collapse text-left">
                     <thead>
-                      <tr className="bg-section border-b border-border text-left">
-                        <th className="p-3.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">User</th>
-                        <th className="p-3.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Plan</th>
-                        <th className="p-3.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Amount</th>
-                        <th className="p-3.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Status</th>
-                        <th className="p-3.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Expires</th>
-                        <th className="p-3.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Submitted</th>
-                        <th className="p-3.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-right">Actions</th>
+                      <tr className="border-b border-border bg-section/70 text-[11px] font-bold tracking-wider text-muted-foreground uppercase select-none">
+                        <th className="py-3.5 px-4">USER</th>
+                        <th className="py-3.5 px-4">PLAN & AMOUNT</th>
+                        <th className="py-3.5 px-4">PROOF</th>
+                        <th className="py-3.5 px-4">DATE & VALIDITY</th>
+                        <th className="py-3.5 px-4">TXN REF</th>
+                        <th className="py-3.5 px-4">STATUS</th>
+                        <th className="py-3.5 px-4 text-right">ACTIONS</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border">
+                    <tbody className="divide-y divide-border/60">
                       {filteredSubs.map((sub: any) => {
                         const profile = profiles.find((p: any) => p.id === sub.user_id);
-                        const isApproving = approvingSubId === sub.id;
-                        const isRejecting = rejectingSubId === sub.id;
+                        const linkedPayment = payments.find((p: any) =>
+                          (p.reference_code && p.reference_code === sub.payment_ref) ||
+                          (p.user_id === sub.user_id && p.package_id?.includes(sub.subscription_type))
+                        );
+                        const plan = subscriptionPlans.find((pl: any) => pl.id === `sub_${sub.subscription_type}` || pl.id === sub.subscription_type);
+                        const planName = plan?.name || SUB_TYPE_LABELS[sub.subscription_type] || sub.subscription_type;
+                        const userDisplay = linkedPayment?.sender_name || profile?.username || profile?.email?.split("@")[0] || "Subscriber";
+                        const userEmail = profile?.email || `ID: ${sub.user_id.slice(0, 8)}...`;
+                        const amount = Number(sub.amount_paid || linkedPayment?.amount || plan?.price || 0);
+                        const proofUrl = sub.proof_url || linkedPayment?.proof_url;
+                        const isProcessing = approvingSubId === sub.id || rejectingSubId === sub.id;
+                        const dateInfo = formatPaymentDate(sub.created_at);
                         const isExpired = sub.expires_at && new Date(sub.expires_at) < new Date();
+                        const expiresDate = sub.expires_at
+                          ? new Date(sub.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" })
+                          : null;
+                        const txnRef = sub.payment_ref || linkedPayment?.reference_code || "—";
+
                         return (
-                          <tr key={sub.id} className="hover:bg-section/50 transition-colors">
-                            <td className="p-3.5">
-                              <div className="text-[12px] font-semibold text-foreground">
-                                {profile?.email || sub.user_id.slice(0, 12) + "..."}
+                          <tr key={sub.id} className="hover:bg-section/40 transition-colors">
+                            {/* USER */}
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-xs font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
+                                  {userDisplay.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-bold text-xs text-foreground truncate max-w-[170px]">
+                                    {userDisplay}
+                                  </div>
+                                  <div className="text-[11px] text-muted-foreground truncate max-w-[170px]">
+                                    {userEmail}
+                                  </div>
+                                  <div className="text-[10px] text-muted-foreground/70 font-mono">
+                                    ID: {sub.user_id.slice(0, 8)}...
+                                  </div>
+                                </div>
                               </div>
-                              {profile?.username && (
-                                <div className="text-[10px] text-muted-foreground">@{profile.username}</div>
-                              )}
                             </td>
-                            <td className="p-3.5">
-                              <span className="text-[12px] font-bold text-emerald-600 dark:text-emerald-400">
-                                {SUB_TYPE_LABELS[sub.subscription_type] || sub.subscription_type}
-                              </span>
+
+                            {/* PLAN & AMOUNT */}
+                            <td className="py-4 px-4">
+                              <div className="space-y-0.5">
+                                <div className="font-extrabold text-xs text-foreground">
+                                  GH₵ {amount.toFixed(0)}
+                                </div>
+                                <div className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                                  ≈ ₦{Math.ceil(amount * 115).toLocaleString()}
+                                </div>
+                                <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                  👑 {planName}
+                                </div>
+                                {linkedPayment?.network && (
+                                  <div className="text-[10px] text-muted-foreground truncate max-w-[150px]">
+                                    {linkedPayment.network}
+                                  </div>
+                                )}
+                              </div>
                             </td>
-                            <td className="p-3.5">
-                              <span className="text-[12px] font-bold text-foreground">
-                                GH₵ {Number(sub.amount_paid || 0).toFixed(2)}
-                              </span>
-                            </td>
-                            <td className="p-3.5">
-                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                                sub.status === "active" && !isExpired
-                                  ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30"
-                                  : sub.status === "pending"
-                                  ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
-                                  : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30"
-                              }`}>
-                                {sub.status === "active" && isExpired ? "Expired" : sub.status}
-                              </span>
-                            </td>
-                            <td className="p-3.5 text-[12px] text-muted-foreground">
-                              {sub.expires_at
-                                ? new Date(sub.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" })
-                                : "—"}
-                            </td>
-                            <td className="p-3.5 text-[12px] text-muted-foreground">
-                              {new Date(sub.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" })}
-                            </td>
-                            <td className="p-3.5 text-right">
-                              {sub.status === "pending" ? (
-                                <div className="flex items-center justify-end gap-2">
+
+                            {/* PROOF */}
+                            <td className="py-4 px-4">
+                              {proofUrl ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setModalProofSrc(proofUrl);
+                                    setViewModalSub(sub);
+                                  }}
+                                  className="flex items-center gap-2 group cursor-pointer focus:outline-none"
+                                  title="Click to view full payment screenshot"
+                                >
+                                  <ProofImage
+                                    url={proofUrl}
+                                    alt="Proof"
+                                    className="w-9 h-9 object-cover rounded-lg border border-border group-hover:border-primary group-hover:scale-105 transition-all shadow-sm"
+                                  />
+                                  <span className="text-xs font-semibold text-primary group-hover:underline flex items-center gap-1">
+                                    <ImageIcon className="w-3.5 h-3.5" /> View
+                                  </span>
+                                </button>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground italic flex items-center gap-1">
+                                    <AlertCircle className="w-3.5 h-3.5 opacity-50" /> No proof
+                                  </span>
                                   <button
-                                    onClick={() => approveSubscription(sub)}
-                                    disabled={isApproving}
-                                    className="px-3 py-1.5 text-[11px] font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors cursor-pointer disabled:opacity-60 border-none"
+                                    type="button"
+                                    onClick={() => notifyUserProof(sub)}
+                                    disabled={notifyingSubId === sub.id}
+                                    className="text-[10px] text-amber-600 dark:text-amber-400 font-bold hover:underline cursor-pointer bg-transparent border-none p-0"
                                   >
-                                    {isApproving ? "Activating..." : "Approve"}
-                                  </button>
-                                  <button
-                                    onClick={() => rejectSubscription(sub.id)}
-                                    disabled={isRejecting}
-                                    className="px-3 py-1.5 text-[11px] font-bold rounded-lg border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-60 bg-transparent"
-                                  >
-                                    {isRejecting ? "Rejecting..." : "Reject"}
+                                    Request
                                   </button>
                                 </div>
-                              ) : (
-                                <span className="text-[11px] text-muted-foreground italic">
-                                  {sub.status === "active" && !isExpired ? "Active" : "—"}
-                                </span>
                               )}
+                            </td>
+
+                            {/* DATE & VALIDITY */}
+                            <td className="py-4 px-4">
+                              <div className="text-xs font-bold text-foreground">
+                                {dateInfo.top}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground font-medium">
+                                {dateInfo.bottom}
+                              </div>
+                              <div className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                                {sub.status === "active"
+                                  ? (isExpired ? "Expired" : `Valid: ${expiresDate}`)
+                                  : "30-day VIP pass"}
+                              </div>
+                            </td>
+
+                            {/* TXN REF */}
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-1.5">
+                                <span 
+                                  className="font-mono text-xs font-bold text-foreground tracking-wider"
+                                  title={txnRef}
+                                >
+                                  {truncateRef(txnRef, 12)}
+                                </span>
+                                {txnRef !== "—" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(txnRef);
+                                      toast.success("Reference copied!");
+                                    }}
+                                    className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-section cursor-pointer"
+                                    title="Copy reference"
+                                  >
+                                    <Copy className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                              {linkedPayment?.sender_phone && linkedPayment.sender_phone !== "N/A" && (
+                                <div className="text-[11px] text-muted-foreground">
+                                  📱 {linkedPayment.sender_phone}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* STATUS */}
+                            <td className="py-4 px-4">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button className="cursor-pointer focus:outline-none transition-transform active:scale-95 group text-left">
+                                    {sub.status === "pending" && (
+                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-warning/15 border border-warning/30 text-warning hover:bg-warning/25 transition-colors">
+                                        <Clock className="w-3.5 h-3.5 text-warning" /> Pending
+                                      </span>
+                                    )}
+                                    {sub.status === "active" && !isExpired && (
+                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-success/15 border border-success/30 text-success hover:bg-success/25 transition-colors">
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-success" /> Active
+                                      </span>
+                                    )}
+                                    {sub.status === "active" && isExpired && (
+                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-muted border border-border text-muted-foreground hover:bg-muted/80 transition-colors">
+                                        <Clock className="w-3.5 h-3.5" /> Expired
+                                      </span>
+                                    )}
+                                    {(sub.status === "cancelled" || sub.status === "rejected") && (
+                                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-destructive/15 border border-destructive/30 text-destructive hover:bg-destructive/25 transition-colors">
+                                        <XCircle className="w-3.5 h-3.5 text-destructive" /> Cancelled
+                                      </span>
+                                    )}
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="bg-card-elevated border border-border text-foreground min-w-[190px] p-1.5 shadow-xl rounded-xl z-50">
+                                  <DropdownMenuItem
+                                    onClick={() => setViewModalSub(sub)}
+                                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-foreground hover:bg-section rounded-lg cursor-pointer"
+                                  >
+                                    <Eye className="w-4 h-4 text-muted-foreground" /> View Subscription
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={isProcessing}
+                                    onClick={() => setApproveModalSub(sub)}
+                                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-success hover:bg-success/10 rounded-lg cursor-pointer"
+                                  >
+                                    <CheckCircle2 className="w-4 h-4 text-success" /> Activate 30 Days Pass
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={isProcessing}
+                                    onClick={() => setRejectModalSub(sub)}
+                                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
+                                  >
+                                    <XCircle className="w-4 h-4 text-destructive" /> Reject Subscription
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator className="bg-border my-1" />
+                                  <DropdownMenuItem
+                                    onClick={() => notifyUserProof(sub)}
+                                    disabled={notifyingSubId === sub.id}
+                                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 rounded-lg cursor-pointer"
+                                  >
+                                    <Bell className="w-4 h-4 text-amber-500" /> Request Payment Proof
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => resetSubPending(sub.id)}
+                                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-warning hover:bg-warning/10 rounded-lg cursor-pointer"
+                                  >
+                                    <Clock className="w-4 h-4 text-warning" /> Mark as Pending
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </td>
+
+                            {/* ACTIONS (3-Dots Menu) */}
+                            <td className="py-4 px-4 text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-section transition-colors focus:outline-none cursor-pointer"
+                                  >
+                                    <MoreVertical className="w-4 h-4" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="bg-card-elevated border border-border text-foreground min-w-[190px] p-1.5 shadow-xl rounded-xl z-50">
+                                  <DropdownMenuItem
+                                    onClick={() => setViewModalSub(sub)}
+                                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-foreground hover:bg-section rounded-lg cursor-pointer"
+                                  >
+                                    <Eye className="w-4 h-4 text-muted-foreground" /> View Details
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={isProcessing}
+                                    onClick={() => setApproveModalSub(sub)}
+                                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-success hover:bg-success/10 rounded-lg cursor-pointer"
+                                  >
+                                    <CheckCircle2 className="w-4 h-4 text-success" /> Approve (30 Days)
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={isProcessing}
+                                    onClick={() => setRejectModalSub(sub)}
+                                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
+                                  >
+                                    <XCircle className="w-4 h-4 text-destructive" /> Reject Request
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator className="bg-border my-1" />
+                                  <DropdownMenuItem
+                                    onClick={() => notifyUserProof(sub)}
+                                    disabled={notifyingSubId === sub.id}
+                                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 rounded-lg cursor-pointer"
+                                  >
+                                    <Bell className="w-4 h-4 text-amber-500" /> Request Payment Proof
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => resetSubPending(sub.id)}
+                                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-warning hover:bg-warning/10 rounded-lg cursor-pointer"
+                                  >
+                                    <Clock className="w-4 h-4 text-warning" /> Mark as Pending
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </td>
                           </tr>
                         );
@@ -2108,6 +2770,329 @@ function AdminPaymentsPage() {
                 </div>
               </div>
             )}
+
+            {/* ── View Subscription Modal ── */}
+            {viewModalSub && (() => {
+              const sub = viewModalSub;
+              const profile = profiles.find((p: any) => p.id === sub.user_id);
+              const linkedPayment = payments.find((p: any) =>
+                (p.reference_code && p.reference_code === sub.payment_ref) ||
+                (p.user_id === sub.user_id && p.package_id?.includes(sub.subscription_type))
+              );
+              const plan = subscriptionPlans.find((pl: any) => pl.id === `sub_${sub.subscription_type}` || pl.id === sub.subscription_type);
+              const planName = plan?.name || SUB_TYPE_LABELS[sub.subscription_type] || sub.subscription_type;
+              const userDisplay = linkedPayment?.sender_name || profile?.username || profile?.email?.split("@")[0] || "Subscriber";
+              const userEmail = profile?.email || `ID: ${sub.user_id}`;
+              const amount = Number(sub.amount_paid || linkedPayment?.amount || plan?.price || 0);
+              const proofUrl = sub.proof_url || linkedPayment?.proof_url;
+              const isProcessing = approvingSubId === sub.id || rejectingSubId === sub.id;
+              const isExpired = sub.expires_at && new Date(sub.expires_at) < new Date();
+              const expiresDate = sub.expires_at
+                ? new Date(sub.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+                : null;
+              const txnRef = sub.payment_ref || linkedPayment?.reference_code || "—";
+
+              return (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                  <div className="bg-card rounded-2xl border border-border p-6 max-w-lg w-full shadow-2xl text-foreground space-y-5 max-h-[90vh] overflow-y-auto">
+                    {/* Header */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                          <Crown className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-bold text-foreground">
+                            Subscription Pass Details
+                          </h3>
+                          <p className="text-xs text-muted-foreground">
+                            Inspect 30-day VIP pass request and payment proof.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setViewModalSub(null)}
+                        className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-section cursor-pointer"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    {/* Details Grid */}
+                    <div className="p-4 rounded-xl bg-section/50 border border-border/70 space-y-3 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Customer</span>
+                        <span className="font-bold text-foreground">{userDisplay}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Email</span>
+                        <span className="font-mono text-foreground">{userEmail}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Plan</span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">👑 {planName}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Pass Duration</span>
+                        <span className="font-bold text-foreground">30 Full Days</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Amount</span>
+                        <div className="text-right">
+                          <span className="font-black text-foreground block">GH₵ {amount.toFixed(2)}</span>
+                          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block">
+                            ≈ ₦{Math.ceil(amount * 115).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Payment Method</span>
+                        <span className="font-semibold text-warning">{linkedPayment?.network || "Mobile Money"}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Transaction Reference</span>
+                        <span className="font-mono font-bold text-foreground">{txnRef}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Submitted At</span>
+                        <span className="font-medium text-foreground">
+                          {new Date(sub.created_at).toLocaleString("en-GB")}
+                        </span>
+                      </div>
+                      {sub.expires_at && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Expiry Date</span>
+                          <span className={`font-bold ${isExpired ? "text-destructive" : "text-emerald-600 dark:text-emerald-400"}`}>
+                            {expiresDate} {isExpired ? "(Expired)" : ""}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center pt-2 border-t border-border/60">
+                        <span className="text-muted-foreground">Status</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider ${
+                          sub.status === "active"
+                            ? "bg-success/15 text-success border border-success/30"
+                            : sub.status === "pending"
+                            ? "bg-warning/15 text-warning border border-warning/30"
+                            : "bg-destructive/15 text-destructive border border-destructive/30"
+                        }`}>
+                          {sub.status}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Proof Screenshot */}
+                    {proofUrl ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                          <span>Payment Screenshot</span>
+                          <a
+                            href={proofUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline flex items-center gap-1 font-semibold"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" /> Full Size
+                          </a>
+                        </div>
+                        <div 
+                          onClick={() => setModalProofSrc(proofUrl)}
+                          className="relative rounded-xl overflow-hidden border border-border bg-black/40 cursor-pointer max-h-56 flex items-center justify-center group"
+                        >
+                          <ProofImage
+                            url={proofUrl}
+                            alt="Payment Proof"
+                            className="max-h-56 w-auto object-contain transition-transform group-hover:scale-102"
+                          />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1.5">
+                            <Eye className="w-4 h-4" /> Click to enlarge
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl border border-dashed border-border text-center text-xs text-muted-foreground space-y-2">
+                        <AlertCircle className="w-5 h-5 mx-auto opacity-50 text-warning" />
+                        <p>No payment proof screenshot attached to this subscription.</p>
+                        <button
+                          type="button"
+                          onClick={() => notifyUserProof(sub)}
+                          disabled={notifyingSubId === sub.id}
+                          className="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold hover:bg-amber-500/20 transition-colors cursor-pointer border border-amber-500/30"
+                        >
+                          Send Notification Requesting Proof
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Action buttons */}
+                    <div className="flex justify-end gap-2.5 pt-3 border-t border-border">
+                      <button
+                        type="button"
+                        onClick={() => setViewModalSub(null)}
+                        className="px-4 py-2 text-xs font-semibold rounded-lg border border-border text-foreground hover:bg-section transition-colors cursor-pointer"
+                      >
+                        Close
+                      </button>
+                      {sub.status !== "cancelled" && sub.status !== "rejected" && (
+                        <button
+                          type="button"
+                          disabled={isProcessing}
+                          onClick={() => {
+                            setViewModalSub(null);
+                            setRejectModalSub(sub);
+                          }}
+                          className="px-4 py-2 text-xs font-bold rounded-lg bg-destructive/15 border border-destructive/30 text-destructive hover:bg-destructive/25 transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          <XCircle className="w-3.5 h-3.5 inline mr-1" /> Reject
+                        </button>
+                      )}
+                      {sub.status !== "active" && (
+                        <button
+                          type="button"
+                          disabled={isProcessing}
+                          onClick={() => {
+                            setViewModalSub(null);
+                            approveSubscription(sub);
+                          }}
+                          className="px-4 py-2 text-xs font-bold rounded-lg bg-success hover:bg-success/90 text-success-foreground transition-colors cursor-pointer disabled:opacity-50 shadow-sm"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 inline mr-1" /> Approve & Activate Pass
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── Approve Subscription Modal ── */}
+            {approveModalSub && (() => {
+              const sub = approveModalSub;
+              const profile = profiles.find((p: any) => p.id === sub.user_id);
+              const plan = subscriptionPlans.find((pl: any) => pl.id === `sub_${sub.subscription_type}` || pl.id === sub.subscription_type);
+              const planName = plan?.name || SUB_TYPE_LABELS[sub.subscription_type] || sub.subscription_type;
+              const userDisplay = profile?.username || profile?.email?.split("@")[0] || "Subscriber";
+              const isProcessing = approvingSubId === sub.id;
+
+              return (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                  <div className="bg-card rounded-2xl border border-border p-6 max-w-md w-full shadow-2xl text-foreground space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-success/15 text-success flex items-center justify-center shrink-0">
+                        <CheckCircle2 className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-foreground">
+                          Activate 30-Day Pass
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          Grant 30 full days of VIP access for this user.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-section/50 border border-border/70 space-y-2 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Customer</span>
+                        <span className="font-bold text-foreground">{userDisplay}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Plan</span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">{planName}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Pass Validity</span>
+                        <span className="font-bold text-foreground">30 Days (Starting now)</span>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2.5 pt-2">
+                      <button
+                        type="button"
+                        disabled={isProcessing}
+                        onClick={() => setApproveModalSub(null)}
+                        className="px-4 py-2 text-xs font-semibold rounded-lg border border-border text-foreground hover:bg-section transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isProcessing}
+                        onClick={() => approveSubscription(sub)}
+                        className="px-4 py-2 text-xs font-bold rounded-lg bg-success hover:bg-success/90 text-success-foreground transition-colors cursor-pointer disabled:opacity-50 shadow-sm"
+                      >
+                        {isProcessing ? "Activating..." : "Confirm & Activate"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── Reject Subscription Modal ── */}
+            {rejectModalSub && (() => {
+              const sub = rejectModalSub;
+              const profile = profiles.find((p: any) => p.id === sub.user_id);
+              const plan = subscriptionPlans.find((pl: any) => pl.id === `sub_${sub.subscription_type}` || pl.id === sub.subscription_type);
+              const planName = plan?.name || SUB_TYPE_LABELS[sub.subscription_type] || sub.subscription_type;
+              const isProcessing = rejectingSubId === sub.id;
+
+              return (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                  <div className="bg-card rounded-2xl border border-border p-6 max-w-md w-full shadow-2xl text-foreground space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-destructive/15 text-destructive flex items-center justify-center shrink-0">
+                        <XCircle className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-foreground">
+                          Reject Subscription Request
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          Cancel this pass request and notify the user.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-foreground">
+                        Rejection Reason (Sent to User)
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={subRejectReason}
+                        onChange={(e) => setSubRejectReason(e.target.value)}
+                        placeholder="e.g. Payment proof unreadable, incorrect amount, or invalid transaction..."
+                        className="w-full p-2.5 text-xs rounded-lg border border-border bg-card text-foreground outline-none focus:ring-1 focus:ring-destructive resize-none"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-2.5 pt-2">
+                      <button
+                        type="button"
+                        disabled={isProcessing}
+                        onClick={() => {
+                          setRejectModalSub(null);
+                          setSubRejectReason("");
+                        }}
+                        className="px-4 py-2 text-xs font-semibold rounded-lg border border-border text-foreground hover:bg-section transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isProcessing}
+                        onClick={() => rejectSubscription(sub.id, subRejectReason)}
+                        className="px-4 py-2 text-xs font-bold rounded-lg bg-destructive hover:opacity-90 text-destructive-foreground transition-colors cursor-pointer disabled:opacity-50 shadow-sm"
+                      >
+                        {isProcessing ? "Rejecting..." : "Confirm Rejection"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         );
       })()}

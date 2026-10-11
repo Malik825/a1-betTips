@@ -72,7 +72,9 @@ export function SiteHeader() {
       new Date(s.expires_at) > new Date()
   );
 
-  const isAdmin = profile?.role === "admin" || user?.app_metadata?.role === "admin";
+  const ADMIN_ROLES = ["admin", "superadmin", "super-admin", "super_admin"];
+  const checkRole = (r?: any) => Boolean(r && typeof r === "string" && ADMIN_ROLES.includes(r.toLowerCase().trim()));
+  const isAdmin = checkRole(profile?.role) || checkRole(user?.app_metadata?.role) || checkRole(user?.user_metadata?.role);
   const displayName = user?.user_metadata?.name || user?.email?.split("@")[0] || "there";
 
   const location = useLocation();

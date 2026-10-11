@@ -54,10 +54,31 @@ function LoginPage() {
     setLoading(true);
     void supabase.auth
       .signInWithPassword({ email: parsed.data.email, password: parsed.data.password })
-      .then(({ data, error }) => {
+      .then(async ({ data, error }) => {
         if (error) throw error;
         toast.success("Welcome back!");
-        if (data.user?.app_metadata?.role === "admin") {
+
+        const ADMIN_ROLES = ["admin", "superadmin", "super-admin", "super_admin"];
+        const checkRole = (r?: any) => Boolean(r && typeof r === "string" && ADMIN_ROLES.includes(r.toLowerCase().trim()));
+
+        let isAdminUser =
+          checkRole(data.user?.app_metadata?.role) ||
+          checkRole(data.user?.user_metadata?.role);
+
+        if (!isAdminUser && data.user?.id) {
+          try {
+            const { data: prof } = await supabase
+              .from("profiles")
+              .select("role")
+              .eq("id", data.user.id)
+              .maybeSingle();
+            if (checkRole(prof?.role)) {
+              isAdminUser = true;
+            }
+          } catch {}
+        }
+
+        if (isAdminUser) {
           navigate({ to: "/admin" });
         } else {
           navigate({ to: "/predictions" });

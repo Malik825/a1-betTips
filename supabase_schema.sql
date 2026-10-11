@@ -93,9 +93,12 @@ ALTER TABLE predictions DISABLE ROW LEVEL SECURITY;
 CREATE TABLE IF NOT EXISTS user_tickets (
   id           TEXT PRIMARY KEY,
   user_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  package_id   TEXT REFERENCES vip_packages(id) ON DELETE CASCADE,
+  package_id   TEXT,
   purchased_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Drop package_id FK to allow subscription passes (sub_*) and recovery passes
+ALTER TABLE user_tickets DROP CONSTRAINT IF EXISTS user_tickets_package_id_fkey;
 
 ALTER TABLE user_tickets DISABLE ROW LEVEL SECURITY;
 

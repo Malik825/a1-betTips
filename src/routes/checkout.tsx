@@ -548,12 +548,16 @@ function CheckoutPage() {
                 {/* Submit button */}
                 <button
                   type="submit"
-                  disabled={submitMutation.isPending}
-                  className="w-full py-3.5 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-black text-sm rounded-md flex items-center justify-center gap-2.5 transition-colors shadow-sm cursor-pointer"
+                  disabled={submitMutation.isPending || !proofFile || !senderName.trim()}
+                  className="w-full py-3.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-black text-sm rounded-md flex items-center justify-center gap-2.5 transition-colors shadow-sm cursor-pointer disabled:cursor-not-allowed"
                 >
-                  {submitMutation.isPending
-                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Submitting…</>
-                    : <><ShieldCheck className="w-4 h-4" /> I've Paid — Submit for Verification</>}
+                  {submitMutation.isPending ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Submitting…</>
+                  ) : !proofFile ? (
+                    <><Upload className="w-4 h-4" /> Please Upload Payment Screenshot First</>
+                  ) : (
+                    <><ShieldCheck className="w-4 h-4" /> I've Paid — Submit for Verification</>
+                  )}
                 </button>
 
                 <p className="text-[11px] text-center text-slate-400">
