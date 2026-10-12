@@ -255,7 +255,13 @@ function HomePage() {
                 to="/vip"
                 className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-400 text-black font-extrabold py-3.5 px-8 rounded-xl text-[15px] tracking-wide transition-all hover:-translate-y-0.5 shadow-[0_4px_20px_rgba(34,197,94,0.35)]"
               >
-                👑 Join VIP
+                👑 Daily VIP
+              </Link>
+              <Link
+                to="/subscriptions"
+                className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold py-3.5 px-8 rounded-xl text-[15px] tracking-wide transition-all hover:-translate-y-0.5 shadow-[0_4px_20px_rgba(34,197,94,0.35)]"
+              >
+                📅 Monthly Subscription
               </Link>
               <a
                 href="#free-tips"

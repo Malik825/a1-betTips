@@ -965,11 +965,6 @@ function DashboardPage() {
                           <Crown className="w-3 h-3 text-amber-500 dark:text-amber-400" />
                           Unlocked via VIP Pass
                         </span>
-                        {pkg.combined_odds && (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300">
-                            Odds: {pkg.combined_odds}
-                          </span>
-                        )}
                       </div>
                       <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium m-0 mt-1">
                         Active Continuous Access — VIP Pass Member

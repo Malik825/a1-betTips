@@ -1509,7 +1509,6 @@ function AdminPaymentsPage() {
                 <div className="p-3 rounded-xl bg-section/40 border border-border/60 space-y-1">
                   <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Package</span>
                   <p className="font-bold text-foreground">{pkg?.name || p.package_id}</p>
-                  <p className="text-muted-foreground">Odds: {pkg?.combined_odds ? Number(pkg.combined_odds).toFixed(2) : "—"}</p>
                   <p className="text-muted-foreground">Booking Code: {pkg?.booking_code || "None"}</p>
                 </div>
 
