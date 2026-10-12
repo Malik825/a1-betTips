@@ -11,6 +11,7 @@ import {
   Clock, Sparkles, ShieldCheck, HelpCircle, Layers,
   Trophy, Flame, RotateCcw, AlertCircle
 } from "lucide-react";
+import { useCurrency } from "@/lib/currency";
 
 export const Route = createFileRoute("/subscriptions")({
   validateSearch: (search: Record<string, unknown>): { renew?: boolean | undefined } => ({
@@ -243,6 +244,7 @@ function SubscriptionsPage() {
   const search = Route.useSearch();
   const isRenewMode = search?.renew;
   const [planTab, setPlanTab] = useState<"combo" | "single">("combo");
+  const { currency, setCurrency, formatPrice } = useCurrency();
 
   // Fetch user subscriptions
   const { data: userSubscriptions = [] } = useQuery({
@@ -476,6 +478,38 @@ function SubscriptionsPage() {
             🎯 Single Package Passes
           </button>
         </div>
+
+        {/* Currency toggle */}
+        <div className="mt-4 flex items-center justify-center gap-2">
+          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Show prices in:</span>
+          <div className="inline-flex items-center p-1 rounded-xl bg-slate-200/70 dark:bg-slate-900/80 border border-slate-300 dark:border-white/10 shadow-inner">
+            <button
+              onClick={() => setCurrency("GHS")}
+              className={`px-4 py-1.5 rounded-lg font-extrabold text-[11px] transition-all cursor-pointer border-none ${
+                currency === "GHS"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"
+              }`}
+            >
+              🇬🇭 GHS
+            </button>
+            <button
+              onClick={() => setCurrency("NGN")}
+              className={`px-4 py-1.5 rounded-lg font-extrabold text-[11px] transition-all cursor-pointer border-none ${
+                currency === "NGN"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"
+              }`}
+            >
+              🇳🇬 NGN
+            </button>
+          </div>
+          {currency === "NGN" && (
+            <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
+              ≈ 1 GHS = ₦{rate}
+            </span>
+          )}
+        </div>
       </section>
 
       <main className="flex-1 w-[95%] sm:w-[92%] max-w-7xl mx-auto px-5 pb-24 relative z-10">
@@ -574,24 +608,34 @@ function SubscriptionsPage() {
                     }`}>{plan.tagline}</p>
 
                     {/* Price with Strikethrough for Discount / Negotiation Leverage */}
-                    <div className="mb-5 flex items-baseline gap-2 flex-wrap">
-                      {plan.originalPrice && plan.originalPrice > plan.price && (
-                        <span className={`text-xs line-through ${
-                          plan.highlight ? "text-emerald-300/60" : "text-slate-400"
-                        }`}>
-                          GHS {plan.originalPrice}
-                        </span>
-                      )}
-                      <span className={`text-sm font-bold ${
-                        plan.highlight ? "text-emerald-200/70" : "text-slate-400"
-                      }`}>GHS</span>
-                      <span className={`text-[42px] font-black leading-none ${
-                        plan.highlight ? "text-white" : "text-slate-900 dark:text-white"
-                      }`}>{plan.price}</span>
-                      <span className={`text-[11px] font-bold ${
-                        plan.highlight ? "text-emerald-200/70" : "text-slate-400"
-                      }`}>/month</span>
-                    </div>
+                    {(() => {
+                      const priceInfo = formatPrice(plan.price, plan.originalPrice);
+                      return (
+                        <div className="mb-5">
+                          <div className="flex items-baseline gap-2 flex-wrap">
+                            {priceInfo.originalStr && (
+                              <span className={`text-xs line-through ${
+                                plan.highlight ? "text-emerald-300/60" : "text-slate-400"
+                              }`}>
+                                {priceInfo.originalStr}
+                              </span>
+                            )}
+                            <span className={`text-sm font-bold ${
+                              plan.highlight ? "text-emerald-200/70" : "text-slate-400"
+                            }`}>{priceInfo.symbol}</span>
+                            <span className={`text-[42px] font-black leading-none ${
+                              plan.highlight ? "text-white" : "text-slate-900 dark:text-white"
+                            }`}>{priceInfo.amountStr}</span>
+                            <span className={`text-[11px] font-bold ${
+                              plan.highlight ? "text-emerald-200/70" : "text-slate-400"
+                            }`}>/month</span>
+                          </div>
+                          <div className={`text-[10px] mt-0.5 ${
+                            plan.highlight ? "text-emerald-300/50" : "text-slate-400"
+                          }`}>{priceInfo.secondaryStr}</div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Packages covered pill list */}
                     <div className="mb-5 pt-3 border-t border-slate-200/40 dark:border-white/10">
@@ -672,7 +716,7 @@ function SubscriptionsPage() {
                           }`}
                         >
                           <RotateCcw className="w-4 h-4" />
-                          Resubmit Payment — GHS {plan.price}/mo
+                          Resubmit Payment — {formatPrice(plan.price).symbol} {formatPrice(plan.price).amountStr}/mo
                         </button>
                       </div>
                     ) : (
@@ -692,7 +736,7 @@ function SubscriptionsPage() {
                         }`}
                       >
                         <CalendarDays className="w-4 h-4" />
-                        Subscribe — GHS {plan.price}/mo
+                        Subscribe — {formatPrice(plan.price).symbol} {formatPrice(plan.price).amountStr}/mo
                       </button>
                     )}
                   </div>
@@ -729,16 +773,24 @@ function SubscriptionsPage() {
                     </p>
 
                     {/* Price with Strikethrough for Discount / Negotiation Leverage */}
-                    <div className="mb-6 flex items-baseline gap-2 flex-wrap">
-                      {plan.originalPrice && plan.originalPrice > plan.price && (
-                        <span className="text-xs line-through text-slate-400">
-                          GHS {plan.originalPrice}
-                        </span>
-                      )}
-                      <span className="text-xs font-bold text-slate-400">GHS</span>
-                      <span className="text-3xl font-black text-slate-900 dark:text-white">{plan.price}</span>
-                      <span className="text-[11px] font-bold text-slate-400">/month</span>
-                    </div>
+                    {(() => {
+                      const priceInfo = formatPrice(plan.price, plan.originalPrice);
+                      return (
+                        <div className="mb-6">
+                          <div className="flex items-baseline gap-2 flex-wrap">
+                            {priceInfo.originalStr && (
+                              <span className="text-xs line-through text-slate-400">
+                                {priceInfo.originalStr}
+                              </span>
+                            )}
+                            <span className="text-xs font-bold text-slate-400">{priceInfo.symbol}</span>
+                            <span className="text-3xl font-black text-slate-900 dark:text-white">{priceInfo.amountStr}</span>
+                            <span className="text-[11px] font-bold text-slate-400">/month</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">{priceInfo.secondaryStr}</div>
+                        </div>
+                      );
+                    })()}
 
                     <ul className="list-none p-0 m-0 flex flex-col gap-2 mb-6">
                       <li className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-2">
@@ -782,7 +834,7 @@ function SubscriptionsPage() {
                         }}
                         className="w-full p-3 rounded-xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white font-extrabold text-xs transition-all border-none cursor-pointer flex items-center justify-center gap-1.5"
                       >
-                        <RotateCcw className="w-3.5 h-3.5" /> Resubmit — GHS {plan.price}/mo
+                        <RotateCcw className="w-3.5 h-3.5" /> Resubmit — {formatPrice(plan.price).symbol} {formatPrice(plan.price).amountStr}/mo
                       </button>
                     </div>
                   ) : (
@@ -797,7 +849,7 @@ function SubscriptionsPage() {
                       }}
                       className="w-full p-3 rounded-xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white font-extrabold text-xs transition-all border-none cursor-pointer flex items-center justify-center gap-1.5"
                     >
-                      Subscribe — GHS {plan.price}/mo
+                      Subscribe — {formatPrice(plan.price).symbol} {formatPrice(plan.price).amountStr}/mo
                     </button>
                   )}
                 </div>
@@ -901,10 +953,18 @@ function SubscriptionsPage() {
               <thead>
                 <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-100/70 dark:bg-slate-900/90 text-slate-700 dark:text-slate-300 font-extrabold">
                   <th className="p-4 sm:p-5">Game Package / Feature</th>
-                  <th className="p-4 sm:p-5 text-center text-emerald-600 dark:text-emerald-400 bg-emerald-500/10">All-Access (GHS 350)</th>
-                  <th className="p-4 sm:p-5 text-center">Supreme VVIP (GHS 280)</th>
-                  <th className="p-4 sm:p-5 text-center">VVIP Combo (GHS 220)</th>
-                  <th className="p-4 sm:p-5 text-center">VIP Combo (GHS 120)</th>
+                  <th className="p-4 sm:p-5 text-center text-emerald-600 dark:text-emerald-400 bg-emerald-500/10">
+                    All-Access ({formatPrice(350).symbol} {formatPrice(350).amountStr})
+                  </th>
+                  <th className="p-4 sm:p-5 text-center">
+                    Supreme VVIP ({formatPrice(280).symbol} {formatPrice(280).amountStr})
+                  </th>
+                  <th className="p-4 sm:p-5 text-center">
+                    VVIP Combo ({formatPrice(220).symbol} {formatPrice(220).amountStr})
+                  </th>
+                  <th className="p-4 sm:p-5 text-center">
+                    VIP Combo ({formatPrice(120).symbol} {formatPrice(120).amountStr})
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-slate-600 dark:text-slate-300 font-medium">
