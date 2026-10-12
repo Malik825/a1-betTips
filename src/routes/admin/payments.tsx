@@ -75,6 +75,14 @@ function ProofImage({
   return <img src={src} alt={alt} className={className} onError={handleError} />;
 }
 
+const REJECTION_REASON_PRESETS = [
+  "Payment not found on MoMo account statement",
+  "Incorrect amount transferred for this package",
+  "Screenshot proof is unclear or unreadable",
+  "Reference / transaction ID does not match records",
+  "Duplicate payment submission",
+];
+
 function AdminPaymentsPage() {
   const { user: currentAdmin } = useAuth();
   const queryClient = useQueryClient();
@@ -198,7 +206,15 @@ function AdminPaymentsPage() {
     },
   });
 
-  const pendingSubsCount = allSubscriptions.filter((s: any) => s.status === "pending").length;
+  const pendingSubsCount = allSubscriptions.filter((s: any) => {
+    const lp = payments.find((p: any) =>
+      (p.reference_code && s.payment_ref && p.reference_code === s.payment_ref) ||
+      (p.user_id === s.user_id && p.package_id?.includes(s.subscription_type))
+    );
+    if (s.status === "cancelled" || s.status === "rejected" || lp?.status === "rejected") return false;
+    if (s.status === "active" || lp?.status === "approved") return false;
+    return (s.status || lp?.status || "pending") === "pending";
+  }).length;
 
   // Approve Payment Mutation
   const approveMutation = useMutation({
@@ -302,12 +318,13 @@ function AdminPaymentsPage() {
     mutationFn: async ({ paymentId, reason }: { paymentId: string; reason: string }) => {
       setProcessingId(paymentId);
       const payment = payments.find((p: any) => p.id === paymentId);
+      const cleanReason = (reason?.trim() || "We could not confirm this transfer on our account statement. Please verify your details and resubmit.").trim();
 
       const { error } = await supabase
         .from("manual_payments")
         .update({
           status: "rejected",
-          rejection_reason: reason.trim() || "Payment verification failed or not received.",
+          rejection_reason: cleanReason,
           reviewed_by: currentAdmin?.id || null,
           reviewed_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -340,6 +357,18 @@ function AdminPaymentsPage() {
             .from("subscriptions")
             .update({ status: "cancelled", updated_at: new Date().toISOString() })
             .eq("payment_ref", payment.reference_code);
+        }
+
+        // Notify user via in-app notifications
+        if (payment.user_id) {
+          const pkgTitle = vipPackages.find((pk: any) => pk.id === payment.package_id)?.name || payment.package_id;
+          await supabase.from("app_notifications").insert({
+            user_id: payment.user_id,
+            type: "payment_rejected",
+            title: "Payment Verification Notice",
+            body: `Your payment for ${pkgTitle} could not be confirmed: ${cleanReason}`,
+            is_read: false,
+          });
         }
       }
     },
@@ -1480,7 +1509,6 @@ function AdminPaymentsPage() {
                 <div className="p-3 rounded-xl bg-section/40 border border-border/60 space-y-1">
                   <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Package</span>
                   <p className="font-bold text-foreground">{pkg?.name || p.package_id}</p>
-                  <p className="text-muted-foreground">Odds: {pkg?.combined_odds ? Number(pkg.combined_odds).toFixed(2) : "—"}</p>
                   <p className="text-muted-foreground">Booking Code: {pkg?.booking_code || "None"}</p>
                 </div>
 
@@ -1685,11 +1713,30 @@ function AdminPaymentsPage() {
               Provide a reason for rejecting this payment (e.g., funds not received on MoMo statement, incorrect amount).
             </p>
 
-            <div>
-              <label className="block text-xs font-bold text-foreground mb-1.5">Rejection Reason</label>
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-foreground">Rejection Reason</label>
+              <div className="space-y-1">
+                <span className="text-[10px] text-muted-foreground font-semibold">Quick Reason Presets:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {REJECTION_REASON_PRESETS.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setRejectReason(preset)}
+                      className={`px-2 py-1 text-[10px] rounded-md border text-left transition-colors cursor-pointer ${
+                        rejectReason === preset
+                          ? "bg-destructive/15 border-destructive text-destructive font-bold"
+                          : "bg-section hover:bg-muted border-border/80 text-foreground"
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <textarea
                 rows={3}
-                placeholder="e.g. Payment not received on our statement."
+                placeholder="e.g. Payment not received on our statement..."
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-destructive resize-none"
@@ -1984,17 +2031,41 @@ function AdminPaymentsPage() {
           vip3: "VIP 3 Monthly Pass",
         };
 
+        // Helper to determine accurate status across both subscriptions and manual_payments tables
+        const getSubEffectiveStatus = (s: any) => {
+          const lp = payments.find((p: any) =>
+            (p.reference_code && s.payment_ref && p.reference_code === s.payment_ref) ||
+            (p.user_id === s.user_id && p.package_id?.includes(s.subscription_type))
+          );
+          if (s.status === "cancelled" || s.status === "rejected" || lp?.status === "rejected") {
+            return s.status === "cancelled" ? "cancelled" : "rejected";
+          }
+          if (s.status === "active" || lp?.status === "approved") {
+            if (s.expires_at && new Date(s.expires_at) < new Date()) return "expired";
+            return "active";
+          }
+          return s.status || lp?.status || "pending";
+        };
+
         // Stats calculations
         const totalSubs = allSubscriptions.length;
-        const pendingSubs = allSubscriptions.filter((s: any) => s.status === "pending").length;
-        const activeSubs = allSubscriptions.filter((s: any) => s.status === "active").length;
-        const cancelledSubs = allSubscriptions.filter((s: any) => s.status === "cancelled" || s.status === "rejected").length;
+        const pendingSubs = allSubscriptions.filter((s: any) => getSubEffectiveStatus(s) === "pending").length;
+        const activeSubs = allSubscriptions.filter((s: any) => getSubEffectiveStatus(s) === "active").length;
+        const cancelledSubs = allSubscriptions.filter((s: any) => {
+          const st = getSubEffectiveStatus(s);
+          return st === "cancelled" || st === "rejected";
+        }).length;
         const totalSubsRevenue = allSubscriptions
-          .filter((s: any) => s.status === "active")
+          .filter((s: any) => getSubEffectiveStatus(s) === "active")
           .reduce((sum: number, s: any) => sum + Number(s.amount_paid || 0), 0);
 
         const filteredSubs = allSubscriptions
-          .filter((s: any) => subStatusFilter === "all" || s.status === subStatusFilter)
+          .filter((s: any) => {
+            const st = getSubEffectiveStatus(s);
+            if (subStatusFilter === "all") return true;
+            if (subStatusFilter === "cancelled") return st === "cancelled" || st === "rejected";
+            return st === subStatusFilter;
+          })
           .filter((s: any) => {
             if (!subSearch.trim()) return true;
             const profile = profiles.find((p: any) => p.id === s.user_id);
@@ -2020,38 +2091,71 @@ function AdminPaymentsPage() {
             const now = new Date();
             const expiresAt = new Date(now);
             expiresAt.setDate(expiresAt.getDate() + 30);
-            const { error } = await supabase
+            const nowIso = now.toISOString();
+            const expiresIso = expiresAt.toISOString();
+
+            // 1. Update subscriptions table (try setting active)
+            const { error: subError } = await supabase
               .from("subscriptions")
               .update({
                 status: "active",
-                starts_at: now.toISOString(),
-                expires_at: expiresAt.toISOString(),
+                starts_at: nowIso,
+                expires_at: expiresIso,
                 approved_by: currentAdmin?.id || null,
-                updated_at: now.toISOString(),
+                updated_at: nowIso,
               })
               .eq("id", sub.id);
-            if (error) throw error;
+            if (subError) console.warn("Subscriptions table update error:", subError);
 
+            // 2. Update linked manual_payments table
             if (sub.payment_ref) {
               await supabase
                 .from("manual_payments")
                 .update({
                   status: "approved",
                   reviewed_by: currentAdmin?.id || null,
-                  reviewed_at: now.toISOString(),
-                  updated_at: now.toISOString(),
+                  reviewed_at: nowIso,
+                  updated_at: nowIso,
                 })
                 .eq("reference_code", sub.payment_ref);
             }
+            if (sub.user_id) {
+              await supabase
+                .from("manual_payments")
+                .update({
+                  status: "approved",
+                  reviewed_by: currentAdmin?.id || null,
+                  reviewed_at: nowIso,
+                  updated_at: nowIso,
+                })
+                .eq("user_id", sub.user_id)
+                .eq("status", "pending")
+                .ilike("package_id", `%${sub.subscription_type}%`);
+            }
 
-            // Send in-app notification
-            await supabase.from("app_notifications").insert({
-              user_id: sub.user_id,
-              type: "subscription_active",
-              title: "🎉 Subscription Activated!",
-              body: `Your ${SUB_TYPE_LABELS[sub.subscription_type] || sub.subscription_type} is now active and expires on ${expiresAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}.`,
-              is_read: false,
-            });
+            // 3. Send in-app notification
+            if (sub.user_id) {
+              await supabase.from("app_notifications").insert({
+                user_id: sub.user_id,
+                type: "subscription_active",
+                title: "🎉 Subscription Activated!",
+                body: `Your ${SUB_TYPE_LABELS[sub.subscription_type] || sub.subscription_type} is now active and expires on ${expiresAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}.`,
+                is_read: false,
+              });
+            }
+
+            // 4. Optimistically update query caches
+            queryClient.setQueryData(["admin_subscriptions"], (old: any[] = []) =>
+              old.map((s) => (s.id === sub.id ? { ...s, status: "active", starts_at: nowIso, expires_at: expiresIso } : s))
+            );
+            queryClient.setQueryData(["admin_manual_payments"], (old: any[] = []) =>
+              old.map((p) =>
+                (sub.payment_ref && p.reference_code === sub.payment_ref) ||
+                (sub.user_id && p.user_id === sub.user_id && p.package_id?.includes(sub.subscription_type))
+                  ? { ...p, status: "approved" }
+                  : p
+              )
+            );
 
             queryClient.invalidateQueries({ queryKey: ["admin_subscriptions"] });
             queryClient.invalidateQueries({ queryKey: ["admin_manual_payments"] });
@@ -2069,13 +2173,10 @@ function AdminPaymentsPage() {
           setRejectingSubId(subId);
           try {
             const sub = allSubscriptions.find((s: any) => s.id === subId);
-            const rejectionReason = reason || subRejectReason || "Subscription request rejected by administrator.";
-            const { error } = await supabase
-              .from("subscriptions")
-              .update({ status: "cancelled", updated_at: new Date().toISOString() })
-              .eq("id", subId);
-            if (error) throw error;
+            const rejectionReason = (reason?.trim() || subRejectReason?.trim() || "We could not confirm this transfer on our account statement. Please verify your details and resubmit.").trim();
+            const nowIso = new Date().toISOString();
 
+            // 1. FIRST update linked manual_payment (Admin RLS confirmed working on manual_payments)
             if (sub?.payment_ref) {
               await supabase
                 .from("manual_payments")
@@ -2083,13 +2184,42 @@ function AdminPaymentsPage() {
                   status: "rejected",
                   rejection_reason: rejectionReason,
                   reviewed_by: currentAdmin?.id || null,
-                  reviewed_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString(),
+                  reviewed_at: nowIso,
+                  updated_at: nowIso,
                 })
                 .eq("reference_code", sub.payment_ref);
             }
+            if (sub?.user_id) {
+              await supabase
+                .from("manual_payments")
+                .update({
+                  status: "rejected",
+                  rejection_reason: rejectionReason,
+                  reviewed_by: currentAdmin?.id || null,
+                  reviewed_at: nowIso,
+                  updated_at: nowIso,
+                })
+                .eq("user_id", sub.user_id)
+                .eq("status", "pending")
+                .ilike("package_id", `%${sub.subscription_type}%`);
+            }
 
-            if (sub) {
+            // 2. Update subscriptions table (try rejected, fallback to cancelled for enum/check constraints)
+            const { error: subErr1 } = await supabase
+              .from("subscriptions")
+              .update({ status: "rejected", updated_at: nowIso })
+              .eq("id", subId);
+
+            if (subErr1) {
+              console.warn("Update to 'rejected' had error, trying 'cancelled':", subErr1);
+              await supabase
+                .from("subscriptions")
+                .update({ status: "cancelled", updated_at: nowIso })
+                .eq("id", subId);
+            }
+
+            // Also clear any subscription tickets
+            if (sub?.user_id) {
               await supabase
                 .from("user_tickets")
                 .delete()
@@ -2097,16 +2227,29 @@ function AdminPaymentsPage() {
                 .like("package_id", "sub_%");
             }
 
-            // Notify user
+            // 3. Notify user
             if (sub?.user_id) {
               await supabase.from("app_notifications").insert({
                 user_id: sub.user_id,
                 type: "subscription_rejected",
-                title: "⚠️ Subscription Request Rejected",
-                body: `Your request for ${SUB_TYPE_LABELS[sub.subscription_type] || sub.subscription_type} was rejected: ${rejectionReason}`,
+                title: "Payment Verification Notice",
+                body: `Your pass request for ${SUB_TYPE_LABELS[sub.subscription_type] || sub.subscription_type} could not be confirmed: ${rejectionReason}`,
                 is_read: false,
               });
             }
+
+            // 4. Optimistically update local query cache immediately
+            queryClient.setQueryData(["admin_subscriptions"], (old: any[] = []) =>
+              old.map((s) => (s.id === subId ? { ...s, status: "rejected" } : s))
+            );
+            queryClient.setQueryData(["admin_manual_payments"], (old: any[] = []) =>
+              old.map((p) =>
+                (sub?.payment_ref && p.reference_code === sub.payment_ref) ||
+                (sub?.user_id && p.user_id === sub.user_id && p.package_id?.includes(sub.subscription_type))
+                  ? { ...p, status: "rejected", rejection_reason: rejectionReason }
+                  : p
+              )
+            );
 
             queryClient.invalidateQueries({ queryKey: ["admin_subscriptions"] });
             queryClient.invalidateQueries({ queryKey: ["admin_manual_payments"] });
@@ -2126,17 +2269,30 @@ function AdminPaymentsPage() {
         const resetSubPending = async (subId: string) => {
           try {
             const sub = allSubscriptions.find((s: any) => s.id === subId);
+            const nowIso = new Date().toISOString();
             await supabase
               .from("subscriptions")
-              .update({ status: "pending", updated_at: new Date().toISOString() })
+              .update({ status: "pending", updated_at: nowIso })
               .eq("id", subId);
 
             if (sub?.payment_ref) {
               await supabase
                 .from("manual_payments")
-                .update({ status: "pending", rejection_reason: null, updated_at: new Date().toISOString() })
+                .update({ status: "pending", rejection_reason: null, updated_at: nowIso })
                 .eq("reference_code", sub.payment_ref);
             }
+
+            queryClient.setQueryData(["admin_subscriptions"], (old: any[] = []) =>
+              old.map((s) => (s.id === subId ? { ...s, status: "pending" } : s))
+            );
+            queryClient.setQueryData(["admin_manual_payments"], (old: any[] = []) =>
+              old.map((p) =>
+                (sub?.payment_ref && p.reference_code === sub.payment_ref) ||
+                (sub?.user_id && p.user_id === sub.user_id && p.package_id?.includes(sub.subscription_type))
+                  ? { ...p, status: "pending", rejection_reason: null }
+                  : p
+              )
+            );
 
             queryClient.invalidateQueries({ queryKey: ["admin_subscriptions"] });
             queryClient.invalidateQueries({ queryKey: ["admin_manual_payments"] });
@@ -2310,7 +2466,9 @@ function AdminPaymentsPage() {
                 >
                   {s === "all"
                     ? `All (${allSubscriptions.length})`
-                    : `${s} (${allSubscriptions.filter((x: any) => x.status === s).length})`}
+                    : s === "cancelled"
+                    ? `Cancelled (${allSubscriptions.filter((x: any) => { const st = getSubEffectiveStatus(x); return st === "cancelled" || st === "rejected"; }).length})`
+                    : `${s} (${allSubscriptions.filter((x: any) => getSubEffectiveStatus(x) === s).length})`}
                 </button>
               ))}
 
@@ -2353,7 +2511,8 @@ function AdminPaymentsPage() {
                     const proofUrl = sub.proof_url || linkedPayment?.proof_url;
                     const isProcessing = approvingSubId === sub.id || rejectingSubId === sub.id;
                     const dateInfo = formatPaymentDate(sub.created_at);
-                    const isExpired = sub.expires_at && new Date(sub.expires_at) < new Date();
+                    const effectiveStatus = getSubEffectiveStatus(sub);
+                    const isExpired = effectiveStatus === "expired" || (sub.expires_at && new Date(sub.expires_at) < new Date());
                     const expiresDate = sub.expires_at
                       ? new Date(sub.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" })
                       : null;
@@ -2371,24 +2530,24 @@ function AdminPaymentsPage() {
                             </span>
                           </div>
                           <div>
-                            {sub.status === "pending" && (
+                            {effectiveStatus === "pending" && (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-warning/15 border border-warning/30 text-warning">
                                 <Clock className="w-3 h-3" /> Pending
                               </span>
                             )}
-                            {sub.status === "active" && !isExpired && (
+                            {effectiveStatus === "active" && !isExpired && (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-success/15 border border-success/30 text-success">
                                 <CheckCircle2 className="w-3 h-3" /> Active
                               </span>
                             )}
-                            {sub.status === "active" && isExpired && (
+                            {effectiveStatus === "expired" && (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-muted border border-border text-muted-foreground">
                                 <Clock className="w-3 h-3" /> Expired
                               </span>
                             )}
-                            {(sub.status === "cancelled" || sub.status === "rejected") && (
+                            {(effectiveStatus === "cancelled" || effectiveStatus === "rejected") && (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-destructive/15 border border-destructive/30 text-destructive">
-                                <XCircle className="w-3 h-3" /> Cancelled
+                                <XCircle className="w-3 h-3" /> {effectiveStatus === "rejected" ? "Rejected" : "Cancelled"}
                               </span>
                             )}
                           </div>
@@ -2461,7 +2620,7 @@ function AdminPaymentsPage() {
                           >
                             <Eye className="w-3.5 h-3.5 text-muted-foreground" /> View
                           </button>
-                          {sub.status !== "active" && (
+                          {effectiveStatus !== "active" && (
                             <button
                               type="button"
                               disabled={isProcessing}
@@ -2471,7 +2630,7 @@ function AdminPaymentsPage() {
                               <CheckCircle2 className="w-3.5 h-3.5" /> Approve
                             </button>
                           )}
-                          {sub.status !== "cancelled" && sub.status !== "rejected" && (
+                          {effectiveStatus !== "cancelled" && effectiveStatus !== "rejected" && (
                             <button
                               type="button"
                               disabled={isProcessing}
@@ -2516,7 +2675,8 @@ function AdminPaymentsPage() {
                         const proofUrl = sub.proof_url || linkedPayment?.proof_url;
                         const isProcessing = approvingSubId === sub.id || rejectingSubId === sub.id;
                         const dateInfo = formatPaymentDate(sub.created_at);
-                        const isExpired = sub.expires_at && new Date(sub.expires_at) < new Date();
+                        const effectiveStatus = getSubEffectiveStatus(sub);
+                        const isExpired = effectiveStatus === "expired" || (sub.expires_at && new Date(sub.expires_at) < new Date());
                         const expiresDate = sub.expires_at
                           ? new Date(sub.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" })
                           : null;
@@ -2611,7 +2771,7 @@ function AdminPaymentsPage() {
                                 {dateInfo.bottom}
                               </div>
                               <div className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                                {sub.status === "active"
+                                {effectiveStatus === "active"
                                   ? (isExpired ? "Expired" : `Valid: ${expiresDate}`)
                                   : "30-day VIP pass"}
                               </div>
@@ -2652,24 +2812,24 @@ function AdminPaymentsPage() {
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <button className="cursor-pointer focus:outline-none transition-transform active:scale-95 group text-left">
-                                    {sub.status === "pending" && (
+                                    {effectiveStatus === "pending" && (
                                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-warning/15 border border-warning/30 text-warning hover:bg-warning/25 transition-colors">
                                         <Clock className="w-3.5 h-3.5 text-warning" /> Pending
                                       </span>
                                     )}
-                                    {sub.status === "active" && !isExpired && (
+                                    {effectiveStatus === "active" && !isExpired && (
                                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-success/15 border border-success/30 text-success hover:bg-success/25 transition-colors">
                                         <CheckCircle2 className="w-3.5 h-3.5 text-success" /> Active
                                       </span>
                                     )}
-                                    {sub.status === "active" && isExpired && (
+                                    {effectiveStatus === "expired" && (
                                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-muted border border-border text-muted-foreground hover:bg-muted/80 transition-colors">
                                         <Clock className="w-3.5 h-3.5" /> Expired
                                       </span>
                                     )}
-                                    {(sub.status === "cancelled" || sub.status === "rejected") && (
+                                    {(effectiveStatus === "cancelled" || effectiveStatus === "rejected") && (
                                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-destructive/15 border border-destructive/30 text-destructive hover:bg-destructive/25 transition-colors">
-                                        <XCircle className="w-3.5 h-3.5 text-destructive" /> Cancelled
+                                        <XCircle className="w-3.5 h-3.5 text-destructive" /> {effectiveStatus === "rejected" ? "Rejected" : "Cancelled"}
                                       </span>
                                     )}
                                   </button>
@@ -2681,20 +2841,24 @@ function AdminPaymentsPage() {
                                   >
                                     <Eye className="w-4 h-4 text-muted-foreground" /> View Subscription
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    disabled={isProcessing}
-                                    onClick={() => setApproveModalSub(sub)}
-                                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-success hover:bg-success/10 rounded-lg cursor-pointer"
-                                  >
-                                    <CheckCircle2 className="w-4 h-4 text-success" /> Activate 30 Days Pass
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    disabled={isProcessing}
-                                    onClick={() => setRejectModalSub(sub)}
-                                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
-                                  >
-                                    <XCircle className="w-4 h-4 text-destructive" /> Reject Subscription
-                                  </DropdownMenuItem>
+                                  {effectiveStatus !== "active" && (
+                                    <DropdownMenuItem
+                                      disabled={isProcessing}
+                                      onClick={() => setApproveModalSub(sub)}
+                                      className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-success hover:bg-success/10 rounded-lg cursor-pointer"
+                                    >
+                                      <CheckCircle2 className="w-4 h-4 text-success" /> Activate 30 Days Pass
+                                    </DropdownMenuItem>
+                                  )}
+                                  {effectiveStatus !== "cancelled" && effectiveStatus !== "rejected" && (
+                                    <DropdownMenuItem
+                                      disabled={isProcessing}
+                                      onClick={() => setRejectModalSub(sub)}
+                                      className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
+                                    >
+                                      <XCircle className="w-4 h-4 text-destructive" /> Reject Subscription
+                                    </DropdownMenuItem>
+                                  )}
                                   <DropdownMenuSeparator className="bg-border my-1" />
                                   <DropdownMenuItem
                                     onClick={() => notifyUserProof(sub)}
@@ -2731,20 +2895,24 @@ function AdminPaymentsPage() {
                                   >
                                     <Eye className="w-4 h-4 text-muted-foreground" /> View Details
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    disabled={isProcessing}
-                                    onClick={() => setApproveModalSub(sub)}
-                                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-success hover:bg-success/10 rounded-lg cursor-pointer"
-                                  >
-                                    <CheckCircle2 className="w-4 h-4 text-success" /> Approve (30 Days)
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    disabled={isProcessing}
-                                    onClick={() => setRejectModalSub(sub)}
-                                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
-                                  >
-                                    <XCircle className="w-4 h-4 text-destructive" /> Reject Request
-                                  </DropdownMenuItem>
+                                  {effectiveStatus !== "active" && (
+                                    <DropdownMenuItem
+                                      disabled={isProcessing}
+                                      onClick={() => setApproveModalSub(sub)}
+                                      className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-success hover:bg-success/10 rounded-lg cursor-pointer"
+                                    >
+                                      <CheckCircle2 className="w-4 h-4 text-success" /> Approve (30 Days)
+                                    </DropdownMenuItem>
+                                  )}
+                                  {effectiveStatus !== "cancelled" && effectiveStatus !== "rejected" && (
+                                    <DropdownMenuItem
+                                      disabled={isProcessing}
+                                      onClick={() => setRejectModalSub(sub)}
+                                      className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
+                                    >
+                                      <XCircle className="w-4 h-4 text-destructive" /> Reject Request
+                                    </DropdownMenuItem>
+                                  )}
                                   <DropdownMenuSeparator className="bg-border my-1" />
                                   <DropdownMenuItem
                                     onClick={() => notifyUserProof(sub)}
@@ -2786,7 +2954,9 @@ function AdminPaymentsPage() {
               const amount = Number(sub.amount_paid || linkedPayment?.amount || plan?.price || 0);
               const proofUrl = sub.proof_url || linkedPayment?.proof_url;
               const isProcessing = approvingSubId === sub.id || rejectingSubId === sub.id;
-              const isExpired = sub.expires_at && new Date(sub.expires_at) < new Date();
+              const dateInfo = formatPaymentDate(sub.created_at);
+              const effectiveStatus = getSubEffectiveStatus(sub);
+              const isExpired = effectiveStatus === "expired" || (sub.expires_at && new Date(sub.expires_at) < new Date());
               const expiresDate = sub.expires_at
                 ? new Date(sub.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
                 : null;
@@ -2871,13 +3041,13 @@ function AdminPaymentsPage() {
                       <div className="flex justify-between items-center pt-2 border-t border-border/60">
                         <span className="text-muted-foreground">Status</span>
                         <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider ${
-                          sub.status === "active"
+                          effectiveStatus === "active"
                             ? "bg-success/15 text-success border border-success/30"
-                            : sub.status === "pending"
+                            : effectiveStatus === "pending"
                             ? "bg-warning/15 text-warning border border-warning/30"
                             : "bg-destructive/15 text-destructive border border-destructive/30"
                         }`}>
-                          {sub.status}
+                          {effectiveStatus}
                         </span>
                       </div>
                     </div>
@@ -2934,7 +3104,7 @@ function AdminPaymentsPage() {
                       >
                         Close
                       </button>
-                      {sub.status !== "cancelled" && sub.status !== "rejected" && (
+                      {effectiveStatus !== "cancelled" && effectiveStatus !== "rejected" && (
                         <button
                           type="button"
                           disabled={isProcessing}
@@ -2947,7 +3117,7 @@ function AdminPaymentsPage() {
                           <XCircle className="w-3.5 h-3.5 inline mr-1" /> Reject
                         </button>
                       )}
-                      {sub.status !== "active" && (
+                      {effectiveStatus !== "active" && (
                         <button
                           type="button"
                           disabled={isProcessing}
@@ -3055,10 +3225,29 @@ function AdminPaymentsPage() {
                       </div>
                     </div>
 
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       <label className="text-xs font-bold text-foreground">
                         Rejection Reason (Sent to User)
                       </label>
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-muted-foreground font-semibold">Quick Reason Presets:</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {REJECTION_REASON_PRESETS.map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => setSubRejectReason(preset)}
+                              className={`px-2 py-1 text-[10px] rounded-md border text-left transition-colors cursor-pointer ${
+                                subRejectReason === preset
+                                  ? "bg-destructive/15 border-destructive text-destructive font-bold"
+                                  : "bg-section hover:bg-muted border-border/80 text-foreground"
+                              }`}
+                            >
+                              {preset}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                       <textarea
                         rows={3}
                         value={subRejectReason}

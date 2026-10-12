@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 import {
   Check, Crown, Star, Zap, BadgeCheck, CalendarDays, Repeat,
   Clock, Sparkles, ShieldCheck, HelpCircle, Layers,
-  Trophy, Flame, RotateCcw
+  Trophy, Flame, RotateCcw, AlertCircle
 } from "lucide-react";
 
 export const Route = createFileRoute("/subscriptions")({
@@ -39,7 +39,7 @@ const DEFAULT_COMBO_PLANS = [
     features: [
       "Unlocks all 5 VIP packages every day",
       "VIP 1 & VIP 2 safe banker slips",
-      "VVIP 1 & VVIP 2 high odds accumulators",
+      "VVIP 1 & VVIP 2 higher odds accumulators",
       "SUPREME VVIP 👑 top predictions",
       "SportyBet booking codes ready to copy & place",
       "Emergency safety net: Replacement game if a slip fails (opened as needed)",
@@ -55,11 +55,11 @@ const DEFAULT_COMBO_PLANS = [
     badge: "Big Odds",
     price: 280,
     originalPrice: 350,
-    tagline: "Our highest odds daily games for punters targeting big payouts with high strike rates.",
+    tagline: "Our premium higher odds daily games for punters targeting big payouts with high strike rates.",
     packagesCovered: ["SUPREME VVIP 👑"],
     features: [
       "Daily SUPREME VVIP 👑 top predictions",
-      "Big odds slips (25.0 to 50.0+ odds)",
+      "Higher odds slips",
       "Daily SportyBet booking code included",
       "Thorough match research before every pick",
       "Emergency safety net: Replacement game if a slip fails (opened as needed)",
@@ -78,7 +78,7 @@ const DEFAULT_COMBO_PLANS = [
     packagesCovered: ["VVIP 1", "VVIP 2"],
     features: [
       "Daily access to both VVIP 1 and VVIP 2 slips",
-      "High odds ranging from 5.0 to 30.0+",
+      "Higher odds multi-match slips",
       "Midweek and weekend SportyBet booking codes",
       "Emergency safety net: Replacement game if a slip fails (opened as needed)",
       "Email and SMS alert notifications",
@@ -97,7 +97,7 @@ const DEFAULT_COMBO_PLANS = [
     packagesCovered: ["VIP 1", "VIP 2"],
     features: [
       "Daily access to both VIP 1 and VIP 2 slips",
-      "Safe banker odds (2.0 to 7.0 odds)",
+      "Safe banker slips for consistent winning",
       "Daily SportyBet booking codes ready to place",
       "Best for low-risk, steady daily profit",
       "Emergency safety net: Replacement game if a slip fails (opened as needed)",
@@ -116,7 +116,7 @@ const DEFAULT_SINGLE_PLANS = [
     pkgTitle: "VIP 1 (Daily Bankers)",
     price: 70,
     originalPrice: 90,
-    oddsRange: "2.00 – 3.50 Odds",
+    oddsRange: "Daily Banker Slips",
     description: "Safe daily banker games designed for minimal risk and reliable winning.",
   },
   {
@@ -126,7 +126,7 @@ const DEFAULT_SINGLE_PLANS = [
     pkgTitle: "VIP 2 (Value Multis)",
     price: 70,
     originalPrice: 90,
-    oddsRange: "3.50 – 7.00 Odds",
+    oddsRange: "Value Combo Slips",
     description: "Balanced multi-bets across top European leagues with solid value.",
   },
   {
@@ -136,7 +136,7 @@ const DEFAULT_SINGLE_PLANS = [
     pkgTitle: "VVIP 1 (Premium Slips)",
     price: 130,
     originalPrice: 160,
-    oddsRange: "5.00 – 15.00 Odds",
+    oddsRange: "Higher Odds Slips",
     description: "Premium selections with higher odds for bettors wanting bigger returns.",
   },
   {
@@ -146,7 +146,7 @@ const DEFAULT_SINGLE_PLANS = [
     pkgTitle: "VVIP 2 (Mega Accumulators)",
     price: 130,
     originalPrice: 160,
-    oddsRange: "10.00 – 30.00+ Odds",
+    oddsRange: "Higher Odds Accumulators",
     description: "Multi-game accumulator slips for punters hunting major payouts.",
   },
 ];
@@ -163,7 +163,7 @@ const GAME_PACKAGES_METADATA: Record<string, {
   vip_1: {
     name: "VIP 1",
     tagline: "Safe Daily Bankers",
-    typicalOdds: "2.00 – 3.50",
+    typicalOdds: "Daily Banker Slips",
     risk: "Low Risk",
     coveredBy: "All-Access • VIP Combo • VIP 1 Pass",
     icon: Zap,
@@ -171,31 +171,31 @@ const GAME_PACKAGES_METADATA: Record<string, {
   vip_2: {
     name: "VIP 2",
     tagline: "Value Combo Slips",
-    typicalOdds: "3.50 – 7.00",
+    typicalOdds: "Value Combo Slips",
     risk: "Moderate",
     coveredBy: "All-Access • VIP Combo • VIP 2 Pass",
     icon: Layers,
   },
   vvip_1: {
     name: "VVIP 1",
-    tagline: "Premium High Odds",
-    typicalOdds: "5.00 – 15.00",
+    tagline: "Higher Odds Slip",
+    typicalOdds: "Higher Odds Slips",
     risk: "High Return",
     coveredBy: "All-Access • VVIP Combo • VVIP 1 Pass",
     icon: Flame,
   },
   vvip_2: {
     name: "VVIP 2",
-    tagline: "Mega Accumulator Slips",
-    typicalOdds: "10.00 – 30.00+",
+    tagline: "Higher Odds Accumulator",
+    typicalOdds: "Higher Odds Accumulators",
     risk: "Big Payout",
     coveredBy: "All-Access • VVIP Combo • VVIP 2 Pass",
     icon: Trophy,
   },
   supreme_vvip: {
     name: "SUPREME VVIP 👑",
-    tagline: "Top High Odds Package",
-    typicalOdds: "25.00 – 50.00+",
+    tagline: "Top Higher Odds Package",
+    typicalOdds: "Higher Odds Slips",
     risk: "Maximum Yield",
     coveredBy: "All-Access • Supreme VVIP Pass",
     icon: Crown,
@@ -203,7 +203,7 @@ const GAME_PACKAGES_METADATA: Record<string, {
   recovery: {
     name: "Recovery Slip 🔄",
     tagline: "Emergency Safety Net",
-    typicalOdds: "Replacement Odds",
+    typicalOdds: "Replacement Slips",
     risk: "Emergency Backup",
     coveredBy: "Only active when games spoil (not an everyday slip)",
     icon: RotateCcw,
@@ -254,6 +254,22 @@ function SubscriptionsPage() {
         .select("*")
         .eq("user_id", user.id)
         .in("status", ["active", "pending"])
+        .order("created_at", { ascending: false });
+      if (error) return [];
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  // Fetch user manual payments so we can detect pending/rejected subscription payments
+  const { data: userManualPayments = [] } = useQuery({
+    queryKey: ["user_manual_payments", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("manual_payments")
+        .select("id, package_id, status, rejection_reason, created_at, updated_at")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) return [];
       return data || [];
@@ -366,8 +382,47 @@ function SubscriptionsPage() {
       return false;
     });
 
-  const hasPendingSub = (type: string) =>
-    userSubscriptions.some((s: any) => s.status === "pending" && s.subscription_type === type);
+  // Check manual_payments for a directly matching pending sub payment.
+  // Intentionally does NOT treat "sub_all_access" as pending for all types.
+  const hasPendingManualSubPayment = (type: string) =>
+    userManualPayments.some((p: any) =>
+      p.status === "pending" &&
+      (p.package_id === `sub_${type}` || p.package_id === type)
+    );
+
+  // Rejected = direct package match was rejected and no newer pending/approved payment supersedes it
+  const hasRejectedSubPayment = (type: string) => {
+    const directMatch = userManualPayments.find((p: any) =>
+      p.status === "rejected" &&
+      (p.package_id === `sub_${type}` || p.package_id === type)
+    );
+    if (!directMatch) return false;
+    const superseded = userManualPayments.some((q: any) =>
+      (q.package_id === `sub_${type}` || q.package_id === type) &&
+      q.id !== directMatch.id &&
+      new Date(q.created_at) > new Date(directMatch.created_at) &&
+      (q.status === "pending" || q.status === "approved")
+    );
+    return !superseded;
+  };
+
+  // Pending = subscription row or payment is pending, BUT rejection overrides pending
+  const hasPendingSub = (type: string) => {
+    if (hasRejectedSubPayment(type)) return false;
+    return (
+      userSubscriptions.some((s: any) => s.status === "pending" && s.subscription_type === type) ||
+      hasPendingManualSubPayment(type)
+    );
+  };
+
+  const getSubRejectionReason = (type: string): string | null => {
+    const rejected = userManualPayments.find((p: any) =>
+      p.status === "rejected" &&
+      (p.package_id === `sub_${type}` || p.package_id === type)
+    );
+    return rejected?.rejection_reason || null;
+  };
+
 
   const activeSub = userSubscriptions.find(
     (s: any) => s.status === "active" && new Date(s.expires_at) > new Date()
@@ -467,6 +522,8 @@ function SubscriptionsPage() {
             {comboPlans.map((plan: any) => {
               const active = hasActiveSub(plan.type);
               const pending = hasPendingSub(plan.type);
+              const rejected = !active && !pending && hasRejectedSubPayment(plan.type);
+              const rejectionReason = rejected ? getSubRejectionReason(plan.type) : null;
               return (
                 <div
                   key={plan.id}
@@ -476,7 +533,7 @@ function SubscriptionsPage() {
                       : "bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl border-slate-200 dark:border-white/5 shadow-xl hover:border-emerald-500/30 hover:shadow-emerald-500/10"
                   }`}
                 >
-                  {plan.badge && (
+                  {plan.highlight && plan.badge && (
                     <div className="absolute top-4 right-4">
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-400/20 text-amber-300 border border-amber-400/30 rounded-full text-[10px] font-black uppercase tracking-wider">
                         <Star className="w-3 h-3 fill-current" /> {plan.badge}
@@ -534,12 +591,6 @@ function SubscriptionsPage() {
                       <span className={`text-[11px] font-bold ${
                         plan.highlight ? "text-emerald-200/70" : "text-slate-400"
                       }`}>/month</span>
-
-                      {plan.originalPrice && plan.originalPrice > plan.price && (
-                        <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                          Save {Math.round(((plan.originalPrice - plan.price) / plan.originalPrice) * 100)}%
-                        </span>
-                      )}
                     </div>
 
                     {/* Packages covered pill list */}
@@ -594,6 +645,36 @@ function SubscriptionsPage() {
                       }`}>
                         <Clock className="w-4 h-4 animate-pulse" /> Under Review...
                       </div>
+                    ) : rejected ? (
+                      <div className="flex flex-col gap-2.5">
+                        <div className={`p-3 rounded-xl text-left text-xs ${
+                          plan.highlight
+                            ? "bg-amber-500/15 text-amber-200 border border-amber-500/25"
+                            : "bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 border border-amber-500/20"
+                        }`}>
+                          <div className="flex items-center gap-1.5 font-bold mb-1">
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span>Payment Verification Notice</span>
+                          </div>
+                          <p className="text-[11px] leading-relaxed opacity-90 m-0">
+                            {rejectionReason || "We could not verify this transfer on our account statement. Please verify your details and resubmit."}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (!user) { navigate({ to: "/login" }); return; }
+                            navigate({ to: "/checkout", search: { pkgId: plan.id } });
+                          }}
+                          className={`w-full p-3.5 rounded-xl font-extrabold text-[13px] flex items-center justify-center gap-2 transition-all border-none cursor-pointer ${
+                            plan.highlight
+                              ? "bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/30"
+                              : "bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/10"
+                          }`}
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                          Resubmit Payment — GHS {plan.price}/mo
+                        </button>
+                      </div>
                     ) : (
                       <button
                         onClick={() => {
@@ -625,6 +706,8 @@ function SubscriptionsPage() {
             {singlePlans.map((plan: any) => {
               const active = hasActiveSub(plan.targetPkg);
               const pending = hasPendingSub(plan.targetPkg);
+              const rejected = !active && !pending && hasRejectedSubPayment(plan.targetPkg);
+              const rejectionReason = rejected ? getSubRejectionReason(plan.targetPkg) : null;
               return (
                 <div
                   key={plan.id}
@@ -655,12 +738,6 @@ function SubscriptionsPage() {
                       <span className="text-xs font-bold text-slate-400">GHS</span>
                       <span className="text-3xl font-black text-slate-900 dark:text-white">{plan.price}</span>
                       <span className="text-[11px] font-bold text-slate-400">/month</span>
-
-                      {plan.originalPrice && plan.originalPrice > plan.price && (
-                        <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                          -{Math.round(((plan.originalPrice - plan.price) / plan.originalPrice) * 100)}%
-                        </span>
-                      )}
                     </div>
 
                     <ul className="list-none p-0 m-0 flex flex-col gap-2 mb-6">
@@ -686,6 +763,27 @@ function SubscriptionsPage() {
                   ) : pending ? (
                     <div className="p-3 rounded-xl text-center bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-xs font-extrabold flex items-center justify-center gap-1.5">
                       <Clock className="w-4 h-4 animate-pulse" /> Under Review...
+                    </div>
+                  ) : rejected ? (
+                    <div className="flex flex-col gap-2.5">
+                      <div className="p-3 rounded-xl text-left bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 border border-amber-500/20 text-xs">
+                        <div className="flex items-center gap-1.5 font-bold mb-1">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span>Verification Notice</span>
+                        </div>
+                        <p className="text-[11px] leading-relaxed opacity-90 m-0">
+                          {rejectionReason || "Unable to confirm this transfer. Please review and resubmit."}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (!user) { navigate({ to: "/login" }); return; }
+                          navigate({ to: "/checkout", search: { pkgId: plan.id } });
+                        }}
+                        className="w-full p-3 rounded-xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white font-extrabold text-xs transition-all border-none cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" /> Resubmit — GHS {plan.price}/mo
+                      </button>
                     </div>
                   ) : (
                     <button
@@ -759,9 +857,9 @@ function SubscriptionsPage() {
 
                     <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-100 dark:border-white/5 mb-4">
                       <div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Target Odds</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Slip Style</span>
                         <span className="text-xs font-extrabold text-slate-900 dark:text-white">
-                          {livePkg?.combined_odds ? `${Number(livePkg.combined_odds).toFixed(2)} Odds` : meta.typicalOdds}
+                          {meta.typicalOdds}
                         </span>
                       </div>
                       <div>

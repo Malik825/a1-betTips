@@ -368,11 +368,6 @@ function CheckoutPage() {
                   <div>
                     <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500 mb-1">You're purchasing</p>
                     <h2 className="text-xl font-black text-white">{pkg?.name}</h2>
-                    {(pkg as any)?.combined_odds && (
-                      <p className="text-xs text-slate-400 mt-1">
-                        Combined Odds: <span className="font-bold text-white">{Number((pkg as any).combined_odds).toFixed(2)}</span>
-                      </p>
-                    )}
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-[10px] text-slate-500 uppercase tracking-wider">Amount</p>
