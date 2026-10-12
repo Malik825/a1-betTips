@@ -5,8 +5,8 @@ import { SiteFooter } from "@/components/site-footer";
 import { supabase } from "@/lib/supabase";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
-import { Check, X, Ticket, ExternalLink, Clock, RotateCcw, Upload, AlertCircle, Trash2, Camera, ShieldCheck, Bell, BellRing, BadgeCheck, Repeat, CreditCard } from "lucide-react";
-import { isTicketValidForPackage } from "@/lib/ticket-utils";
+import { Check, X, Ticket, ExternalLink, Clock, RotateCcw, Upload, AlertCircle, Trash2, Camera, ShieldCheck, Bell, BellRing, BadgeCheck, Repeat, CreditCard, Copy, Crown } from "lucide-react";
+import { isTicketValidForPackage, hasUserPurchasedPackage } from "@/lib/ticket-utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard")({
@@ -199,14 +199,57 @@ function DashboardPage() {
   };
 
   const [notifOpen, setNotifOpen] = useState(false);
+  const [copiedPkgId, setCopiedPkgId] = useState<string | null>(null);
+
+  const handleCopyCode = (code: string, id: string) => {
+    if (!code) return;
+    navigator.clipboard.writeText(code).then(() => {
+      setCopiedPkgId(id);
+      toast.success("Booking code copied to clipboard!");
+      setTimeout(() => setCopiedPkgId(null), 2000);
+    });
+  };
 
   const activeSubscription = userSubscriptions.find(
-    (s: any) => s.status === "active" && new Date(s.expires_at) > new Date()
+    (s: any) => s.status === "active" && (!s.expires_at || new Date(s.expires_at) > new Date())
   );
+
+  const approvedManualSub = userPendingPayments.find(
+    (p: any) =>
+      p.status === "approved" &&
+      (p.package_id === "all_access" ||
+        p.package_id === "sub_all_access" ||
+        p.package_id?.startsWith("sub_"))
+  );
+
+  const effectiveSubscription =
+    activeSubscription ||
+    (approvedManualSub
+      ? {
+          id: approvedManualSub.id,
+          subscription_type: approvedManualSub.package_id.replace(/^sub_/, ""),
+          status: "active",
+          expires_at: approvedManualSub.updated_at
+            ? new Date(new Date(approvedManualSub.updated_at).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+            : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        }
+      : null);
 
   const proofNeededSubscription = userSubscriptions.find(
     (s: any) => (s.status === "pending" || s.status === "cancelled") && (!s.proof_url || s.status === "cancelled")
   );
+
+  // Rejected payments that haven't been re-attempted (most recent per package type)
+  const rejectedPayments = userPendingPayments.filter((p: any) => {
+    if (p.status !== "rejected") return false;
+    // Don't show if a newer pending or approved payment exists for same package
+    const newer = userPendingPayments.find(
+      (q: any) => q.package_id === p.package_id && q.id !== p.id &&
+        new Date(q.created_at) > new Date(p.created_at) &&
+        (q.status === "pending" || q.status === "approved")
+    );
+    return !newer;
+  });
 
   const [subProofModal, setSubProofModal] = useState<any | null>(null);
   const [subProofFile, setSubProofFile] = useState<File | null>(null);
@@ -215,12 +258,20 @@ function DashboardPage() {
 
   const activePendingPayments = userPendingPayments.filter((p: any) => p.status === "pending");
 
+
   const { data: vipPackages = [] } = useQuery({
     queryKey: ["vip_packages"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("secure_vip_packages").select("id, name, price, availability_status, result_status, booking_code, combined_odds, expires_at, updated_at");
-      if (error) throw error;
-      return data || [];
+      // Direct query to vip_packages first so unlocked subscribers get the booking code
+      const { data, error } = await supabase
+        .from("vip_packages")
+        .select("id, name, price, availability_status, result_status, booking_code, combined_odds, expires_at, updated_at");
+      if (!error && data) return data;
+      // Fallback to secure_vip_packages
+      const { data: fallbackData } = await supabase
+        .from("secure_vip_packages")
+        .select("id, name, price, availability_status, result_status, booking_code, combined_odds, expires_at, updated_at");
+      return fallbackData || [];
     },
   });
 
@@ -271,6 +322,64 @@ function DashboardPage() {
     }
     return isValidTicket ? "pending" : "completed";
   };
+
+  const isPackageUnlockedForUser = (pkgId: string) => {
+    const now = new Date();
+    // 1. Check userSubscriptions
+    const hasSub = userSubscriptions.some((s: any) => {
+      if (s.status !== "active") return false;
+      if (s.expires_at && new Date(s.expires_at) < now) return false;
+      const t = s.subscription_type;
+      if (t === "all_access") return true;
+      if (t === pkgId || t === `sub_${pkgId}`) return true;
+      if ((t === "vip_combo" || t === "silver") && (pkgId === "vip_1" || pkgId === "vip_2")) return true;
+      if ((t === "vvip_combo" || t === "gold") && (pkgId === "vvip_1" || pkgId === "vvip_2")) return true;
+      if ((t === "supreme_vvip" || t === "supreme" || t === "platinum") && pkgId === "supreme_vvip") return true;
+      return false;
+    });
+    if (hasSub) return true;
+
+    // 2. Check approved manual payments for subscriptions
+    const hasApprovedManualSub = userPendingPayments.some((p: any) => {
+      if (p.status !== "approved") return false;
+      const pkg = p.package_id;
+      if (pkg === "all_access" || pkg === "sub_all_access") return true;
+      if (pkg === pkgId || pkg === `sub_${pkgId}`) return true;
+      if ((pkg === "sub_vip_combo" || pkg === "vip_combo" || pkg === "silver") && (pkgId === "vip_1" || pkgId === "vip_2")) return true;
+      if ((pkg === "sub_vvip_combo" || pkg === "vvip_combo" || pkg === "gold") && (pkgId === "vvip_1" || pkgId === "vvip_2")) return true;
+      if ((pkg === "sub_supreme_vvip" || pkg === "supreme_vvip" || pkg === "platinum") && pkgId === "supreme_vvip") return true;
+      return false;
+    });
+    if (hasApprovedManualSub) return true;
+
+    // 3. Check approved manual payments for single packages
+    const hasApprovedManualPkg = userPendingPayments.some((p: any) => {
+      if (p.status !== "approved") return false;
+      return p.package_id === pkgId;
+    });
+    if (hasApprovedManualPkg) return true;
+
+    // 4. Check userTickets
+    const pkg = vipPackages.find((p: any) => p.id === pkgId);
+    if (pkg && hasUserPurchasedPackage(userTickets, pkg)) return true;
+
+    return false;
+  };
+
+  // Packages unlocked for this user that currently have content or are available
+  const activeUnlockedPackages = vipPackages.filter((pkg: any) => {
+    if (pkg.id === "recovery") return false;
+    if (!isPackageUnlockedForUser(pkg.id)) return false;
+    const hasSelections = vipSelections.some((s: any) => s.package_id === pkg.id);
+    const isAvailable = pkg.availability_status === "available";
+    const hasBookingCode = !!pkg.booking_code;
+    return hasSelections || isAvailable || hasBookingCode;
+  });
+
+  // Filter out any unlocked packages that are already displayed as an active ticket in userTickets
+  const unlockedPackagesToShow = activeUnlockedPackages.filter(
+    (pkg: any) => !userTickets.some((t: any) => t.package_id === pkg.id && isTicketValidForPackage(t, pkg))
+  );
 
   // Recovery qualifications check
   const qualifyingLostTickets = userTickets.filter((ticket: any) => {
@@ -535,7 +644,7 @@ function DashboardPage() {
       <main className="flex-1 w-[95%] sm:w-[92%] max-w-7xl mx-auto py-8 px-5 pb-20">
 
         {/* ── Proof Needed for Subscription Banner ─────────────────────── */}
-        {proofNeededSubscription && !activeSubscription && (
+        {proofNeededSubscription && !effectiveSubscription && (
           <div className="mb-6 p-5 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in duration-200">
             <div className="flex items-start sm:items-center gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
@@ -563,7 +672,7 @@ function DashboardPage() {
         )}
 
         {/* ── Active Subscription Banner ──────────────────────────────── */}
-        {activeSubscription ? (
+        {effectiveSubscription ? (
           <div className="mb-6 p-5 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-emerald-500/10 to-teal-500/10 border border-emerald-500/30 shadow-sm animate-in fade-in duration-200">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
@@ -572,9 +681,9 @@ function DashboardPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-extrabold text-sm text-slate-900 dark:text-white">
-                    {activeSubscription.subscription_type === "all_access"
+                    {effectiveSubscription.subscription_type === "all_access"
                       ? "All-Access Monthly Subscription Active"
-                      : `Monthly Subscription Active — ${activeSubscription.subscription_type.toUpperCase()}`}
+                      : `Monthly Subscription Active — ${effectiveSubscription.subscription_type.toUpperCase()}`}
                   </span>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
                     Active
@@ -582,9 +691,9 @@ function DashboardPage() {
                 </div>
                 <p className="text-[12px] text-slate-500 dark:text-slate-400 m-0 mt-0.5">
                   Expires: <strong className="text-slate-700 dark:text-slate-200">
-                    {new Date(activeSubscription.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+                    {new Date(effectiveSubscription.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
                   </strong>
-                  {activeSubscription.subscription_type === "all_access" && " — you have automatic access to all VIP packages."}
+                  {effectiveSubscription.subscription_type === "all_access" && " — you have automatic access to all VIP packages."}
                 </p>
               </div>
               <Link
@@ -749,11 +858,54 @@ function DashboardPage() {
           </div>
         )}
 
+        {/* ── Payment Verification Notice Banner ─────────────────────────────── */}
+        {rejectedPayments.length > 0 && !effectiveSubscription && (
+          <div className="mb-8 p-5 rounded-2xl bg-amber-500/10 border border-amber-500/25 shadow-sm animate-in fade-in duration-200">
+            <div className="flex items-center gap-2.5 mb-2">
+              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <h3 className="font-extrabold text-sm text-slate-900 dark:text-white m-0">
+                Payment Verification Notice ({rejectedPayments.length})
+              </h3>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
+              We encountered an issue confirming your recent transfer. Please review the note from our team below and resubmit when ready.
+            </p>
+            <div className="flex flex-col gap-3">
+              {rejectedPayments.map((p: any) => {
+                const pkg = vipPackages.find((pkgItem: any) => pkgItem.id === p.package_id);
+                const displayName = pkg?.name || (p.package_id?.startsWith("sub_") ? p.package_id.replace(/^sub_/, "").toUpperCase().replace(/_/g, " ") + " Pass" : p.package_id);
+                return (
+                  <div key={p.id} className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-amber-500/20 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                        {displayName}
+                      </span>
+                      <span className="text-[11px] text-amber-800 dark:text-amber-300 font-medium block mt-1">
+                        Note: {p.rejection_reason || "Unable to confirm transfer on MoMo statement. Please verify and try again."}
+                      </span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
+                        Ref: <strong className="font-mono">{p.reference_code}</strong> • GHS {Number(p.amount).toFixed(2)}
+                      </span>
+                    </div>
+                    <Link
+                      to="/checkout"
+                      search={{ pkgId: p.package_id }}
+                      className="shrink-0 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 no-underline shadow-sm"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" /> Resubmit Details
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* ── Section title ───────────────────────────────────────────── */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-lg font-extrabold text-slate-900 dark:text-white m-0 flex items-center gap-2.5">
             <Ticket className="w-5 h-5 text-green-500" />
-            My Tickets
+            {effectiveSubscription ? "My VIP Packages & Tickets" : "My Tickets"}
           </h2>
           <Link to="/predictions" className="text-[11px] font-bold text-green-600 dark:text-green-500 flex items-center gap-1 hover:underline">
             Browse packages <ExternalLink className="w-[13px] h-[13px]" />
@@ -765,7 +917,7 @@ function DashboardPage() {
           <div className="bg-white dark:bg-slate-900/50 rounded-xl p-14 text-center border border-slate-200 dark:border-white/10 shadow-sm">
             <p className="text-slate-500 dark:text-slate-400 text-sm font-medium m-0">Loading your tickets...</p>
           </div>
-        ) : userTickets.length === 0 ? (
+        ) : userTickets.length === 0 && unlockedPackagesToShow.length === 0 ? (
           <div className="bg-white dark:bg-slate-900/50 rounded-xl p-14 text-center border border-slate-200 dark:border-white/10 shadow-sm">
             <Ticket className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
             <p className="font-bold text-slate-700 dark:text-slate-200 text-[13px] mb-1.5">No tickets yet</p>
@@ -778,6 +930,128 @@ function DashboardPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-7">
+            {/* ── Unlocked Active VIP Packages (from All-Access / VIP Subscriptions) ── */}
+            {unlockedPackagesToShow.map((pkg: any) => {
+              const rawSels = vipSelections.filter((s: any) => s.package_id === pkg.id);
+              const sels = rawSels.map((sel: any) => ({
+                ...sel,
+                result_status: sel.result_status || "pending",
+              }));
+
+              let result = "pending";
+              if (sels.length > 0) {
+                if (sels.some((s: any) => s.result_status === "lost")) {
+                  result = "lost";
+                } else if (sels.every((s: any) => s.result_status === "won")) {
+                  result = "won";
+                } else {
+                  result = "pending";
+                }
+              }
+
+              return (
+                <div key={`unlocked-${pkg.id}`} id={`package-${pkg.id}`} className="bg-white dark:bg-slate-900/60 backdrop-blur-xl rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-lg dark:shadow-2xl dark:shadow-black/50 transition-colors scroll-mt-24">
+                  {/* Card top bar */}
+                  <div className={`h-1 ${result === "won" ? "bg-green-500" : result === "lost" ? "bg-red-500" : "bg-gradient-to-r from-emerald-500 to-teal-500"}`} />
+
+                  {/* Header */}
+                  <div className="px-7 py-5 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-black/20 flex justify-between items-center flex-wrap gap-3">
+                    <div>
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <h3 className="text-lg font-extrabold text-slate-900 dark:text-white m-0">
+                          {pkg.name}
+                        </h3>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                          <Crown className="w-3 h-3 text-amber-500 dark:text-amber-400" />
+                          Unlocked via VIP Pass
+                        </span>
+                        {pkg.combined_odds && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300">
+                            Odds: {pkg.combined_odds}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium m-0 mt-1">
+                        Active Continuous Access — VIP Pass Member
+                      </p>
+                    </div>
+                    <ResultBadge result={result} />
+                  </div>
+
+                  <div className="p-7">
+                    {/* Booking code */}
+                    <div className="mb-7">
+                      <div className="p-5 bg-green-50 dark:bg-green-500/10 rounded-xl border border-green-200 dark:border-green-500/20">
+                        <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Booking Code</p>
+                        {pkg.booking_code ? (
+                          <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <p className="text-2xl font-black text-green-800 dark:text-green-400 m-0 font-mono tracking-widest">{pkg.booking_code}</p>
+                            <button
+                              onClick={() => handleCopyCode(pkg.booking_code, pkg.id)}
+                              className="px-3.5 py-1.5 rounded-lg bg-green-600 hover:bg-green-500 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer border-none shadow-sm"
+                            >
+                              {copiedPkgId === pkg.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                              {copiedPkgId === pkg.id ? "Copied!" : "Copy Code"}
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="text-[13px] text-slate-400 dark:text-slate-500 m-0">Booking code will be updated shortly for this batch.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Selections table */}
+                    <h4 className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3.5">
+                      Selections ({sels.length})
+                    </h4>
+
+                    <div className="border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden bg-white dark:bg-transparent">
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50 dark:bg-black/40 text-left border-b border-slate-200 dark:border-white/10">
+                              <th className="p-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400">Match</th>
+                              <th className="p-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400">Prediction</th>
+                              <th className="p-3 text-[10px] font-semibold text-slate-500 dark:text-slate-400 text-right">Result</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sels.map((sel: any, i: number) => {
+                              const fix = resolveFixture(sel);
+                              const matchLabel = sel.match || (fix ? `${fix.home_team} vs ${fix.away_team}` : "—");
+                              const compLabel = sel.competition || fix?.competition || "";
+                              const timeLabel = sel.match_time || fix?.match_time || "";
+                              return (
+                                <tr key={sel.id} className={`${i < sels.length - 1 ? 'border-b border-slate-100 dark:border-white/5' : ''}`}>
+                                  <td className="p-3.5 text-[12px] font-semibold text-slate-900 dark:text-slate-200">
+                                    {matchLabel}
+                                    {(compLabel || timeLabel) && <div className="text-[10px] text-slate-500 dark:text-slate-400 font-normal mt-0.5">{compLabel}{compLabel && timeLabel ? " • " : ""}{timeLabel}</div>}
+                                  </td>
+                                  <td className="p-3.5 text-[12px] font-bold text-green-600 dark:text-green-500">
+                                    {sel.prediction}
+                                  </td>
+                                  <td className="p-3.5 text-right">
+                                    <ResultBadge result={sel.result_status || "completed"} />
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            {sels.length === 0 && (
+                              <tr>
+                                <td colSpan={3} className="p-5 text-center text-slate-400 dark:text-slate-500 text-[12px]">
+                                  Predictions are being prepared for this package.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
             {userTickets.map((ticket) => {
               const isRecoveryTicket = ticket.package_id === "recovery";
               const pkg = vipPackages.find((p) => p.id === ticket.package_id) || (isRecoveryTicket ? { id: "recovery", name: "Recovery Package 🔄", price: 0, booking_code: ticket.booking_code } : null);
@@ -859,7 +1133,16 @@ function DashboardPage() {
                       <div className="p-5 bg-green-50 dark:bg-green-500/10 rounded-xl border border-green-200 dark:border-green-500/20">
                         <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Booking Code</p>
                         {displayBookingCode ? (
-                          <p className="text-2xl font-black text-green-800 dark:text-green-400 m-0 font-mono tracking-widest">{displayBookingCode}</p>
+                          <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <p className="text-2xl font-black text-green-800 dark:text-green-400 m-0 font-mono tracking-widest">{displayBookingCode}</p>
+                            <button
+                              onClick={() => handleCopyCode(displayBookingCode, ticket.id)}
+                              className="px-3.5 py-1.5 rounded-lg bg-green-600 hover:bg-green-500 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer border-none shadow-sm"
+                            >
+                              {copiedPkgId === ticket.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                              {copiedPkgId === ticket.id ? "Copied!" : "Copy Code"}
+                            </button>
+                          </div>
                         ) : (
                           <p className="text-[13px] text-slate-400 dark:text-slate-500 m-0">{isValidTicket ? "Not set yet" : "This package has been updated — your booking code was for the previous batch."}</p>
                         )}

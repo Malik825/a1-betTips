@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 import {
   Check, Crown, Star, Zap, BadgeCheck, CalendarDays, Repeat,
   Clock, Sparkles, ShieldCheck, HelpCircle, Layers,
-  Trophy, Flame, RotateCcw
+  Trophy, Flame, RotateCcw, AlertCircle
 } from "lucide-react";
 
 export const Route = createFileRoute("/subscriptions")({
@@ -261,6 +261,22 @@ function SubscriptionsPage() {
     enabled: !!user,
   });
 
+  // Fetch user manual payments so we can detect pending/rejected subscription payments
+  const { data: userManualPayments = [] } = useQuery({
+    queryKey: ["user_manual_payments", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("manual_payments")
+        .select("id, package_id, status, rejection_reason, created_at, updated_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) return [];
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
   // If user already has an active All-Access VIP pass, redirect them to dashboard (unless in explicit renew mode)
   const activeAllAccess = userSubscriptions.find(
     (s: any) =>
@@ -366,8 +382,47 @@ function SubscriptionsPage() {
       return false;
     });
 
-  const hasPendingSub = (type: string) =>
-    userSubscriptions.some((s: any) => s.status === "pending" && s.subscription_type === type);
+  // Check manual_payments for a directly matching pending sub payment.
+  // Intentionally does NOT treat "sub_all_access" as pending for all types.
+  const hasPendingManualSubPayment = (type: string) =>
+    userManualPayments.some((p: any) =>
+      p.status === "pending" &&
+      (p.package_id === `sub_${type}` || p.package_id === type)
+    );
+
+  // Rejected = direct package match was rejected and no newer pending/approved payment supersedes it
+  const hasRejectedSubPayment = (type: string) => {
+    const directMatch = userManualPayments.find((p: any) =>
+      p.status === "rejected" &&
+      (p.package_id === `sub_${type}` || p.package_id === type)
+    );
+    if (!directMatch) return false;
+    const superseded = userManualPayments.some((q: any) =>
+      (q.package_id === `sub_${type}` || q.package_id === type) &&
+      q.id !== directMatch.id &&
+      new Date(q.created_at) > new Date(directMatch.created_at) &&
+      (q.status === "pending" || q.status === "approved")
+    );
+    return !superseded;
+  };
+
+  // Pending = subscription row or payment is pending, BUT rejection overrides pending
+  const hasPendingSub = (type: string) => {
+    if (hasRejectedSubPayment(type)) return false;
+    return (
+      userSubscriptions.some((s: any) => s.status === "pending" && s.subscription_type === type) ||
+      hasPendingManualSubPayment(type)
+    );
+  };
+
+  const getSubRejectionReason = (type: string): string | null => {
+    const rejected = userManualPayments.find((p: any) =>
+      p.status === "rejected" &&
+      (p.package_id === `sub_${type}` || p.package_id === type)
+    );
+    return rejected?.rejection_reason || null;
+  };
+
 
   const activeSub = userSubscriptions.find(
     (s: any) => s.status === "active" && new Date(s.expires_at) > new Date()
@@ -467,6 +522,8 @@ function SubscriptionsPage() {
             {comboPlans.map((plan: any) => {
               const active = hasActiveSub(plan.type);
               const pending = hasPendingSub(plan.type);
+              const rejected = !active && !pending && hasRejectedSubPayment(plan.type);
+              const rejectionReason = rejected ? getSubRejectionReason(plan.type) : null;
               return (
                 <div
                   key={plan.id}
@@ -476,7 +533,7 @@ function SubscriptionsPage() {
                       : "bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl border-slate-200 dark:border-white/5 shadow-xl hover:border-emerald-500/30 hover:shadow-emerald-500/10"
                   }`}
                 >
-                  {plan.badge && (
+                  {plan.highlight && plan.badge && (
                     <div className="absolute top-4 right-4">
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-400/20 text-amber-300 border border-amber-400/30 rounded-full text-[10px] font-black uppercase tracking-wider">
                         <Star className="w-3 h-3 fill-current" /> {plan.badge}
@@ -534,12 +591,6 @@ function SubscriptionsPage() {
                       <span className={`text-[11px] font-bold ${
                         plan.highlight ? "text-emerald-200/70" : "text-slate-400"
                       }`}>/month</span>
-
-                      {plan.originalPrice && plan.originalPrice > plan.price && (
-                        <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                          Save {Math.round(((plan.originalPrice - plan.price) / plan.originalPrice) * 100)}%
-                        </span>
-                      )}
                     </div>
 
                     {/* Packages covered pill list */}
@@ -594,6 +645,36 @@ function SubscriptionsPage() {
                       }`}>
                         <Clock className="w-4 h-4 animate-pulse" /> Under Review...
                       </div>
+                    ) : rejected ? (
+                      <div className="flex flex-col gap-2.5">
+                        <div className={`p-3 rounded-xl text-left text-xs ${
+                          plan.highlight
+                            ? "bg-amber-500/15 text-amber-200 border border-amber-500/25"
+                            : "bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 border border-amber-500/20"
+                        }`}>
+                          <div className="flex items-center gap-1.5 font-bold mb-1">
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span>Payment Verification Notice</span>
+                          </div>
+                          <p className="text-[11px] leading-relaxed opacity-90 m-0">
+                            {rejectionReason || "We could not verify this transfer on our account statement. Please verify your details and resubmit."}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (!user) { navigate({ to: "/login" }); return; }
+                            navigate({ to: "/checkout", search: { pkgId: plan.id } });
+                          }}
+                          className={`w-full p-3.5 rounded-xl font-extrabold text-[13px] flex items-center justify-center gap-2 transition-all border-none cursor-pointer ${
+                            plan.highlight
+                              ? "bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/30"
+                              : "bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/10"
+                          }`}
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                          Resubmit Payment — GHS {plan.price}/mo
+                        </button>
+                      </div>
                     ) : (
                       <button
                         onClick={() => {
@@ -625,6 +706,8 @@ function SubscriptionsPage() {
             {singlePlans.map((plan: any) => {
               const active = hasActiveSub(plan.targetPkg);
               const pending = hasPendingSub(plan.targetPkg);
+              const rejected = !active && !pending && hasRejectedSubPayment(plan.targetPkg);
+              const rejectionReason = rejected ? getSubRejectionReason(plan.targetPkg) : null;
               return (
                 <div
                   key={plan.id}
@@ -655,12 +738,6 @@ function SubscriptionsPage() {
                       <span className="text-xs font-bold text-slate-400">GHS</span>
                       <span className="text-3xl font-black text-slate-900 dark:text-white">{plan.price}</span>
                       <span className="text-[11px] font-bold text-slate-400">/month</span>
-
-                      {plan.originalPrice && plan.originalPrice > plan.price && (
-                        <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                          -{Math.round(((plan.originalPrice - plan.price) / plan.originalPrice) * 100)}%
-                        </span>
-                      )}
                     </div>
 
                     <ul className="list-none p-0 m-0 flex flex-col gap-2 mb-6">
@@ -686,6 +763,27 @@ function SubscriptionsPage() {
                   ) : pending ? (
                     <div className="p-3 rounded-xl text-center bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-xs font-extrabold flex items-center justify-center gap-1.5">
                       <Clock className="w-4 h-4 animate-pulse" /> Under Review...
+                    </div>
+                  ) : rejected ? (
+                    <div className="flex flex-col gap-2.5">
+                      <div className="p-3 rounded-xl text-left bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 border border-amber-500/20 text-xs">
+                        <div className="flex items-center gap-1.5 font-bold mb-1">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span>Verification Notice</span>
+                        </div>
+                        <p className="text-[11px] leading-relaxed opacity-90 m-0">
+                          {rejectionReason || "Unable to confirm this transfer. Please review and resubmit."}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (!user) { navigate({ to: "/login" }); return; }
+                          navigate({ to: "/checkout", search: { pkgId: plan.id } });
+                        }}
+                        className="w-full p-3 rounded-xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white font-extrabold text-xs transition-all border-none cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" /> Resubmit — GHS {plan.price}/mo
+                      </button>
                     </div>
                   ) : (
                     <button
