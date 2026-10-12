@@ -244,7 +244,7 @@ function SubscriptionsPage() {
   const search = Route.useSearch();
   const isRenewMode = search?.renew;
   const [planTab, setPlanTab] = useState<"combo" | "single">("combo");
-  const { currency, setCurrency, formatPrice } = useCurrency();
+  const { currency, setCurrency, formatPrice, rate } = useCurrency();
 
   // Fetch user subscriptions
   const { data: userSubscriptions = [] } = useQuery({
