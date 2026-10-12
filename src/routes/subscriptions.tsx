@@ -39,7 +39,7 @@ const DEFAULT_COMBO_PLANS = [
     features: [
       "Unlocks all 5 VIP packages every day",
       "VIP 1 & VIP 2 safe banker slips",
-      "VVIP 1 & VVIP 2 high odds accumulators",
+      "VVIP 1 & VVIP 2 higher odds accumulators",
       "SUPREME VVIP 👑 top predictions",
       "SportyBet booking codes ready to copy & place",
       "Emergency safety net: Replacement game if a slip fails (opened as needed)",
@@ -55,11 +55,11 @@ const DEFAULT_COMBO_PLANS = [
     badge: "Big Odds",
     price: 280,
     originalPrice: 350,
-    tagline: "Our highest odds daily games for punters targeting big payouts with high strike rates.",
+    tagline: "Our premium higher odds daily games for punters targeting big payouts with high strike rates.",
     packagesCovered: ["SUPREME VVIP 👑"],
     features: [
       "Daily SUPREME VVIP 👑 top predictions",
-      "Big odds slips (25.0 to 50.0+ odds)",
+      "Higher odds slips",
       "Daily SportyBet booking code included",
       "Thorough match research before every pick",
       "Emergency safety net: Replacement game if a slip fails (opened as needed)",
@@ -78,7 +78,7 @@ const DEFAULT_COMBO_PLANS = [
     packagesCovered: ["VVIP 1", "VVIP 2"],
     features: [
       "Daily access to both VVIP 1 and VVIP 2 slips",
-      "High odds ranging from 5.0 to 30.0+",
+      "Higher odds multi-match slips",
       "Midweek and weekend SportyBet booking codes",
       "Emergency safety net: Replacement game if a slip fails (opened as needed)",
       "Email and SMS alert notifications",
@@ -97,7 +97,7 @@ const DEFAULT_COMBO_PLANS = [
     packagesCovered: ["VIP 1", "VIP 2"],
     features: [
       "Daily access to both VIP 1 and VIP 2 slips",
-      "Safe banker odds (2.0 to 7.0 odds)",
+      "Safe banker slips for consistent winning",
       "Daily SportyBet booking codes ready to place",
       "Best for low-risk, steady daily profit",
       "Emergency safety net: Replacement game if a slip fails (opened as needed)",
@@ -116,7 +116,7 @@ const DEFAULT_SINGLE_PLANS = [
     pkgTitle: "VIP 1 (Daily Bankers)",
     price: 70,
     originalPrice: 90,
-    oddsRange: "2.00 – 3.50 Odds",
+    oddsRange: "Daily Banker Slips",
     description: "Safe daily banker games designed for minimal risk and reliable winning.",
   },
   {
@@ -126,7 +126,7 @@ const DEFAULT_SINGLE_PLANS = [
     pkgTitle: "VIP 2 (Value Multis)",
     price: 70,
     originalPrice: 90,
-    oddsRange: "3.50 – 7.00 Odds",
+    oddsRange: "Value Combo Slips",
     description: "Balanced multi-bets across top European leagues with solid value.",
   },
   {
@@ -136,7 +136,7 @@ const DEFAULT_SINGLE_PLANS = [
     pkgTitle: "VVIP 1 (Premium Slips)",
     price: 130,
     originalPrice: 160,
-    oddsRange: "5.00 – 15.00 Odds",
+    oddsRange: "Higher Odds Slips",
     description: "Premium selections with higher odds for bettors wanting bigger returns.",
   },
   {
@@ -146,7 +146,7 @@ const DEFAULT_SINGLE_PLANS = [
     pkgTitle: "VVIP 2 (Mega Accumulators)",
     price: 130,
     originalPrice: 160,
-    oddsRange: "10.00 – 30.00+ Odds",
+    oddsRange: "Higher Odds Accumulators",
     description: "Multi-game accumulator slips for punters hunting major payouts.",
   },
 ];
@@ -163,7 +163,7 @@ const GAME_PACKAGES_METADATA: Record<string, {
   vip_1: {
     name: "VIP 1",
     tagline: "Safe Daily Bankers",
-    typicalOdds: "2.00 – 3.50",
+    typicalOdds: "Daily Banker Slips",
     risk: "Low Risk",
     coveredBy: "All-Access • VIP Combo • VIP 1 Pass",
     icon: Zap,
@@ -171,31 +171,31 @@ const GAME_PACKAGES_METADATA: Record<string, {
   vip_2: {
     name: "VIP 2",
     tagline: "Value Combo Slips",
-    typicalOdds: "3.50 – 7.00",
+    typicalOdds: "Value Combo Slips",
     risk: "Moderate",
     coveredBy: "All-Access • VIP Combo • VIP 2 Pass",
     icon: Layers,
   },
   vvip_1: {
     name: "VVIP 1",
-    tagline: "Premium High Odds",
-    typicalOdds: "5.00 – 15.00",
+    tagline: "Higher Odds Slip",
+    typicalOdds: "Higher Odds Slips",
     risk: "High Return",
     coveredBy: "All-Access • VVIP Combo • VVIP 1 Pass",
     icon: Flame,
   },
   vvip_2: {
     name: "VVIP 2",
-    tagline: "Mega Accumulator Slips",
-    typicalOdds: "10.00 – 30.00+",
+    tagline: "Higher Odds Accumulator",
+    typicalOdds: "Higher Odds Accumulators",
     risk: "Big Payout",
     coveredBy: "All-Access • VVIP Combo • VVIP 2 Pass",
     icon: Trophy,
   },
   supreme_vvip: {
     name: "SUPREME VVIP 👑",
-    tagline: "Top High Odds Package",
-    typicalOdds: "25.00 – 50.00+",
+    tagline: "Top Higher Odds Package",
+    typicalOdds: "Higher Odds Slips",
     risk: "Maximum Yield",
     coveredBy: "All-Access • Supreme VVIP Pass",
     icon: Crown,
@@ -203,7 +203,7 @@ const GAME_PACKAGES_METADATA: Record<string, {
   recovery: {
     name: "Recovery Slip 🔄",
     tagline: "Emergency Safety Net",
-    typicalOdds: "Replacement Odds",
+    typicalOdds: "Replacement Slips",
     risk: "Emergency Backup",
     coveredBy: "Only active when games spoil (not an everyday slip)",
     icon: RotateCcw,
@@ -857,9 +857,9 @@ function SubscriptionsPage() {
 
                     <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-100 dark:border-white/5 mb-4">
                       <div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Target Odds</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Slip Style</span>
                         <span className="text-xs font-extrabold text-slate-900 dark:text-white">
-                          {livePkg?.combined_odds ? `${Number(livePkg.combined_odds).toFixed(2)} Odds` : meta.typicalOdds}
+                          {meta.typicalOdds}
                         </span>
                       </div>
                       <div>
