@@ -11,46 +11,56 @@ let cachedCurrency: Currency | null = null;
 let cachedRate: number = DEFAULT_RATE;
 
 /**
+ * Fast IP country lookup with fallback
+ */
+async function detectCountryCode(): Promise<string> {
+  // 1. Primary: api.country.is
+  try {
+    const res = await fetch("https://api.country.is/", { signal: AbortSignal.timeout(3000) });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.country && typeof data.country === "string") {
+        return data.country.toUpperCase();
+      }
+    }
+  } catch {}
+
+  // 2. Secondary fallback: ipapi.co
+  try {
+    const res = await fetch("https://ipapi.co/country/", { signal: AbortSignal.timeout(3000) });
+    if (res.ok) {
+      const text = (await res.text()).trim().toUpperCase();
+      if (text.length === 2) return text;
+    }
+  } catch {}
+
+  return "GH"; // Default to Ghana
+}
+
+/**
  * Detect user's preferred currency based on:
- * 1. User's saved explicit choice in localStorage
- * 2. Device timezone (Africa/Lagos → NGN)
- * 3. Fast IP country lookup (api.country.is)
+ * 1. Explicit user manual selection (if user explicitly toggled)
+ * 2. Real IP Geolocation (Nigeria -> NGN, Ghana & rest of world -> GHS)
  */
 export async function detectUserCurrency(): Promise<Currency> {
   if (typeof window === "undefined") return "GHS";
 
-  // 1. Saved preference
+  // Check if user made an explicit manual choice
+  const isManual = localStorage.getItem("a1_currency_manual_choice") === "true";
   const saved = localStorage.getItem(STORAGE_KEY) as Currency | null;
-  if (saved === "GHS" || saved === "NGN") {
+  if (isManual && (saved === "GHS" || saved === "NGN")) {
     cachedCurrency = saved;
     return saved;
   }
 
-  // 2. Timezone heuristic (instant, no network)
+  // Fast IP Geolocation lookup
+  const country = await detectCountryCode();
+  const detected: Currency = country === "NG" ? "NGN" : "GHS";
+  cachedCurrency = detected;
   try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-    if (tz.includes("Lagos") || tz.includes("Nigeria")) {
-      cachedCurrency = "NGN";
-      return "NGN";
-    }
+    localStorage.setItem(STORAGE_KEY, detected);
   } catch {}
-
-  // 3. Fast IP Geolocation lookup
-  try {
-    const res = await fetch("https://api.country.is/", { signal: AbortSignal.timeout(2500) });
-    if (res.ok) {
-      const data = await res.json();
-      if (data?.country === "NG") {
-        cachedCurrency = "NGN";
-        return "NGN";
-      }
-    }
-  } catch (err) {
-    // Non-blocking fallback
-  }
-
-  cachedCurrency = "GHS";
-  return "GHS";
+  return detected;
 }
 
 /**
@@ -96,12 +106,9 @@ export function convertGhsToNgn(ghsAmount: number, rate: number = cachedRate): n
 export function useCurrency() {
   const [currency, setCurrencyState] = useState<Currency>(() => {
     if (typeof window !== "undefined") {
+      const isManual = localStorage.getItem("a1_currency_manual_choice") === "true";
       const saved = localStorage.getItem(STORAGE_KEY) as Currency | null;
-      if (saved === "GHS" || saved === "NGN") return saved;
-      try {
-        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-        if (tz.includes("Lagos")) return "NGN";
-      } catch {}
+      if (isManual && (saved === "GHS" || saved === "NGN")) return saved;
     }
     return cachedCurrency || "GHS";
   });
@@ -112,9 +119,9 @@ export function useCurrency() {
   useEffect(() => {
     let mounted = true;
 
-    // Detect currency if not manually set
-    const saved = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
-    if (!saved) {
+    // Detect currency if user hasn't explicitly forced a manual override
+    const isManual = typeof window !== "undefined" && localStorage.getItem("a1_currency_manual_choice") === "true";
+    if (!isManual) {
       detectUserCurrency().then((detected) => {
         if (mounted && detected !== currency) {
           setCurrencyState(detected);
@@ -140,6 +147,7 @@ export function useCurrency() {
     cachedCurrency = next;
     try {
       localStorage.setItem(STORAGE_KEY, next);
+      localStorage.setItem("a1_currency_manual_choice", "true");
     } catch {}
   };
 

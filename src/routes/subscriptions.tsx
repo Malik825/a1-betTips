@@ -237,14 +237,13 @@ const FAQS = [
     a: "Yes! You can upgrade your tier anytime. If you are a high-roller, running a betting syndicate, or need custom terms, reach out to our WhatsApp support team for direct assistance.",
   },
 ];
-
 function SubscriptionsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const search = Route.useSearch();
   const isRenewMode = search?.renew;
   const [planTab, setPlanTab] = useState<"combo" | "single">("combo");
-  const { currency, setCurrency, formatPrice, rate } = useCurrency();
+  const { formatPrice } = useCurrency();
 
   // Fetch user subscriptions
   const { data: userSubscriptions = [] } = useQuery({
@@ -478,38 +477,6 @@ function SubscriptionsPage() {
             🎯 Single Package Passes
           </button>
         </div>
-
-        {/* Currency toggle */}
-        <div className="mt-4 flex items-center justify-center gap-2">
-          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Show prices in:</span>
-          <div className="inline-flex items-center p-1 rounded-xl bg-slate-200/70 dark:bg-slate-900/80 border border-slate-300 dark:border-white/10 shadow-inner">
-            <button
-              onClick={() => setCurrency("GHS")}
-              className={`px-4 py-1.5 rounded-lg font-extrabold text-[11px] transition-all cursor-pointer border-none ${
-                currency === "GHS"
-                  ? "bg-emerald-600 text-white shadow-sm"
-                  : "bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"
-              }`}
-            >
-              🇬🇭 GHS
-            </button>
-            <button
-              onClick={() => setCurrency("NGN")}
-              className={`px-4 py-1.5 rounded-lg font-extrabold text-[11px] transition-all cursor-pointer border-none ${
-                currency === "NGN"
-                  ? "bg-emerald-600 text-white shadow-sm"
-                  : "bg-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"
-              }`}
-            >
-              🇳🇬 NGN
-            </button>
-          </div>
-          {currency === "NGN" && (
-            <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
-              ≈ 1 GHS = ₦{rate}
-            </span>
-          )}
-        </div>
       </section>
 
       <main className="flex-1 w-[95%] sm:w-[92%] max-w-7xl mx-auto px-5 pb-24 relative z-10">
@@ -674,20 +641,12 @@ function SubscriptionsPage() {
 
                     {/* CTA */}
                     {active ? (
-                      <div className={`p-3.5 rounded-xl text-center flex items-center justify-center gap-2 font-extrabold text-[12px] ${
-                        plan.highlight
-                          ? "bg-white/20 text-white border border-white/30"
-                          : "bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
-                      }`}>
+                      <div className="w-full p-4 rounded-xl text-center flex items-center justify-center gap-2 font-extrabold text-[12px] bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400">
                         <BadgeCheck className="w-4 h-4" /> Active Subscription
                       </div>
                     ) : pending ? (
-                      <div className={`p-3.5 rounded-xl text-center flex items-center justify-center gap-2 font-extrabold text-[12px] ${
-                        plan.highlight
-                          ? "bg-white/20 text-amber-200 border border-amber-200/30"
-                          : "bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400"
-                      }`}>
-                        <Clock className="w-4 h-4 animate-pulse" /> Under Review...
+                      <div className="w-full p-4 rounded-xl text-center flex items-center justify-center gap-2 font-extrabold text-[12px] bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400">
+                        <Clock className="w-4 h-4 animate-pulse text-amber-500" /> Under Review...
                       </div>
                     ) : rejected ? (
                       <div className="flex flex-col gap-2.5">
@@ -709,11 +668,7 @@ function SubscriptionsPage() {
                             if (!user) { navigate({ to: "/login" }); return; }
                             navigate({ to: "/checkout", search: { pkgId: plan.id } });
                           }}
-                          className={`w-full p-3.5 rounded-xl font-extrabold text-[13px] flex items-center justify-center gap-2 transition-all border-none cursor-pointer ${
-                            plan.highlight
-                              ? "bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/30"
-                              : "bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/10"
-                          }`}
+                          className="w-full p-4 rounded-xl border-none font-extrabold text-[13px] flex items-center justify-center gap-2 transition-all shadow-lg bg-green-500 text-black cursor-pointer hover:scale-[1.02] hover:shadow-green-500/30"
                         >
                           <RotateCcw className="w-4 h-4" />
                           Resubmit Payment — {formatPrice(plan.price).symbol} {formatPrice(plan.price).amountStr}/mo
@@ -729,11 +684,7 @@ function SubscriptionsPage() {
                           }
                           navigate({ to: "/checkout", search: { pkgId: plan.id } });
                         }}
-                        className={`w-full p-3.5 rounded-xl font-extrabold text-[13px] flex items-center justify-center gap-2 transition-all border-none cursor-pointer ${
-                          plan.highlight
-                            ? "bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/30 font-black"
-                            : "bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/10"
-                        }`}
+                        className="w-full p-4 rounded-xl border-none font-extrabold text-[13px] flex items-center justify-center gap-2 transition-all shadow-lg bg-green-500 text-black cursor-pointer hover:scale-[1.02] hover:shadow-green-500/30"
                       >
                         <CalendarDays className="w-4 h-4" />
                         Subscribe — {formatPrice(plan.price).symbol} {formatPrice(plan.price).amountStr}/mo
@@ -809,12 +760,12 @@ function SubscriptionsPage() {
                   </div>
 
                   {active ? (
-                    <div className="p-3 rounded-xl text-center bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs font-extrabold flex items-center justify-center gap-1.5">
+                    <div className="w-full p-4 rounded-xl text-center bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/30 text-[12px] font-extrabold flex items-center justify-center gap-2">
                       <BadgeCheck className="w-4 h-4" /> Active Subscription
                     </div>
                   ) : pending ? (
-                    <div className="p-3 rounded-xl text-center bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-xs font-extrabold flex items-center justify-center gap-1.5">
-                      <Clock className="w-4 h-4 animate-pulse" /> Under Review...
+                    <div className="w-full p-4 rounded-xl text-center bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-[12px] font-extrabold flex items-center justify-center gap-2">
+                      <Clock className="w-4 h-4 animate-pulse text-amber-500" /> Under Review...
                     </div>
                   ) : rejected ? (
                     <div className="flex flex-col gap-2.5">
@@ -832,9 +783,9 @@ function SubscriptionsPage() {
                           if (!user) { navigate({ to: "/login" }); return; }
                           navigate({ to: "/checkout", search: { pkgId: plan.id } });
                         }}
-                        className="w-full p-3 rounded-xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white font-extrabold text-xs transition-all border-none cursor-pointer flex items-center justify-center gap-1.5"
+                        className="w-full p-4 rounded-xl border-none font-extrabold text-[13px] flex items-center justify-center gap-2 transition-all shadow-lg bg-green-500 text-black cursor-pointer hover:scale-[1.02] hover:shadow-green-500/30"
                       >
-                        <RotateCcw className="w-3.5 h-3.5" /> Resubmit — {formatPrice(plan.price).symbol} {formatPrice(plan.price).amountStr}/mo
+                        <RotateCcw className="w-4 h-4" /> Resubmit — {formatPrice(plan.price).symbol} {formatPrice(plan.price).amountStr}/mo
                       </button>
                     </div>
                   ) : (
@@ -847,9 +798,9 @@ function SubscriptionsPage() {
                         }
                         navigate({ to: "/checkout", search: { pkgId: plan.id } });
                       }}
-                      className="w-full p-3 rounded-xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white font-extrabold text-xs transition-all border-none cursor-pointer flex items-center justify-center gap-1.5"
+                      className="w-full p-4 rounded-xl border-none font-extrabold text-[13px] flex items-center justify-center gap-2 transition-all shadow-lg bg-green-500 text-black cursor-pointer hover:scale-[1.02] hover:shadow-green-500/30"
                     >
-                      Subscribe — {formatPrice(plan.price).symbol} {formatPrice(plan.price).amountStr}/mo
+                      <CalendarDays className="w-4 h-4" /> Subscribe — {formatPrice(plan.price).symbol} {formatPrice(plan.price).amountStr}/mo
                     </button>
                   )}
                 </div>
