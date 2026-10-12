@@ -11,6 +11,7 @@ import {
   Clock, Sparkles, ShieldCheck, HelpCircle, Layers,
   Trophy, Flame, RotateCcw, AlertCircle
 } from "lucide-react";
+import { useCurrency } from "@/lib/currency";
 
 export const Route = createFileRoute("/subscriptions")({
   validateSearch: (search: Record<string, unknown>): { renew?: boolean | undefined } => ({
@@ -236,13 +237,13 @@ const FAQS = [
     a: "Yes! You can upgrade your tier anytime. If you are a high-roller, running a betting syndicate, or need custom terms, reach out to our WhatsApp support team for direct assistance.",
   },
 ];
-
 function SubscriptionsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const search = Route.useSearch();
   const isRenewMode = search?.renew;
   const [planTab, setPlanTab] = useState<"combo" | "single">("combo");
+  const { formatPrice } = useCurrency();
 
   // Fetch user subscriptions
   const { data: userSubscriptions = [] } = useQuery({
@@ -574,24 +575,34 @@ function SubscriptionsPage() {
                     }`}>{plan.tagline}</p>
 
                     {/* Price with Strikethrough for Discount / Negotiation Leverage */}
-                    <div className="mb-5 flex items-baseline gap-2 flex-wrap">
-                      {plan.originalPrice && plan.originalPrice > plan.price && (
-                        <span className={`text-xs line-through ${
-                          plan.highlight ? "text-emerald-300/60" : "text-slate-400"
-                        }`}>
-                          GHS {plan.originalPrice}
-                        </span>
-                      )}
-                      <span className={`text-sm font-bold ${
-                        plan.highlight ? "text-emerald-200/70" : "text-slate-400"
-                      }`}>GHS</span>
-                      <span className={`text-[42px] font-black leading-none ${
-                        plan.highlight ? "text-white" : "text-slate-900 dark:text-white"
-                      }`}>{plan.price}</span>
-                      <span className={`text-[11px] font-bold ${
-                        plan.highlight ? "text-emerald-200/70" : "text-slate-400"
-                      }`}>/month</span>
-                    </div>
+                    {(() => {
+                      const priceInfo = formatPrice(plan.price, plan.originalPrice);
+                      return (
+                        <div className="mb-5">
+                          <div className="flex items-baseline gap-2 flex-wrap">
+                            {priceInfo.originalStr && (
+                              <span className={`text-xs line-through ${
+                                plan.highlight ? "text-emerald-300/60" : "text-slate-400"
+                              }`}>
+                                {priceInfo.originalStr}
+                              </span>
+                            )}
+                            <span className={`text-sm font-bold ${
+                              plan.highlight ? "text-emerald-200/70" : "text-slate-400"
+                            }`}>{priceInfo.symbol}</span>
+                            <span className={`text-[42px] font-black leading-none ${
+                              plan.highlight ? "text-white" : "text-slate-900 dark:text-white"
+                            }`}>{priceInfo.amountStr}</span>
+                            <span className={`text-[11px] font-bold ${
+                              plan.highlight ? "text-emerald-200/70" : "text-slate-400"
+                            }`}>/month</span>
+                          </div>
+                          <div className={`text-[10px] mt-0.5 ${
+                            plan.highlight ? "text-emerald-300/50" : "text-slate-400"
+                          }`}>{priceInfo.secondaryStr}</div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Packages covered pill list */}
                     <div className="mb-5 pt-3 border-t border-slate-200/40 dark:border-white/10">
@@ -630,20 +641,12 @@ function SubscriptionsPage() {
 
                     {/* CTA */}
                     {active ? (
-                      <div className={`p-3.5 rounded-xl text-center flex items-center justify-center gap-2 font-extrabold text-[12px] ${
-                        plan.highlight
-                          ? "bg-white/20 text-white border border-white/30"
-                          : "bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
-                      }`}>
+                      <div className="w-full p-4 rounded-xl text-center flex items-center justify-center gap-2 font-extrabold text-[12px] bg-green-500/10 border border-green-500/30 text-green-700 dark:text-green-400">
                         <BadgeCheck className="w-4 h-4" /> Active Subscription
                       </div>
                     ) : pending ? (
-                      <div className={`p-3.5 rounded-xl text-center flex items-center justify-center gap-2 font-extrabold text-[12px] ${
-                        plan.highlight
-                          ? "bg-white/20 text-amber-200 border border-amber-200/30"
-                          : "bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400"
-                      }`}>
-                        <Clock className="w-4 h-4 animate-pulse" /> Under Review...
+                      <div className="w-full p-4 rounded-xl text-center flex items-center justify-center gap-2 font-extrabold text-[12px] bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400">
+                        <Clock className="w-4 h-4 animate-pulse text-amber-500" /> Under Review...
                       </div>
                     ) : rejected ? (
                       <div className="flex flex-col gap-2.5">
@@ -665,14 +668,10 @@ function SubscriptionsPage() {
                             if (!user) { navigate({ to: "/login" }); return; }
                             navigate({ to: "/checkout", search: { pkgId: plan.id } });
                           }}
-                          className={`w-full p-3.5 rounded-xl font-extrabold text-[13px] flex items-center justify-center gap-2 transition-all border-none cursor-pointer ${
-                            plan.highlight
-                              ? "bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/30"
-                              : "bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/10"
-                          }`}
+                          className="w-full p-4 rounded-xl border-none font-extrabold text-[13px] flex items-center justify-center gap-2 transition-all shadow-lg bg-green-500 text-black cursor-pointer hover:scale-[1.02] hover:shadow-green-500/30"
                         >
                           <RotateCcw className="w-4 h-4" />
-                          Resubmit Payment — GHS {plan.price}/mo
+                          Resubmit Payment — {formatPrice(plan.price).symbol} {formatPrice(plan.price).amountStr}/mo
                         </button>
                       </div>
                     ) : (
@@ -685,14 +684,10 @@ function SubscriptionsPage() {
                           }
                           navigate({ to: "/checkout", search: { pkgId: plan.id } });
                         }}
-                        className={`w-full p-3.5 rounded-xl font-extrabold text-[13px] flex items-center justify-center gap-2 transition-all border-none cursor-pointer ${
-                          plan.highlight
-                            ? "bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/30 font-black"
-                            : "bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/10"
-                        }`}
+                        className="w-full p-4 rounded-xl border-none font-extrabold text-[13px] flex items-center justify-center gap-2 transition-all shadow-lg bg-green-500 text-black cursor-pointer hover:scale-[1.02] hover:shadow-green-500/30"
                       >
                         <CalendarDays className="w-4 h-4" />
-                        Subscribe — GHS {plan.price}/mo
+                        Subscribe — {formatPrice(plan.price).symbol} {formatPrice(plan.price).amountStr}/mo
                       </button>
                     )}
                   </div>
@@ -729,16 +724,24 @@ function SubscriptionsPage() {
                     </p>
 
                     {/* Price with Strikethrough for Discount / Negotiation Leverage */}
-                    <div className="mb-6 flex items-baseline gap-2 flex-wrap">
-                      {plan.originalPrice && plan.originalPrice > plan.price && (
-                        <span className="text-xs line-through text-slate-400">
-                          GHS {plan.originalPrice}
-                        </span>
-                      )}
-                      <span className="text-xs font-bold text-slate-400">GHS</span>
-                      <span className="text-3xl font-black text-slate-900 dark:text-white">{plan.price}</span>
-                      <span className="text-[11px] font-bold text-slate-400">/month</span>
-                    </div>
+                    {(() => {
+                      const priceInfo = formatPrice(plan.price, plan.originalPrice);
+                      return (
+                        <div className="mb-6">
+                          <div className="flex items-baseline gap-2 flex-wrap">
+                            {priceInfo.originalStr && (
+                              <span className="text-xs line-through text-slate-400">
+                                {priceInfo.originalStr}
+                              </span>
+                            )}
+                            <span className="text-xs font-bold text-slate-400">{priceInfo.symbol}</span>
+                            <span className="text-3xl font-black text-slate-900 dark:text-white">{priceInfo.amountStr}</span>
+                            <span className="text-[11px] font-bold text-slate-400">/month</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">{priceInfo.secondaryStr}</div>
+                        </div>
+                      );
+                    })()}
 
                     <ul className="list-none p-0 m-0 flex flex-col gap-2 mb-6">
                       <li className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-2">
@@ -757,12 +760,12 @@ function SubscriptionsPage() {
                   </div>
 
                   {active ? (
-                    <div className="p-3 rounded-xl text-center bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs font-extrabold flex items-center justify-center gap-1.5">
+                    <div className="w-full p-4 rounded-xl text-center bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/30 text-[12px] font-extrabold flex items-center justify-center gap-2">
                       <BadgeCheck className="w-4 h-4" /> Active Subscription
                     </div>
                   ) : pending ? (
-                    <div className="p-3 rounded-xl text-center bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-xs font-extrabold flex items-center justify-center gap-1.5">
-                      <Clock className="w-4 h-4 animate-pulse" /> Under Review...
+                    <div className="w-full p-4 rounded-xl text-center bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-[12px] font-extrabold flex items-center justify-center gap-2">
+                      <Clock className="w-4 h-4 animate-pulse text-amber-500" /> Under Review...
                     </div>
                   ) : rejected ? (
                     <div className="flex flex-col gap-2.5">
@@ -780,9 +783,9 @@ function SubscriptionsPage() {
                           if (!user) { navigate({ to: "/login" }); return; }
                           navigate({ to: "/checkout", search: { pkgId: plan.id } });
                         }}
-                        className="w-full p-3 rounded-xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white font-extrabold text-xs transition-all border-none cursor-pointer flex items-center justify-center gap-1.5"
+                        className="w-full p-4 rounded-xl border-none font-extrabold text-[13px] flex items-center justify-center gap-2 transition-all shadow-lg bg-green-500 text-black cursor-pointer hover:scale-[1.02] hover:shadow-green-500/30"
                       >
-                        <RotateCcw className="w-3.5 h-3.5" /> Resubmit — GHS {plan.price}/mo
+                        <RotateCcw className="w-4 h-4" /> Resubmit — {formatPrice(plan.price).symbol} {formatPrice(plan.price).amountStr}/mo
                       </button>
                     </div>
                   ) : (
@@ -795,9 +798,9 @@ function SubscriptionsPage() {
                         }
                         navigate({ to: "/checkout", search: { pkgId: plan.id } });
                       }}
-                      className="w-full p-3 rounded-xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white font-extrabold text-xs transition-all border-none cursor-pointer flex items-center justify-center gap-1.5"
+                      className="w-full p-4 rounded-xl border-none font-extrabold text-[13px] flex items-center justify-center gap-2 transition-all shadow-lg bg-green-500 text-black cursor-pointer hover:scale-[1.02] hover:shadow-green-500/30"
                     >
-                      Subscribe — GHS {plan.price}/mo
+                      <CalendarDays className="w-4 h-4" /> Subscribe — {formatPrice(plan.price).symbol} {formatPrice(plan.price).amountStr}/mo
                     </button>
                   )}
                 </div>
@@ -901,10 +904,18 @@ function SubscriptionsPage() {
               <thead>
                 <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-100/70 dark:bg-slate-900/90 text-slate-700 dark:text-slate-300 font-extrabold">
                   <th className="p-4 sm:p-5">Game Package / Feature</th>
-                  <th className="p-4 sm:p-5 text-center text-emerald-600 dark:text-emerald-400 bg-emerald-500/10">All-Access (GHS 350)</th>
-                  <th className="p-4 sm:p-5 text-center">Supreme VVIP (GHS 280)</th>
-                  <th className="p-4 sm:p-5 text-center">VVIP Combo (GHS 220)</th>
-                  <th className="p-4 sm:p-5 text-center">VIP Combo (GHS 120)</th>
+                  <th className="p-4 sm:p-5 text-center text-emerald-600 dark:text-emerald-400 bg-emerald-500/10">
+                    All-Access ({formatPrice(350).symbol} {formatPrice(350).amountStr})
+                  </th>
+                  <th className="p-4 sm:p-5 text-center">
+                    Supreme VVIP ({formatPrice(280).symbol} {formatPrice(280).amountStr})
+                  </th>
+                  <th className="p-4 sm:p-5 text-center">
+                    VVIP Combo ({formatPrice(220).symbol} {formatPrice(220).amountStr})
+                  </th>
+                  <th className="p-4 sm:p-5 text-center">
+                    VIP Combo ({formatPrice(120).symbol} {formatPrice(120).amountStr})
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-slate-600 dark:text-slate-300 font-medium">

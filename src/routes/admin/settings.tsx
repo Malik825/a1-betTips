@@ -579,7 +579,7 @@ function AdminSettingsPage() {
             }}>
               <strong style={{ color: "#10b981" }}>💡 Admin Pricing & Negotiation Leverage:</strong>
               <p style={{ margin: "4px 0 0", color: "var(--muted-foreground)" }}>
-                Edit the live monthly prices here. The <strong>Original Price</strong> is shown as a strikethrough discount on the website (e.g. <span style={{ textDecoration: "line-through" }}>GHS 500</span> GHS 350) which provides immediate perceived value. Use <strong>Admin Notes</strong> to track custom negotiated deals (e.g. for VIP groups or WhatsApp customers).
+                Edit the live monthly prices here. The <strong>Standard Price (Before Discount)</strong> is shown crossed-out on the website (e.g. <span style={{ textDecoration: "line-through" }}>GHS 500</span> GHS 350) to highlight the active discount. Use <strong>Admin Notes</strong> to track custom negotiated deals (e.g. for VIP groups or WhatsApp customers).
               </p>
             </div>
 
@@ -712,13 +712,13 @@ function AdminSettingsPage() {
 
                       <div>
                         <label className="admin-label" style={{ fontSize: "11px" }}>
-                          Original / Strikethrough (GHS)
+                          Standard Price / Before Discount (GHS)
                         </label>
                         <input
                           className="admin-input"
                           type="number"
                           step="1"
-                          placeholder="e.g. 500"
+                          placeholder="e.g. 500 (optional)"
                           value={plan.original_price ?? ""}
                           onChange={(e) => handlePlanChange(plan.id, "original_price", e.target.value ? Number(e.target.value) : null)}
                         />
