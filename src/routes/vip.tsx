@@ -234,36 +234,35 @@ function VipPage() {
 
     const activeGateway = adminSettings?.payment_gateway || "manual";
 
-    // 1. Manual Mobile Money transfer
-    if (activeGateway === "manual") {
+    // 1. Moolre, Manual, or Kora -> redirect to /checkout
+    if (activeGateway === "moolre" || activeGateway === "manual" || activeGateway === "kora") {
       navigate({ to: "/checkout", search: { pkgId: pkgId } });
       return;
     }
 
-    // 2. Kora Pay (fallback to manual until Kora credentials live)
-    if (activeGateway === "kora") {
-      navigate({ to: "/checkout", search: { pkgId: pkgId } });
-      return;
-    }
-
-    // 3. Paystack gateway
-    setInitializingPkg(pkgId);
-    const opened = await paystackPay(
-      user.email || "",
-      Number(pkg.price),
-      pkgId,
-      (reference) => {
-        setInitializingPkg(null);
-        buyMutation.mutate({ packageId: pkgId, reference });
-      },
-      () => {
+    // 2. Paystack gateway
+    if (activeGateway === "paystack") {
+      setInitializingPkg(pkgId);
+      const opened = await paystackPay(
+        user.email || "",
+        Number(pkg.price),
+        pkgId,
+        (reference) => {
+          setInitializingPkg(null);
+          buyMutation.mutate({ packageId: pkgId, reference });
+        },
+        () => {
+          setInitializingPkg(null);
+        }
+      );
+      
+      if (!opened) {
         setInitializingPkg(null);
       }
-    );
-    
-    if (!opened) {
-      setInitializingPkg(null);
+      return;
     }
+
+    navigate({ to: "/checkout", search: { pkgId: pkgId } });
   };
 
   return (

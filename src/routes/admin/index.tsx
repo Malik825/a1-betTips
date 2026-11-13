@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Users, CreditCard, Gamepad2, Crown } from "lucide-react";
+import { Users, CreditCard, Gamepad2, Crown, Zap } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useQuery } from "@tanstack/react-query";
 
@@ -86,36 +86,91 @@ function AdminDashboardIndex() {
     }
   });
 
+  const { data: manualPayments = [] } = useQuery({
+    queryKey: ["admin_manual_payments"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("manual_payments")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.error("Error fetching manual_payments:", error);
+        return [];
+      }
+      return data || [];
+    },
+  });
+
+  const isMoolre = (p: any) => {
+    if (!p) return false;
+    const ref = (p.reference_code || "").toLowerCase();
+    const net = (p.network || "").toLowerCase();
+    const tx = (p.transaction_id || "").toLowerCase();
+    const rawAmount = Number(p.amount || 0);
+
+    // Any payment with amount >= 5000 is an NGN subscription test artifact (e.g. 40,000 NGN)
+    // and is NOT a GHS Moolre mobile money transaction.
+    if (rawAmount >= 5000) return false;
+
+    // Discard mock test-mode strings
+    if (tx.startsWith("test_")) return false;
+
+    // A real Moolre transaction must have:
+    // 1. Official Moolre Gateway Network ID (starts with 93754 / 93755 / 9375) or moolre_verified
+    if (tx.startsWith("9375") || tx.includes("moolre")) return true;
+
+    // 2. Or reference_code starts with moolre_ AND has a valid transaction ID from Moolre
+    if (ref.startsWith("moolre_") && tx && !tx.startsWith("test_")) return true;
+
+    // 3. Or network specifically specifies Moolre MoMo with gateway confirmation
+    if (net.includes("moolre") && (tx.startsWith("9375") || !tx.startsWith("test_"))) return true;
+
+    return false;
+  };
+
   const totalUsers = allUsers.length;
+
+  // Moolre Verified Automated Revenue (Production Gateway)
+  const moolreApprovedPayments = (manualPayments as any[]).filter(
+    (p) => isMoolre(p) && p.status === "approved"
+  );
+  const moolreRevenue = moolreApprovedPayments.reduce((sum, p) => {
+    const amt = Number(p.amount || 0);
+    return sum + (amt < 5000 ? amt : 0);
+  }, 0);
+  const moolreRevenueNGN = Math.ceil(moolreRevenue * 115);
+  const moolreCount = moolreApprovedPayments.length;
+
+  // Archived Legacy Manual Revenue
+  const legacyManualApproved = (manualPayments as any[]).filter(
+    (p) => !isMoolre(p) && p.status === "approved"
+  );
+  const archivedManualRevenue = legacyManualApproved.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   // Exclude test-mode purchases from revenue and counts if prefixed with test_ref_
   const realTickets = (userTickets as any[]).filter(
     (t) => !t.payment_ref?.startsWith("test_ref_")
   );
 
-  const totalSales = realTickets.reduce((sum, ticket) => {
-    // Use amount_paid stored at purchase time (accurate even if package price changes later)
-    const paid = Number((ticket as any).amount_paid ?? 0);
-    if (paid > 0) return sum + paid;
-    // Fallback for old tickets that predate the amount_paid column
-    const pkg = (vipPackages as any[]).find((p) => p.id === ticket.package_id);
-    return sum + (pkg ? Number(pkg.price || 0) : 0);
-  }, 0);
   const activeGamesCount = (vipSelections as any[]).filter((s) => s.result_status === "pending").length;
   const totalSubs = realTickets.length;
-
-  const totalSalesGHS = totalSales;
-  const totalSalesNGN = Math.ceil(totalSalesGHS * 115);
 
   const stats = [
     { label: "Registered Users", value: totalUsers.toString(), icon: Users, color: "#3b82f6" },
     {
-      label: "Total Revenue",
-      value: `GH₵ ${totalSalesGHS.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      label: "Moolre Verified Revenue",
+      value: `GH₵ ${moolreRevenue.toFixed(2)}`,
       subValue: (
-        <span style={{ color: "#10b981", fontSize: "13px", fontWeight: 700 }}>
-          ≈ ₦{totalSalesNGN.toLocaleString()} NGN
-        </span>
+        <div>
+          <span style={{ color: "#10b981", fontSize: "13px", fontWeight: 700 }}>
+            ≈ ₦{moolreRevenueNGN.toLocaleString()} NGN ({moolreCount} paid)
+          </span>
+          {archivedManualRevenue > 0 && (
+            <div style={{ color: "var(--muted-foreground)", fontSize: "11px", marginTop: "3px", fontWeight: 500 }}>
+              📦 Archived manual: GH₵ {archivedManualRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </div>
+          )}
+        </div>
       ),
       icon: CreditCard,
       color: "#10b981",
@@ -129,6 +184,10 @@ function AdminDashboardIndex() {
     const profile = (allUsers as any[]).find((u) => u.id === ticket.user_id);
     const userLabel = profile?.email || profile?.username || `user_${ticket.user_id.substring(0, 8)}`;
     const isTest = ticket.payment_ref?.startsWith("test_ref_");
+    const isMoolreTx = Boolean(
+      ticket.payment_ref?.startsWith("moolre_") ||
+      ticket.id?.startsWith("ticket_moolre_")
+    );
     const amountGHS = Number(ticket.amount_paid || pkg?.price || 0);
     const amountNGN = Math.ceil(amountGHS * 115);
     return {
@@ -141,6 +200,7 @@ function AdminDashboardIndex() {
         day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
       }),
       isTest,
+      isMoolreTx,
     };
   });
 
@@ -191,10 +251,12 @@ function AdminDashboardIndex() {
                   </td>
                   <td style={{ color: "var(--muted-foreground)" }}>{activity.date}</td>
                   <td>
-                    {activity.isTest ? (
+                    {activity.isMoolreTx ? (
+                      <span className="admin-badge" style={{ background: "#dcfce7", color: "#166534", fontWeight: 700 }}>⚡ Auto-Verified</span>
+                    ) : activity.isTest ? (
                       <span className="admin-badge" style={{ background: "#fef3c7", color: "#92400e" }}>Test</span>
                     ) : (
-                      <span className="admin-badge" style={{ background: "#dcfce7", color: "#166534" }}>Success</span>
+                      <span className="admin-badge" style={{ background: "#f1f5f9", color: "#64748b" }}>Manual / Archived</span>
                     )}
                   </td>
                 </tr>
