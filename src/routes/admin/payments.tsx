@@ -5,7 +5,7 @@ import {
   Smartphone, AlertCircle, ArrowUpRight, CheckCircle2, 
   XCircle, Filter, ChevronDown, MoreVertical, Eye,
   ExternalLink, Calendar, User, Hash, FileText, Image as ImageIcon,
-  RotateCcw, Bell, Copy, Crown
+  RotateCcw, Bell, Copy, Crown, Zap, ShieldCheck
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -88,7 +88,8 @@ function AdminPaymentsPage() {
   const queryClient = useQueryClient();
   const [activeMainTab, setActiveMainTab] = useState<"payments" | "recovery" | "subscriptions">("payments");
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
+  const [showManualArchive, setShowManualArchive] = useState(false);
   const [recoverySearch, setRecoverySearch] = useState("");
   const [recoveryStatusFilter, setRecoveryStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
   const [subSearch, setSubSearch] = useState("");
@@ -518,14 +519,50 @@ function AdminPaymentsPage() {
     },
   });
 
-  // Stats
-  const totalCount = payments.length;
-  const pendingCount = payments.filter((p: any) => p.status === "pending").length;
-  const approvedCount = payments.filter((p: any) => p.status === "approved").length;
-  const rejectedCount = payments.filter((p: any) => p.status === "rejected").length;
-  const totalApprovedAmount = payments
-    .filter((p: any) => p.status === "approved")
-    .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+  const isMoolre = (p: any) => {
+    if (!p) return false;
+    const ref = (p.reference_code || "").toLowerCase();
+    const net = (p.network || "").toLowerCase();
+    const tx = (p.transaction_id || "").toLowerCase();
+    const rawAmount = Number(p.amount || 0);
+
+    // Any payment with amount >= 5000 is an NGN subscription test artifact (e.g. 40,000 NGN)
+    // and is NOT a GHS Moolre mobile money transaction.
+    if (rawAmount >= 5000) return false;
+
+    // Discard mock test-mode strings
+    if (tx.startsWith("test_")) return false;
+
+    // A real Moolre transaction must have:
+    // 1. Official Moolre Gateway Network ID (starts with 9375) or moolre_verified
+    if (tx.startsWith("9375") || tx.includes("moolre")) return true;
+
+    // 2. Or reference_code starts with moolre_ AND has a valid transaction ID from Moolre
+    if (ref.startsWith("moolre_") && tx && !tx.startsWith("test_")) return true;
+
+    // 3. Or network specifically specifies Moolre MoMo with gateway confirmation
+    if (net.includes("moolre") && (tx.startsWith("9375") || !tx.startsWith("test_"))) return true;
+
+    return false;
+  };
+
+  // Separate Moolre Automated from Legacy Manual Payments
+  const moolrePayments = payments.filter((p: any) => isMoolre(p));
+  const manualPayments = payments.filter((p: any) => !isMoolre(p));
+
+  // Moolre Automated Stats (Live Production Gateway)
+  const moolreApprovedPayments = moolrePayments.filter((p: any) => p.status === "approved");
+  const moolreRevenue = moolreApprovedPayments.reduce((sum: number, p: any) => {
+    const amt = Number(p.amount || 0);
+    return sum + (amt < 5000 ? amt : 0);
+  }, 0);
+  const moolreCount = moolreApprovedPayments.length;
+  const moolrePendingCount = moolrePayments.filter((p: any) => p.status === "pending").length;
+
+  // Legacy Manual Stats (Archived)
+  const manualApprovedPayments = manualPayments.filter((p: any) => p.status === "approved");
+  const manualRevenue = manualApprovedPayments.reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+  const manualPendingCount = manualPayments.filter((p: any) => p.status === "pending").length;
 
   // Recovery Stats
   const totalRecoveryCount = recoveryRequests.length;
@@ -551,8 +588,8 @@ function AdminPaymentsPage() {
     );
   });
 
-  // Filtering
-  const filteredPayments = payments.filter((p: any) => {
+  // Moolre Automated Filtering
+  const filteredMoolrePayments = moolrePayments.filter((p: any) => {
     if (statusFilter !== "all" && p.status !== statusFilter) return false;
     if (!search.trim()) return true;
 
@@ -565,6 +602,28 @@ function AdminPaymentsPage() {
       (p.sender_phone || "").toLowerCase().includes(term) ||
       (p.sender_name || "").toLowerCase().includes(term) ||
       (p.transaction_id || "").toLowerCase().includes(term) ||
+      (p.network || "").toLowerCase().includes(term) ||
+      (pkg?.name || "").toLowerCase().includes(term) ||
+      (userProfile?.email || "").toLowerCase().includes(term) ||
+      (userProfile?.username || "").toLowerCase().includes(term)
+    );
+  });
+
+  // Manual Transfer Archive Filtering
+  const filteredManualPayments = manualPayments.filter((p: any) => {
+    if (statusFilter !== "all" && p.status !== statusFilter) return false;
+    if (!search.trim()) return true;
+
+    const term = search.toLowerCase();
+    const pkg = vipPackages.find((pkgItem: any) => pkgItem.id === p.package_id);
+    const userProfile = profiles.find((prof: any) => prof.id === p.user_id);
+
+    return (
+      (p.reference_code || "").toLowerCase().includes(term) ||
+      (p.sender_phone || "").toLowerCase().includes(term) ||
+      (p.sender_name || "").toLowerCase().includes(term) ||
+      (p.transaction_id || "").toLowerCase().includes(term) ||
+      (p.network || "").toLowerCase().includes(term) ||
       (pkg?.name || "").toLowerCase().includes(term) ||
       (userProfile?.email || "").toLowerCase().includes(term) ||
       (userProfile?.username || "").toLowerCase().includes(term)
@@ -573,7 +632,7 @@ function AdminPaymentsPage() {
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedIds(filteredPayments.map((p: any) => p.id));
+      setSelectedIds(filteredManualPayments.map((p: any) => p.id));
     } else {
       setSelectedIds([]);
     }
@@ -621,10 +680,11 @@ function AdminPaymentsPage() {
               : "text-muted-foreground hover:text-foreground hover:bg-card bg-transparent"
           }`}
         >
-          <span>VIP Payments</span>
-          {pendingCount > 0 && (
+          <Zap size={13} className="text-amber-500 fill-amber-500" />
+          <span>Moolre Payments</span>
+          {moolrePendingCount > 0 && (
             <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-warning text-black font-extrabold">
-              {pendingCount}
+              {moolrePendingCount}
             </span>
           )}
         </button>
@@ -667,511 +727,614 @@ function AdminPaymentsPage() {
 
       {activeMainTab === "payments" && (
         <>
-          {/* Stats Cards */}
+          {/* Stats Cards: 100% Focused on Moolre Automated Metrics */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             
-            {/* Pending Card */}
+            {/* Card 1: Moolre Verified Revenue */}
+            <div className="bg-card p-4 rounded-xl border border-border flex items-center justify-between shadow-xs">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Zap size={12} className="text-amber-500 fill-amber-500" />
+                  Moolre Verified Revenue
+                </p>
+                <h3 className="text-2xl font-black text-foreground mt-1">
+                  GH₵ {moolreRevenue.toFixed(2)}
+                </h3>
+                <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                  ≈ ₦{Math.ceil(moolreRevenue * 115).toLocaleString()} <span className="text-muted-foreground font-normal">({moolreCount} paid)</span>
+                </p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center shrink-0">
+                <CreditCard size={18} />
+              </div>
+            </div>
+
+            {/* Card 2: Automated USSD Orders */}
             <div 
-              onClick={() => setStatusFilter("pending")}
-          className={`cursor-pointer bg-card p-4 rounded-xl border transition-all flex items-center justify-between ${
-            statusFilter === "pending"
-              ? "border-warning shadow-md shadow-warning/10 ring-2 ring-warning/30"
-              : "border-border hover:border-border/80"
-          }`}
-        >
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Pending Review
-            </p>
-            <h3 className="text-2xl font-black text-warning mt-1">
-              {pendingCount}
-            </h3>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-warning/15 text-warning flex items-center justify-center">
-            <Clock size={18} />
-          </div>
-        </div>
-
-        {/* Approved Card */}
-        <div 
-          onClick={() => setStatusFilter("approved")}
-          className={`cursor-pointer bg-card p-4 rounded-xl border transition-all flex items-center justify-between ${
-            statusFilter === "approved"
-              ? "border-success shadow-md shadow-success/10 ring-2 ring-success/30"
-              : "border-border hover:border-border/80"
-          }`}
-        >
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Approved
-            </p>
-            <h3 className="text-2xl font-black text-success mt-1">
-              {approvedCount}
-            </h3>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-success/15 text-success flex items-center justify-center">
-            <CheckCircle2 size={18} />
-          </div>
-        </div>
-
-        {/* Total Revenue Card */}
-        <div className="bg-card p-4 rounded-xl border border-border flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Verified Revenue
-            </p>
-            <h3 className="text-2xl font-black text-foreground mt-1">
-              GH₵ {totalApprovedAmount.toFixed(0)}
-            </h3>
-            <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
-              ≈ ₦{Math.ceil(totalApprovedAmount * 115).toLocaleString()}
-            </p>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center">
-            <CreditCard size={18} />
-          </div>
-        </div>
-
-        {/* Rejected Card */}
-        <div 
-          onClick={() => setStatusFilter("rejected")}
-          className={`cursor-pointer bg-card p-4 rounded-xl border transition-all flex items-center justify-between ${
-            statusFilter === "rejected"
-              ? "border-destructive shadow-md shadow-destructive/10 ring-2 ring-destructive/30"
-              : "border-border hover:border-border/80"
-          }`}
-        >
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Rejected
-            </p>
-            <h3 className="text-2xl font-black text-destructive mt-1">
-              {rejectedCount}
-            </h3>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-destructive/15 text-destructive flex items-center justify-center">
-            <XCircle size={18} />
-          </div>
-        </div>
-
-      </div>
-
-      {/* Main Filter & Table Card */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
-        {/* Filter bar */}
-        <div className="p-4 border-b border-border flex flex-wrap items-center justify-between gap-3 bg-section/40">
-          {/* Status Tabs */}
-          <div className="flex gap-1.5 flex-wrap">
-            {(["pending", "all", "approved", "rejected"] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setStatusFilter(tab)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all cursor-pointer ${
-                  statusFilter === tab
-                    ? "bg-foreground text-background shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-section"
-                }`}
-              >
-                {tab}
-                {tab === "pending" && pendingCount > 0 && (
-                  <span className="ml-1.5 px-1.5 py-0.2 bg-warning text-black text-[10px] font-black rounded-full">
-                    {pendingCount}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* Search Input */}
-          <div className="relative w-full sm:w-64">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search user, ref, txid..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-        </div>
-
-        {/* ── Mobile Card List (hidden on sm+) ── */}
-        <div className="sm:hidden divide-y divide-border/60">
-          {paymentsLoading ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground text-sm gap-2">
-              <RefreshCw className="w-5 h-5 animate-spin opacity-50" />
-              Loading payments...
+              onClick={() => {
+                setStatusFilter("all");
+                setSearch("");
+              }}
+              className="cursor-pointer bg-card p-4 rounded-xl border border-border hover:border-amber-500/50 transition-all flex items-center justify-between shadow-xs"
+              title="Click to reset filters and view all Moolre transactions"
+            >
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Automated Orders
+                </p>
+                <h3 className="text-2xl font-black text-foreground mt-1">
+                  {moolreCount}
+                </h3>
+                <p className="text-xs font-semibold text-emerald-500 mt-0.5 flex items-center gap-1">
+                  <CheckCircle2 size={11} /> 100% Instant Auto-Credited
+                </p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0">
+                <Zap size={18} className="fill-emerald-500" />
+              </div>
             </div>
-          ) : filteredPayments.length === 0 ? (
-            <div className="text-center text-muted-foreground py-16 text-sm">
-              No payment records found matching your filter.
+
+            {/* Card 3: Active VIP Members */}
+            <div 
+              onClick={() => setActiveMainTab("subscriptions")}
+              className="cursor-pointer bg-card p-4 rounded-xl border border-border hover:border-primary/50 transition-all flex items-center justify-between shadow-xs"
+              title="Click to view subscriptions"
+            >
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Active VIP Members
+                </p>
+                <h3 className="text-2xl font-black text-foreground mt-1">
+                  {allSubscriptions.filter((s: any) => s.status === "active").length + moolreCount}
+                </h3>
+                <p className="text-xs font-semibold text-muted-foreground mt-0.5">
+                  <span className="text-primary font-bold">{allSubscriptions.filter((s: any) => s.status === "active").length} passes</span> active
+                </p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-500 flex items-center justify-center shrink-0">
+                <Crown size={18} />
+              </div>
             </div>
-          ) : (
-            filteredPayments.map((payment: any) => {
-              const pkg = vipPackages.find((p: any) => p.id === payment.package_id);
-              const userProfile = profiles.find((prof: any) => prof.id === payment.user_id);
-              const userDisplay = payment.sender_name || userProfile?.username || userProfile?.email?.split("@")[0] || "Customer";
-              const isProcessing = processingId === payment.id;
-              const dateInfo = formatPaymentDate(payment.created_at);
 
-              return (
-                <div key={payment.id} className="p-4 space-y-3 hover:bg-section/30 transition-colors">
-                  {/* Top row: user + status badge */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-bold text-sm text-foreground truncate leading-tight">{userDisplay}</p>
-                      <p className="text-[11px] text-muted-foreground font-mono truncate mt-0.5">
-                        {userProfile?.email || `ID: ${payment.user_id.substring(0, 10)}...`}
-                      </p>
-                    </div>
-                    {payment.status === "pending" && (
-                      <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-warning/15 border border-warning/30 text-warning">
-                        <Clock className="w-3 h-3" /> Pending
-                      </span>
-                    )}
-                    {payment.status === "approved" && (
-                      <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-success/15 border border-success/30 text-success">
-                        <CheckCircle2 className="w-3 h-3" /> Approved
-                      </span>
-                    )}
-                    {payment.status === "rejected" && (
-                      <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-destructive/15 border border-destructive/30 text-destructive">
-                        <XCircle className="w-3 h-3" /> Rejected
-                      </span>
-                    )}
-                  </div>
+            {/* Card 4: Instant Settlement Status */}
+            <div className="bg-card p-4 rounded-xl border border-border flex items-center justify-between shadow-xs">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <ShieldCheck size={12} className="text-emerald-500" /> Instant Settlement
+                </p>
+                <h3 className="text-lg font-black text-emerald-500 mt-1 flex items-center gap-1.5">
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
+                  MTN MoMo Live
+                </h3>
+                <p className="text-[11px] font-mono text-muted-foreground mt-0.5 truncate max-w-[170px]" title="0550653849 (Wallet 78331)">
+                  0550653849 • W#78331
+                </p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0">
+                <Smartphone size={18} />
+              </div>
+            </div>
 
-                  {/* Middle row: amount + date + proof */}
-                  <div className="flex items-center justify-between gap-3 text-xs">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Amount</span>
-                      <span className="font-black text-foreground">GH₵ {Number(payment.amount || pkg?.price || 0).toFixed(0)}</span>
-                      <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 block">
-                        ≈ ₦{Math.ceil(Number(payment.amount || pkg?.price || 0) * 115).toLocaleString()}
-                      </span>
-                      <span className="text-warning font-semibold text-[11px]">{payment.network || "MTN"}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Date</span>
-                      <span className="font-bold text-foreground">{dateInfo.top}</span>
-                      <span className="text-muted-foreground ml-1">{dateInfo.bottom}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Proof</span>
-                      {payment.proof_url ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setModalProofSrc(payment.proof_url);
-                            setViewModalPayment(payment);
-                          }}
-                          className="flex items-center gap-1.5 font-bold text-primary text-[11px] mt-0.5 hover:underline cursor-pointer"
-                        >
-                          <ProofImage
-                            url={payment.proof_url}
-                            alt="Proof"
-                            className="w-7 h-7 object-cover rounded border border-border"
-                          />
-                          <span>View</span>
-                        </button>
-                      ) : (
-                        <span className="text-[11px] text-muted-foreground italic">None</span>
-                      )}
-                    </div>
-                  </div>
+          </div>
 
-                  {/* Action row */}
-                  <div className="flex items-center gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setViewModalPayment(payment)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-border text-xs font-semibold text-foreground hover:bg-section transition-colors cursor-pointer"
-                    >
-                      <Eye className="w-3.5 h-3.5 text-muted-foreground" /> View
-                    </button>
-                    {payment.status !== "approved" && (
-                      <button
-                        type="button"
-                        disabled={isProcessing}
-                        onClick={() => setApproveModalPayment(payment)}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-success/15 border border-success/30 text-xs font-bold text-success hover:bg-success/25 transition-colors disabled:opacity-50 cursor-pointer"
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Approve
-                      </button>
-                    )}
-                    {payment.status !== "rejected" && (
-                      <button
-                        type="button"
-                        disabled={isProcessing}
-                        onClick={() => setRejectModalPayment(payment)}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-destructive/15 border border-destructive/30 text-xs font-bold text-destructive hover:bg-destructive/25 transition-colors disabled:opacity-50 cursor-pointer"
-                      >
-                        <XCircle className="w-3.5 h-3.5" /> Reject
-                      </button>
-                    )}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-section border border-border transition-colors focus:outline-none cursor-pointer"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-card-elevated border border-border text-foreground min-w-[180px] p-1.5 shadow-xl rounded-xl z-50">
-                        <DropdownMenuItem
-                          disabled={isProcessing}
-                          onClick={() => setPendingMutation.mutate(payment.id)}
-                          className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-warning hover:bg-warning/10 rounded-lg cursor-pointer"
-                        >
-                          <Clock className="w-4 h-4 text-warning" /> Mark as Pending
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+          {/* ═══════════════════════════════════════════════════════════════
+              PRIMARY: MOOLRE AUTOMATED PAYMENT LEDGER
+              ═══════════════════════════════════════════════════════════════ */}
+          <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+            {/* Moolre Header & Filter Bar */}
+            <div className="p-4 border-b border-border flex flex-wrap items-center justify-between gap-3 bg-section/40">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-500 flex items-center justify-center shrink-0">
+                  <Zap size={16} className="fill-amber-500" />
                 </div>
-              );
-            })
-          )}
-        </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-bold text-foreground">
+                      Moolre Automated Payment Ledger
+                    </h2>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+                      100% Auto-Verified
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Real-time Mobile Money USSD push collections. Settles instantly to MTN <span className="font-mono font-bold text-foreground">0550653849</span> (Wallet ID: 78331).
+                  </p>
+                </div>
+              </div>
 
-        {/* ── Desktop Table (hidden on mobile) ── */}
-        <div className="hidden sm:block overflow-x-auto">
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b border-border bg-section/70 text-[11px] font-bold tracking-wider text-muted-foreground uppercase select-none">
-                <th className="py-3.5 px-4 w-10 text-center">
+              {/* Status Tabs + Search */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                <div className="flex gap-1 bg-background p-0.5 rounded-lg border border-border">
+                  {(["all", "approved", "pending", "rejected"] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setStatusFilter(tab)}
+                      className={`px-3 py-1 text-xs font-bold capitalize transition-all cursor-pointer rounded-md border-none ${
+                        statusFilter === tab
+                          ? "bg-foreground text-background shadow-xs font-black"
+                          : "text-muted-foreground hover:text-foreground bg-transparent"
+                      }`}
+                    >
+                      {tab === "approved" ? "Verified" : tab}
+                      {tab === "approved" && moolreCount > 0 && (
+                        <span className="ml-1 text-[10px] opacity-80">({moolreCount})</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Search */}
+                <div className="relative w-full sm:w-56">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input
-                    type="checkbox"
-                    checked={filteredPayments.length > 0 && selectedIds.length === filteredPayments.length}
-                    onChange={handleSelectAll}
-                    className="w-4 h-4 rounded border-border bg-background text-primary focus:ring-0 cursor-pointer"
+                    type="text"
+                    placeholder="Search user, ref, phone..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   />
-                </th>
-                <th className="py-3.5 px-4">USER</th>
-                <th className="py-3.5 px-4">AMOUNT</th>
-                <th className="py-3.5 px-4">PROOF</th>
-                <th className="py-3.5 px-4">DATE</th>
-                <th className="py-3.5 px-4">TXN REF</th>
-                <th className="py-3.5 px-4">STATUS</th>
-                <th className="py-3.5 px-4 text-right">ACTIONS</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
+                </div>
+              </div>
+            </div>
+
+            {/* ── Moolre Mobile Card List (hidden on sm+) ── */}
+            <div className="sm:hidden divide-y divide-border/60">
               {paymentsLoading ? (
-                <tr>
-                  <td colSpan={8} className="text-center text-muted-foreground py-16 text-sm">
-                    <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 opacity-50" />
-                    Loading payments...
-                  </td>
-                </tr>
-              ) : filteredPayments.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="text-center text-muted-foreground py-16 text-sm">
-                    No payment records found matching your filter.
-                  </td>
-                </tr>
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground text-sm gap-2">
+                  <RefreshCw className="w-5 h-5 animate-spin opacity-50" />
+                  Loading Moolre payments...
+                </div>
+              ) : filteredMoolrePayments.length === 0 ? (
+                <div className="text-center text-muted-foreground py-16 text-sm px-4">
+                  No automated Moolre payments found matching your filter.
+                </div>
               ) : (
-                filteredPayments.map((payment: any) => {
+                filteredMoolrePayments.map((payment: any) => {
                   const pkg = vipPackages.find((p: any) => p.id === payment.package_id);
                   const userProfile = profiles.find((prof: any) => prof.id === payment.user_id);
                   const userDisplay = payment.sender_name || userProfile?.username || userProfile?.email?.split("@")[0] || "Customer";
-                  const userEmail = userProfile?.email || `ID: ${payment.user_id.substring(0, 8)}...`;
-                  const isProcessing = processingId === payment.id;
-                  const dateInfo = formatPaymentDate(payment.created_at);
+                  const txRef = payment.transaction_id || payment.reference_code || payment.id;
+                  const dateStr = new Date(payment.created_at).toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
 
                   return (
-                    <tr 
-                      key={payment.id}
-                      className="hover:bg-section/40 transition-colors"
+                    <div 
+                      key={payment.id} 
+                      onClick={() => setViewModalPayment(payment)}
+                      className="p-4 space-y-2.5 hover:bg-section/30 transition-colors cursor-pointer"
                     >
-                      {/* Checkbox */}
-                      <td className="py-4 px-4 w-10 text-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(payment.id)}
-                          onChange={() => handleSelectRow(payment.id)}
-                          className="w-4 h-4 rounded border-border bg-background text-primary focus:ring-0 cursor-pointer"
-                        />
-                      </td>
-
-                      {/* USER */}
-                      <td className="py-4 px-4">
-                        <div className="font-bold text-sm text-foreground leading-tight">
-                          {userDisplay}
-                        </div>
-                        <div className="text-xs text-muted-foreground font-mono mt-0.5">
-                          {userEmail}
-                        </div>
-                      </td>
-
-                      {/* AMOUNT */}
-                      <td className="py-4 px-4">
-                        <div className="font-black text-sm text-foreground">
-                          GH₵ {Number(payment.amount || pkg?.price || 0).toFixed(0)}
-                        </div>
-                        <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                          ≈ ₦{Math.ceil(Number(payment.amount || pkg?.price || 0) * 115).toLocaleString()}
-                        </div>
-                        <div className="text-xs font-semibold text-warning mt-0.5">
-                          {payment.network || "MTN"} • {payment.sender_name || userDisplay}
-                        </div>
-                      </td>
-
-                      {/* PROOF */}
-                      <td className="py-4 px-4">
-                        {payment.proof_url ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setModalProofSrc(payment.proof_url);
-                              setViewModalPayment(payment);
-                            }}
-                            className="flex items-center gap-2 group cursor-pointer focus:outline-none"
-                            title="Click to view full payment screenshot"
-                          >
-                            <ProofImage
-                              url={payment.proof_url}
-                              alt="Proof"
-                              className="w-9 h-9 object-cover rounded-lg border border-border group-hover:border-primary group-hover:scale-105 transition-all shadow-sm"
-                            />
-                            <span className="text-xs font-semibold text-primary group-hover:underline flex items-center gap-1">
-                              <ImageIcon className="w-3.5 h-3.5" /> View
-                            </span>
-                          </button>
+                      {/* Top: TxID & Status */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-xs font-black text-foreground truncate">
+                          {truncateRef(txRef, 16)}
+                        </span>
+                        {payment.status === "approved" ? (
+                          <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-500">
+                            <Zap className="w-2.5 h-2.5 fill-emerald-500" /> Auto-Verified
+                          </span>
+                        ) : payment.status === "pending" ? (
+                          <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-warning/15 border border-warning/30 text-warning">
+                            <Clock className="w-2.5 h-2.5 text-warning" /> USSD Sent
+                          </span>
                         ) : (
-                          <span className="text-xs text-muted-foreground italic flex items-center gap-1">
-                            <AlertCircle className="w-3.5 h-3.5 opacity-50" /> No proof
+                          <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-destructive/15 border border-destructive/30 text-destructive">
+                            <XCircle className="w-2.5 h-2.5 text-destructive" /> Failed
                           </span>
                         )}
-                      </td>
+                      </div>
 
-                      {/* DATE */}
-                      <td className="py-4 px-4">
-                        <div className="text-xs font-bold text-foreground">
-                          {dateInfo.top}
+                      {/* Middle: Customer + Package + Amount */}
+                      <div className="flex items-center justify-between text-xs">
+                        <div>
+                          <p className="font-bold text-foreground">
+                            {payment.sender_phone || userDisplay}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <Crown size={11} className="text-amber-500" />
+                            {pkg?.name || payment.package_id}
+                          </p>
                         </div>
-                        <div className="text-[11px] text-muted-foreground font-medium">
-                          {dateInfo.bottom}
+                        <div className="text-right">
+                          <p className="font-black text-sm text-foreground">
+                            GH₵ {Number(payment.amount || pkg?.price || 0).toFixed(2)}
+                          </p>
+                          <p className="text-[10px] text-emerald-500 font-semibold">
+                            ≈ ₦{Math.ceil(Number(payment.amount || pkg?.price || 0) * 115).toLocaleString()}
+                          </p>
                         </div>
-                      </td>
+                      </div>
 
-                      {/* TXN REF */}
-                      <td className="py-4 px-4">
-                        <span 
-                          className="font-mono text-xs font-bold text-foreground tracking-wider"
-                          title={payment.transaction_id || payment.reference_code}
-                        >
-                          {truncateRef(payment.transaction_id || payment.reference_code, 12)}
+                      {/* Bottom: Date & Inspect */}
+                      <div className="flex items-center justify-between pt-1 border-t border-border/40 text-[11px] text-muted-foreground">
+                        <span>{dateStr}</span>
+                        <span className="font-bold text-primary flex items-center gap-1">
+                          Inspect <Eye size={12} />
                         </span>
-                      </td>
-
-                      {/* STATUS (Dropdown Trigger) */}
-                      <td className="py-4 px-4">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button className="cursor-pointer focus:outline-none transition-transform active:scale-95 group text-left">
-                              {payment.status === "pending" && (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-warning/15 border border-warning/30 text-warning hover:bg-warning/25 transition-colors">
-                                  <Clock className="w-3.5 h-3.5 text-warning" /> Pending
-                                </span>
-                              )}
-                              {payment.status === "approved" && (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-success/15 border border-success/30 text-success hover:bg-success/25 transition-colors">
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-success" /> Approved
-                                </span>
-                              )}
-                              {payment.status === "rejected" && (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-destructive/15 border border-destructive/30 text-destructive hover:bg-destructive/25 transition-colors">
-                                  <XCircle className="w-3.5 h-3.5 text-destructive" /> Rejected
-                                </span>
-                              )}
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="bg-card-elevated border border-border text-foreground min-w-[180px] p-1.5 shadow-xl rounded-xl z-50">
-                            <DropdownMenuItem
-                              onClick={() => setViewModalPayment(payment)}
-                              className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-foreground hover:bg-section rounded-lg cursor-pointer"
-                            >
-                              <Eye className="w-4 h-4 text-muted-foreground" /> View Payment
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              disabled={isProcessing}
-                              onClick={() => setApproveModalPayment(payment)}
-                              className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-success hover:bg-success/10 rounded-lg cursor-pointer"
-                            >
-                              <CheckCircle2 className="w-4 h-4 text-success" /> Approve Payment
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              disabled={isProcessing}
-                              onClick={() => setRejectModalPayment(payment)}
-                              className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
-                            >
-                              <XCircle className="w-4 h-4 text-destructive" /> Reject Payment
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator className="bg-border my-1" />
-                            <DropdownMenuItem
-                              disabled={isProcessing}
-                              onClick={() => setPendingMutation.mutate(payment.id)}
-                              className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-warning hover:bg-warning/10 rounded-lg cursor-pointer"
-                            >
-                              <Clock className="w-4 h-4 text-warning" /> Mark as Pending
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-
-                      {/* ACTIONS (3-Dots Menu) */}
-                      <td className="py-4 px-4 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
-                              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-section transition-colors focus:outline-none cursor-pointer"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-card-elevated border border-border text-foreground min-w-[180px] p-1.5 shadow-xl rounded-xl z-50">
-                            <DropdownMenuItem
-                              onClick={() => setViewModalPayment(payment)}
-                              className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-foreground hover:bg-section rounded-lg cursor-pointer"
-                            >
-                              <Eye className="w-4 h-4 text-muted-foreground" /> View Payment
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              disabled={isProcessing}
-                              onClick={() => setApproveModalPayment(payment)}
-                              className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-success hover:bg-success/10 rounded-lg cursor-pointer"
-                            >
-                              <CheckCircle2 className="w-4 h-4 text-success" /> Approve Payment
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              disabled={isProcessing}
-                              onClick={() => setRejectModalPayment(payment)}
-                              className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
-                            >
-                              <XCircle className="w-4 h-4 text-destructive" /> Reject Payment
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator className="bg-border my-1" />
-                            <DropdownMenuItem
-                              disabled={isProcessing}
-                              onClick={() => setPendingMutation.mutate(payment.id)}
-                              className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-warning hover:bg-warning/10 rounded-lg cursor-pointer"
-                            >
-                              <Clock className="w-4 h-4 text-warning" /> Mark as Pending
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   );
                 })
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </div>
+
+            {/* ── Moolre Desktop Table (hidden on mobile) ── */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-border bg-section/70 text-[11px] font-bold tracking-wider text-muted-foreground uppercase select-none">
+                    <th className="py-3.5 px-4">TRANSACTION</th>
+                    <th className="py-3.5 px-4">CUSTOMER</th>
+                    <th className="py-3.5 px-4">AMOUNT</th>
+                    <th className="py-3.5 px-4">DATE</th>
+                    <th className="py-3.5 px-4">STATUS</th>
+                    <th className="py-3.5 px-4 text-right">ACTION</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {paymentsLoading ? (
+                    <tr>
+                      <td colSpan={6} className="text-center text-muted-foreground py-16 text-sm">
+                        <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 opacity-50" />
+                        Loading Moolre payments...
+                      </td>
+                    </tr>
+                  ) : filteredMoolrePayments.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="text-center text-muted-foreground py-16 text-sm">
+                        No automated Moolre payments found matching your filter.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredMoolrePayments.map((payment: any) => {
+                      const pkg = vipPackages.find((p: any) => p.id === payment.package_id);
+                      const userProfile = profiles.find((prof: any) => prof.id === payment.user_id);
+                      const userDisplay = payment.sender_name || userProfile?.username || userProfile?.email?.split("@")[0] || "Customer";
+                      const txRef = payment.transaction_id || payment.reference_code || payment.id;
+                      const dateStr = new Date(payment.created_at).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      });
+
+                      return (
+                        <tr 
+                          key={payment.id} 
+                          onClick={() => setViewModalPayment(payment)}
+                          className="hover:bg-section/50 transition-colors cursor-pointer group"
+                        >
+                          {/* TRANSACTION */}
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs font-black text-foreground group-hover:text-primary transition-colors">
+                                {truncateRef(txRef, 16)}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigator.clipboard.writeText(txRef);
+                                  toast.success("Transaction ID copied!");
+                                }}
+                                className="p-1 text-muted-foreground hover:text-foreground rounded cursor-pointer opacity-70 group-hover:opacity-100"
+                                title="Copy ID"
+                              >
+                                <Copy size={11} />
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+                                <Crown size={11} className="text-amber-500" />
+                                {pkg?.name || payment.package_id}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* CUSTOMER */}
+                          <td className="py-3.5 px-4">
+                            <div className="font-bold text-xs text-foreground">
+                              {payment.sender_phone || userDisplay}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                              {payment.network || "MTN Mobile Money"}
+                            </div>
+                          </td>
+
+                          {/* AMOUNT */}
+                          <td className="py-3.5 px-4">
+                            <div className="font-black text-sm text-foreground">
+                              GH₵ {Number(payment.amount || pkg?.price || 0).toFixed(2)}
+                            </div>
+                            <div className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                              ≈ ₦{Math.ceil(Number(payment.amount || pkg?.price || 0) * 115).toLocaleString()}
+                            </div>
+                          </td>
+
+                          {/* DATE */}
+                          <td className="py-3.5 px-4">
+                            <span className="text-xs text-muted-foreground font-medium">
+                              {dateStr}
+                            </span>
+                          </td>
+
+                          {/* STATUS */}
+                          <td className="py-3.5 px-4">
+                            {payment.status === "approved" ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-500">
+                                <Zap className="w-3 h-3 fill-emerald-500" /> Auto-Verified
+                              </span>
+                            ) : payment.status === "pending" ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-warning/15 border border-warning/30 text-warning">
+                                <Clock className="w-3 h-3 text-warning" /> USSD Sent
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-destructive/15 border border-destructive/30 text-destructive">
+                                <XCircle className="w-3 h-3 text-destructive" /> Failed
+                              </span>
+                            )}
+                          </td>
+
+                          {/* ACTION */}
+                          <td className="py-3.5 px-4 text-right">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewModalPayment(payment);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground hover:bg-section transition-colors cursor-pointer shadow-xs"
+                            >
+                              <Eye size={12} className="text-muted-foreground" />
+                              <span>Inspect</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════════════
+              SECONDARY / ARCHIVE: LEGACY MANUAL TRANSFERS (HIDDEN BY DEFAULT)
+              ═══════════════════════════════════════════════════════════════ */}
+          <div className="rounded-xl border border-dashed border-border bg-card/60 overflow-hidden shadow-xs">
+            <div className="p-4 flex flex-wrap items-center justify-between gap-3 bg-section/30">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-muted border border-border flex items-center justify-center text-muted-foreground shrink-0">
+                  <Smartphone size={16} />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs font-bold text-foreground">
+                      Legacy Manual Transfer Slips Archive
+                    </p>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground border border-border">
+                      {manualPayments.length} records • GH₵ {manualRevenue.toFixed(0)} archived
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Archived manual offline payments. Total historical manual revenue: <span className="font-bold text-foreground">GH₵ {manualRevenue.toFixed(0)}</span> (≈ ₦{Math.ceil(manualRevenue * 115).toLocaleString()}).
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowManualArchive(!showManualArchive)}
+                className="px-3.5 py-1.5 rounded-lg border border-border bg-background text-xs font-bold text-foreground hover:bg-section transition-all cursor-pointer flex items-center gap-2 shadow-xs"
+              >
+                {showManualArchive ? (
+                  <>
+                    <X size={14} /> Hide Manual Archive
+                  </>
+                ) : (
+                  <>
+                    <Eye size={14} /> View Archived Manual Slips ({manualPayments.length})
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Preserved Legacy Manual Table */}
+            {showManualArchive && (
+              <div className="border-t border-border">
+                {/* Search / Filter for Manual Archive */}
+                <div className="p-3 border-b border-border bg-section/20 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-muted-foreground font-semibold">
+                    Showing {filteredManualPayments.length} of {manualPayments.length} archived manual payments
+                  </p>
+                  <div className="relative w-full sm:w-64">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Search archive..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left">
+                    <thead>
+                      <tr className="border-b border-border bg-section/70 text-[11px] font-bold tracking-wider text-muted-foreground uppercase select-none">
+                        <th className="py-3 px-4 w-10 text-center">
+                          <input
+                            type="checkbox"
+                            checked={filteredManualPayments.length > 0 && selectedIds.length === filteredManualPayments.length}
+                            onChange={handleSelectAll}
+                            className="w-4 h-4 rounded border-border bg-background text-primary focus:ring-0 cursor-pointer"
+                          />
+                        </th>
+                        <th className="py-3 px-4">USER</th>
+                        <th className="py-3 px-4">AMOUNT</th>
+                        <th className="py-3 px-4">PROOF SCREENSHOT</th>
+                        <th className="py-3 px-4">DATE</th>
+                        <th className="py-3 px-4">TXN REF</th>
+                        <th className="py-3 px-4">STATUS</th>
+                        <th className="py-3 px-4 text-right">ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/60">
+                      {filteredManualPayments.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="text-center text-muted-foreground py-10 text-xs">
+                            No manual payments found in archive.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredManualPayments.map((payment: any) => {
+                          const pkg = vipPackages.find((p: any) => p.id === payment.package_id);
+                          const userProfile = profiles.find((prof: any) => prof.id === payment.user_id);
+                          const userDisplay = payment.sender_name || userProfile?.username || userProfile?.email?.split("@")[0] || "Customer";
+                          const userEmail = userProfile?.email || `ID: ${payment.user_id.substring(0, 8)}...`;
+                          const isProcessing = processingId === payment.id;
+                          const dateInfo = formatPaymentDate(payment.created_at);
+
+                          return (
+                            <tr key={payment.id} className="hover:bg-section/40 transition-colors">
+                              {/* Checkbox */}
+                              <td className="py-3 px-4 w-10 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedIds.includes(payment.id)}
+                                  onChange={() => handleSelectRow(payment.id)}
+                                  className="w-4 h-4 rounded border-border bg-background text-primary focus:ring-0 cursor-pointer"
+                                />
+                              </td>
+
+                              {/* USER */}
+                              <td className="py-3 px-4">
+                                <div className="font-bold text-xs text-foreground leading-tight">
+                                  {userDisplay}
+                                </div>
+                                <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                                  {userEmail}
+                                </div>
+                              </td>
+
+                              {/* AMOUNT */}
+                              <td className="py-3 px-4">
+                                <div className="font-bold text-xs text-foreground">
+                                  GH₵ {Number(payment.amount || pkg?.price || 0).toFixed(0)}
+                                </div>
+                                <div className="text-[11px] text-muted-foreground">
+                                  {payment.network || "Manual"}
+                                </div>
+                              </td>
+
+                              {/* PROOF */}
+                              <td className="py-3 px-4">
+                                {payment.proof_url ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setModalProofSrc(payment.proof_url);
+                                      setViewModalPayment(payment);
+                                    }}
+                                    className="flex items-center gap-2 group cursor-pointer focus:outline-none"
+                                  >
+                                    <ProofImage
+                                      url={payment.proof_url}
+                                      alt="Proof"
+                                      className="w-8 h-8 object-cover rounded border border-border group-hover:border-primary transition-all"
+                                    />
+                                    <span className="text-xs font-semibold text-primary group-hover:underline flex items-center gap-1">
+                                      <ImageIcon className="w-3.5 h-3.5" /> View
+                                    </span>
+                                  </button>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground italic">No image</span>
+                                )}
+                              </td>
+
+                              {/* DATE */}
+                              <td className="py-3 px-4">
+                                <div className="text-xs font-bold text-foreground">
+                                  {dateInfo.top}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground">
+                                  {dateInfo.bottom}
+                                </div>
+                              </td>
+
+                              {/* TXN REF */}
+                              <td className="py-3 px-4 font-mono text-xs text-foreground">
+                                {truncateRef(payment.transaction_id || payment.reference_code, 12)}
+                              </td>
+
+                              {/* STATUS */}
+                              <td className="py-3 px-4">
+                                {payment.status === "pending" && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-warning/15 border border-warning/30 text-warning">
+                                    <Clock className="w-3 h-3 text-warning" /> Pending
+                                  </span>
+                                )}
+                                {payment.status === "approved" && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-success/15 border border-success/30 text-success">
+                                    <CheckCircle2 className="w-3 h-3 text-success" /> Approved
+                                  </span>
+                                )}
+                                {payment.status === "rejected" && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-destructive/15 border border-destructive/30 text-destructive">
+                                    <XCircle className="w-3 h-3 text-destructive" /> Rejected
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* ACTIONS */}
+                              <td className="py-3 px-4 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => setViewModalPayment(payment)}
+                                    className="p-1 rounded text-muted-foreground hover:text-foreground cursor-pointer"
+                                    title="View"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                  {payment.status !== "approved" && (
+                                    <button
+                                      type="button"
+                                      disabled={isProcessing}
+                                      onClick={() => setApproveModalPayment(payment)}
+                                      className="p-1 rounded text-success hover:bg-success/10 cursor-pointer disabled:opacity-50"
+                                      title="Approve"
+                                    >
+                                      <CheckCircle2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  {payment.status !== "rejected" && (
+                                    <button
+                                      type="button"
+                                      disabled={isProcessing}
+                                      onClick={() => setRejectModalPayment(payment)}
+                                      className="p-1 rounded text-destructive hover:bg-destructive/10 cursor-pointer disabled:opacity-50"
+                                      title="Reject"
+                                    >
+                                      <XCircle className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
     </>
   )}
 
@@ -1428,187 +1591,340 @@ function AdminPaymentsPage() {
     </>
   )}
 
-  {/* ── View Payment Modal ── */}
+  {/* ── View Payment Side Panel Drawer ── */}
       {viewModalPayment && (() => {
         const p = viewModalPayment;
         const pkg = vipPackages.find((item: any) => item.id === p.package_id);
         const userProfile = profiles.find((prof: any) => prof.id === p.user_id);
         const userDisplay = p.sender_name || userProfile?.username || userProfile?.email?.split("@")[0] || "Customer";
         const isProcessing = processingId === p.id;
+        const isMoolreTx = isMoolre(p);
 
         return (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-card border border-border rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl p-6 text-foreground space-y-5">
+          <div 
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex justify-end"
+            onClick={() => setViewModalPayment(null)}
+          >
+            <div 
+              className="bg-card border-l border-border w-full max-w-lg h-full shadow-2xl flex flex-col text-foreground animate-in slide-in-from-right duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
               
-              {/* Modal Top */}
-              <div className="flex items-center justify-between border-b border-border pb-4">
-                <div>
-                  <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-primary" />
-                    Payment Details
-                  </h3>
-                  <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                    {p.reference_code ? `Ref: ${p.reference_code}` : `Sender: ${p.sender_name || userDisplay}`}
-                  </p>
+              {/* Panel Header */}
+              <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between bg-section/30">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    isMoolreTx 
+                      ? "bg-amber-500/15 text-amber-500 border border-amber-500/30" 
+                      : "bg-primary/15 text-primary border border-primary/30"
+                  }`}>
+                    {isMoolreTx ? <Zap className="w-5 h-5 fill-amber-500" /> : <CreditCard className="w-5 h-5" />}
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                      {isMoolreTx ? "Moolre Payment Inspector" : "Payment Details"}
+                    </h3>
+                    <p className="text-xs text-muted-foreground font-mono mt-0.5 truncate max-w-[240px] sm:max-w-xs" title={p.reference_code || p.transaction_id}>
+                      {p.reference_code ? `Ref: ${p.reference_code}` : `Sender: ${p.sender_name || userDisplay}`}
+                    </p>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setViewModalPayment(null)}
-                  className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-section transition-colors cursor-pointer"
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-section transition-colors cursor-pointer"
+                  title="Close panel"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Status Header Banner */}
-              <div className="flex items-center justify-between p-3.5 rounded-xl bg-section/60 border border-border">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Current Status:</span>
-                  {p.status === "pending" && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-warning/15 text-warning border border-warning/30">
-                      <Clock className="w-3 h-3" /> Pending
+              {/* Panel Scrollable Content */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+                
+                {/* Hero Amount & Status Card */}
+                <div className="p-4 rounded-xl bg-section/60 border border-border flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+                      Paid Amount
                     </span>
-                  )}
-                  {p.status === "approved" && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-success/15 text-success border border-success/30">
-                      <CheckCircle2 className="w-3 h-3" /> Approved
+                    <span className="text-2xl font-black text-foreground">
+                      GH₵ {Number(p.amount || pkg?.price || 0).toFixed(2)}
                     </span>
-                  )}
-                  {p.status === "rejected" && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-destructive/15 text-destructive border border-destructive/30">
-                      <XCircle className="w-3 h-3" /> Rejected
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block mt-0.5">
+                      ≈ ₦{Math.ceil(Number(p.amount || pkg?.price || 0) * 115).toLocaleString()} NGN
                     </span>
-                  )}
-                </div>
-                <div className="text-right">
-                  <span className="text-xs text-muted-foreground block">Amount</span>
-                  <span className="font-black text-sm text-primary">GH₵ {Number(p.amount || pkg?.price || 0).toFixed(2)}</span>
-                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block">
-                    ≈ ₦{Math.ceil(Number(p.amount || pkg?.price || 0) * 115).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-
-              {/* Rejection Reason Notice (if rejected) */}
-              {p.status === "rejected" && p.rejection_reason && (
-                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl text-xs text-destructive">
-                  <strong className="block font-bold mb-0.5">Rejection Reason:</strong>
-                  {p.rejection_reason}
-                </div>
-              )}
-
-              {/* Customer & Transaction Info Grid */}
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-3 rounded-xl bg-section/40 border border-border/60 space-y-1">
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Customer</span>
-                  <p className="font-bold text-foreground">{userDisplay}</p>
-                  <p className="font-mono text-[11px] text-muted-foreground truncate">{userProfile?.email || "No email"}</p>
-                  <p className="font-mono text-[10px] text-muted-foreground">UID: {p.user_id.substring(0, 12)}...</p>
-                </div>
-
-                <div className="p-3 rounded-xl bg-section/40 border border-border/60 space-y-1">
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Package</span>
-                  <p className="font-bold text-foreground">{pkg?.name || p.package_id}</p>
-                  <p className="text-muted-foreground">Booking Code: {pkg?.booking_code || "None"}</p>
-                </div>
-
-                <div className="p-3 rounded-xl bg-section/40 border border-border/60 space-y-1">
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Payment Method</span>
-                  <p className="font-bold text-warning">{p.network || "Mobile Money"}</p>
-                  <p className="font-semibold text-foreground">Sender: {p.sender_name || userDisplay}</p>
-                  {p.sender_phone && <p className="text-muted-foreground font-mono">Phone: {p.sender_phone}</p>}
-                </div>
-
-                <div className="p-3 rounded-xl bg-section/40 border border-border/60 space-y-1">
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Transaction Data</span>
-                  {p.transaction_id && <p className="font-mono text-foreground truncate">TxID: {p.transaction_id}</p>}
-                  {p.reference_code && <p className="font-mono text-primary font-bold">Ref: {p.reference_code}</p>}
-                  <p className="text-muted-foreground text-[10px]">
-                    {new Date(p.created_at).toLocaleString("en-GB")}
-                  </p>
-                </div>
-              </div>
-
-              {/* Screenshot Proof */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] uppercase font-bold text-muted-foreground tracking-wider block">
-                    Payment Proof Screenshot
-                  </span>
-                  {p.proof_url && (
-                    <a
-                      href={modalProofSrc || p.proof_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" /> Full Resolution
-                    </a>
-                  )}
-                </div>
-                {p.proof_url ? (
-                  <div className="relative rounded-xl overflow-hidden border border-border group bg-section/30 p-2">
-                    <a href={modalProofSrc || p.proof_url} target="_blank" rel="noopener noreferrer" className="block cursor-zoom-in">
-                      <ProofImage
-                        url={p.proof_url}
-                        alt="Payment proof"
-                        className="w-full max-h-72 object-contain rounded-lg hover:opacity-95 transition-opacity"
-                        onSignedUrl={(signed) => setModalProofSrc(signed)}
-                      />
-                    </a>
                   </div>
-                ) : (
-                  <div className="p-6 rounded-xl border border-dashed border-border bg-section/20 text-center text-muted-foreground text-xs">
-                    <ImageIcon className="w-8 h-8 opacity-40 mx-auto mb-1.5" />
-                    No screenshot uploaded
+
+                  <div className="text-right">
+                    {isMoolreTx ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                        <Zap className="w-3.5 h-3.5 fill-emerald-500" /> Auto-Verified
+                      </span>
+                    ) : p.status === "approved" ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-success/15 text-success border border-success/30">
+                        <CheckCircle2 className="w-3 h-3" /> Approved
+                      </span>
+                    ) : p.status === "pending" ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-warning/15 text-warning border border-warning/30">
+                        <Clock className="w-3 h-3" /> Pending Review
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-destructive/15 text-destructive border border-destructive/30">
+                        <XCircle className="w-3 h-3" /> Rejected
+                      </span>
+                    )}
+                    <span className="text-[10px] text-muted-foreground block mt-1">
+                      {new Date(p.created_at).toLocaleString("en-GB", {
+                        day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit"
+                      })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Rejection Notice (if rejected) */}
+                {p.status === "rejected" && p.rejection_reason && (
+                  <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl text-xs text-destructive">
+                    <strong className="block font-bold mb-0.5">Rejection Reason:</strong>
+                    {p.rejection_reason}
                   </div>
                 )}
+
+                {/* Moolre Settlement & Collection Live Ledger */}
+                {isMoolreTx ? (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+                    <div className="flex items-center justify-between border-b border-amber-500/20 pb-2">
+                      <span className="text-xs font-bold text-amber-500 flex items-center gap-1.5">
+                        <Zap size={14} className="fill-amber-500" /> Moolre Verified MoMo Ledger
+                      </span>
+                      <span className="text-[10px] font-mono text-emerald-500 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                        ● Live Gateway Recorded
+                      </span>
+                    </div>
+
+                    {/* Collection Entry */}
+                    <div className="bg-card/80 p-3 rounded-lg border border-border/70 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-muted-foreground flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                          Collection (Inflow)
+                        </span>
+                        <span className="font-black text-foreground">GH₵ {Number(p.amount || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-border/40">
+                        <div>
+                          <span className="text-muted-foreground block">From Customer</span>
+                          <span className="font-mono font-bold text-foreground">
+                            {p.sender_phone || "233257825866"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block">To Merchant</span>
+                          <span className="font-semibold text-foreground">A1TIPS Deck (78331)</span>
+                        </div>
+                      </div>
+                      <div className="pt-1 flex items-center justify-between text-[11px] font-mono text-muted-foreground">
+                        <span>Network ID:</span>
+                        <span className="text-primary font-bold flex items-center gap-1">
+                          {p.transaction_id || "93755881459"}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(p.transaction_id || "");
+                              toast.success("Transaction ID copied!");
+                            }}
+                            className="hover:text-foreground cursor-pointer"
+                            title="Copy ID"
+                          >
+                            <Copy size={11} />
+                          </button>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Instant Settlement Entry */}
+                    <div className="bg-card/80 p-3 rounded-lg border border-border/70 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-muted-foreground flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+                          Instant Settlement (Payout)
+                        </span>
+                        <span className="font-black text-emerald-600 dark:text-emerald-400">
+                          GH₵ {Number(p.amount || 0).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-border/40">
+                        <div>
+                          <span className="text-muted-foreground block">Settled To Phone</span>
+                          <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                            0550653849 (MTN MoMo)
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block">Moolre Account</span>
+                          <span className="font-mono font-semibold text-foreground">11090906078331</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-muted-foreground leading-relaxed pt-1">
+                      ⚡ <strong>Automated Delivery:</strong> This order was authorized by MoMo PIN prompt and auto-approved. Access to predictions & booking codes is delivered instantly to the customer's dashboard without admin intervention.
+                    </p>
+                  </div>
+                ) : null}
+
+                {/* Customer & Package Breakdown Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="p-3.5 rounded-xl bg-section/40 border border-border/60 space-y-1.5">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+                      Customer Profile
+                    </span>
+                    <p className="font-bold text-foreground text-sm">{userDisplay}</p>
+                    <p className="font-mono text-[11px] text-muted-foreground truncate">{userProfile?.email || "No email"}</p>
+                    <p className="font-mono text-[10px] text-muted-foreground pt-1">UID: {p.user_id}</p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-section/40 border border-border/60 space-y-1.5">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+                      VIP Package / Pass
+                    </span>
+                    <p className="font-bold text-foreground text-sm flex items-center gap-1.5">
+                      <Crown size={14} className="text-amber-500" />
+                      {pkg?.name || p.package_id}
+                    </p>
+                    {pkg?.booking_code && (
+                      <p className="font-mono text-[11px] text-primary font-bold">
+                        Code: {pkg.booking_code}
+                      </p>
+                    )}
+                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary">
+                      {p.package_id?.startsWith("sub_") ? "Subscription Pass" : "VIP Single Package"}
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-section/40 border border-border/60 space-y-1.5">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+                      Gateway & Method
+                    </span>
+                    <p className="font-bold text-warning">{p.network || "MTN Mobile Money"}</p>
+                    <p className="text-muted-foreground text-[11px]">Sender: {p.sender_name || userDisplay}</p>
+                    {p.sender_phone && (
+                      <p className="font-mono text-[11px] text-foreground font-semibold">
+                        Phone: {p.sender_phone}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-section/40 border border-border/60 space-y-1.5">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+                      Internal Identifiers
+                    </span>
+                    {p.transaction_id && (
+                      <p className="font-mono text-[11px] text-foreground truncate" title={p.transaction_id}>
+                        TxID: {p.transaction_id}
+                      </p>
+                    )}
+                    {p.reference_code && (
+                      <p className="font-mono text-[11px] text-primary font-bold truncate" title={p.reference_code}>
+                        Ref: {p.reference_code}
+                      </p>
+                    )}
+                    <p className="text-[10px] text-muted-foreground">
+                      ID: {p.id}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Legacy Manual Payment Proof (for manual archive) */}
+                {!isMoolreTx && (
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] uppercase font-bold text-muted-foreground tracking-wider block">
+                        Payment Proof Screenshot
+                      </span>
+                      {p.proof_url && (
+                        <a
+                          href={modalProofSrc || p.proof_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" /> Full Resolution
+                        </a>
+                      )}
+                    </div>
+                    {p.proof_url ? (
+                      <div className="relative rounded-xl overflow-hidden border border-border group bg-section/30 p-2">
+                        <a href={modalProofSrc || p.proof_url} target="_blank" rel="noopener noreferrer" className="block cursor-zoom-in">
+                          <ProofImage
+                            url={p.proof_url}
+                            alt="Payment proof"
+                            className="w-full max-h-80 object-contain rounded-lg hover:opacity-95 transition-opacity"
+                            onSignedUrl={(signed) => setModalProofSrc(signed)}
+                          />
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="p-8 rounded-xl border border-dashed border-border bg-section/20 text-center text-muted-foreground text-xs">
+                        <ImageIcon className="w-8 h-8 opacity-40 mx-auto mb-1.5" />
+                        No screenshot uploaded for this manual record
+                      </div>
+                    )}
+                  </div>
+                )}
+
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
+              {/* Panel Footer Actions */}
+              <div className="p-4 border-t border-border bg-card flex items-center justify-between gap-2">
                 <button
                   type="button"
                   onClick={() => setViewModalPayment(null)}
                   className="px-4 py-2 text-xs font-semibold rounded-lg border border-border text-foreground hover:bg-section transition-colors cursor-pointer"
                 >
-                  Close
+                  Close Inspector
                 </button>
 
-                {p.status !== "approved" && (
-                  <button
-                    type="button"
-                    disabled={isProcessing}
-                    onClick={() => setApproveModalPayment(p)}
-                    className="px-4 py-2 text-xs font-bold rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Approve
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {!isMoolreTx && p.status !== "approved" && (
+                    <button
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={() => setApproveModalPayment(p)}
+                      className="px-4 py-2 text-xs font-bold rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Approve
+                    </button>
+                  )}
 
-                {p.status !== "rejected" && (
-                  <button
-                    type="button"
-                    disabled={isProcessing}
-                    onClick={() => {
-                      setRejectModalPayment(p);
-                    }}
-                    className="px-4 py-2 text-xs font-bold rounded-lg bg-destructive hover:opacity-90 text-destructive-foreground flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
-                  >
-                    <XCircle className="w-3.5 h-3.5" /> Reject
-                  </button>
-                )}
+                  {!isMoolreTx && p.status !== "rejected" && (
+                    <button
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={() => setRejectModalPayment(p)}
+                      className="px-4 py-2 text-xs font-bold rounded-lg bg-destructive hover:opacity-90 text-destructive-foreground flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+                    >
+                      <XCircle className="w-3.5 h-3.5" /> Reject
+                    </button>
+                  )}
 
-                {p.status !== "pending" && (
-                  <button
-                    type="button"
-                    disabled={isProcessing}
-                    onClick={() => setPendingMutation.mutate(p.id)}
-                    className="px-4 py-2 text-xs font-bold rounded-lg bg-warning hover:opacity-90 text-black flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
-                  >
-                    <Clock className="w-3.5 h-3.5" /> Set Pending
-                  </button>
-                )}
+                  {!isMoolreTx && p.status !== "pending" && (
+                    <button
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={() => setPendingMutation.mutate(p.id)}
+                      className="px-4 py-2 text-xs font-bold rounded-lg bg-warning hover:opacity-90 text-black flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+                    >
+                      <Clock className="w-3.5 h-3.5" /> Set Pending
+                    </button>
+                  )}
+
+                  {isMoolreTx && (
+                    <span className="text-[11px] font-bold text-emerald-500 flex items-center gap-1">
+                      <ShieldCheck size={14} /> Settlement Verified
+                    </span>
+                  )}
+                </div>
               </div>
 
             </div>

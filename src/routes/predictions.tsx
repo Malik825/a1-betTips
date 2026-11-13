@@ -414,36 +414,35 @@ function PredictionsPage() {
 
     const activeGateway = adminSettings?.payment_gateway || "manual";
 
-    // 1. Manual Mobile Money transfer
-    if (activeGateway === "manual") {
+    // 1. Moolre, Manual, or Kora -> redirect to /checkout
+    if (activeGateway === "moolre" || activeGateway === "manual" || activeGateway === "kora") {
       navigate({ to: "/checkout", search: { pkgId: packageId } });
       return;
     }
 
-    // 2. Kora Pay (fallback to manual until credentials live)
-    if (activeGateway === "kora") {
-      navigate({ to: "/checkout", search: { pkgId: packageId } });
-      return;
-    }
+    // 2. Paystack gateway
+    if (activeGateway === "paystack") {
+      setInitializingPkg(packageId);
+      const opened = await paystackPay(
+        user.email || "",
+        Number(pkg.price),
+        packageId,
+        (reference) => {
+          setInitializingPkg(null);
+          buyMutation.mutate({ packageId, reference });
+        },
+        () => {
+          setInitializingPkg(null);
+        }
+      );
 
-    // 3. Paystack gateway
-    setInitializingPkg(packageId);
-    const opened = await paystackPay(
-      user.email || "",
-      Number(pkg.price),
-      packageId,
-      (reference) => {
-        setInitializingPkg(null);
-        buyMutation.mutate({ packageId, reference });
-      },
-      () => {
+      if (!opened) {
         setInitializingPkg(null);
       }
-    );
-
-    if (!opened) {
-      setInitializingPkg(null);
+      return;
     }
+
+    navigate({ to: "/checkout", search: { pkgId: packageId } });
   };
 
   return (

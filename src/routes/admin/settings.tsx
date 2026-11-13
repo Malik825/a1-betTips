@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Save, Settings as SettingsIcon, CreditCard, MessageCircle, Share2, ShieldAlert, KeyRound, Repeat, Sparkles, Tag, DollarSign, Layers } from "lucide-react";
+import { Save, Settings as SettingsIcon, CreditCard, MessageCircle, Share2, ShieldAlert, KeyRound, Repeat, Sparkles, Tag, DollarSign, Layers, Zap, CheckCircle2, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -182,13 +182,18 @@ function AdminSettingsPage() {
     siteName: "A1-TipsDeck",
     whatsappNumber: "+233551234567",
     supportEmail: "support@a1-tipsdeck.com",
-    paymentGateway: "manual", // "manual" | "paystack" | "kora"
+    paymentGateway: "manual", // "manual" | "paystack" | "kora" | "moolre" | "moolre"
     paystackPublicKey: "",
     koraPublicKey: "",
     momoNumber: "0550000000",
     momoName: "A1 Predictions",
     momoNetwork: "MTN Mobile Money",
     momoInstructions: "Send payment via MoMo to the number above using your Reference Code as the reference/remarks. Once sent, enter your sender phone number and transaction ID below and submit.",
+    moolreApiUser: "",
+    moolrePubKey: "",
+    moolreSecretKey: "",
+    moolreSenderId: "",
+    moolreTestMode: true,
     telegramLink: "",
     twitterLink: "",
   });
@@ -216,6 +221,11 @@ function AdminSettingsPage() {
         momoName: remoteSettings.momo_name || "JOHN YEBOAH",
         momoNetwork: remoteSettings.momo_network || "MTN Mobile Money",
         momoInstructions: remoteSettings.momo_instructions || "Send to the MoMo number above. Use your Reference Code as the MoMo remarks/narration. Then fill in your details below and submit.",
+        moolreApiUser: remoteSettings.moolre_api_user || "",
+        moolrePubKey: remoteSettings.moolre_pub_key || "",
+        moolreSecretKey: remoteSettings.moolre_secret_key || "",
+        moolreSenderId: remoteSettings.moolre_sender_id || "",
+        moolreTestMode: remoteSettings.moolre_test_mode !== false,
         telegramLink: remoteSettings.telegram_link || "",
         twitterLink: remoteSettings.twitter_link || "",
       });
@@ -332,7 +342,7 @@ function AdminSettingsPage() {
 
   const saveSettingsMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("admin_settings").upsert({
+      const payload = {
         id: 1,
         maintenance_mode: settings.maintenanceMode,
         site_name: settings.siteName,
@@ -347,9 +357,28 @@ function AdminSettingsPage() {
         momo_instructions: settings.momoInstructions,
         telegram_link: settings.telegramLink,
         twitter_link: settings.twitterLink,
+        moolre_api_user: settings.moolreApiUser,
+        moolre_pub_key: settings.moolrePubKey,
+        moolre_secret_key: settings.moolreSecretKey,
+        moolre_sender_id: settings.moolreSenderId,
+        moolre_test_mode: settings.moolreTestMode,
         updated_at: new Date().toISOString(),
-      }, { onConflict: "id" });
-      if (error) throw error;
+      };
+
+      // Try update first (avoids insert RLS check on existing row)
+      const { data: updateData, error: updateError } = await supabase
+        .from("admin_settings")
+        .update(payload)
+        .eq("id", 1)
+        .select();
+
+      // If update didn't match a row or failed, fall back to upsert
+      if (!updateData || updateData.length === 0 || updateError) {
+        const { error: upsertError } = await supabase
+          .from("admin_settings")
+          .upsert(payload, { onConflict: "id" });
+        if (upsertError) throw upsertError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin_settings"] });
@@ -522,6 +551,33 @@ function AdminSettingsPage() {
                 </p>
               </div>
 
+
+              {/* Option 4: Moolre — automated USSD push */}
+              <div
+                onClick={() => setSettings(s => ({ ...s, paymentGateway: "moolre" }))}
+                style={{
+                  padding: "16px",
+                  borderRadius: "10px",
+                  border: settings.paymentGateway === "moolre" ? "2px solid #f59e0b" : "1px solid var(--border)",
+                  background: settings.paymentGateway === "moolre" ? "rgba(245,158,11,0.08)" : "var(--card)",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ fontWeight: 700, fontSize: "14px", color: "var(--foreground)" }}>Moolre</span>
+                    <span style={{ fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "4px", background: "rgba(245,158,11,0.15)", color: "#d97706" }}>
+                      🇬🇭 USSD MoMo
+                    </span>
+                  </div>
+                  <span style={{ width: 14, height: 14, borderRadius: "50%", display: "inline-block", border: settings.paymentGateway === "moolre" ? "4px solid #f59e0b" : "1px solid var(--border)", background: "transparent" }} />
+                </div>
+                <p style={{ fontSize: "12px", color: "var(--muted-foreground)", margin: 0, lineHeight: 1.4 }}>
+                  Automated USSD push to MTN, Telecel & AT — instant confirmation, no screenshot needed.
+                </p>
+              </div>
+
             </div>
           </div>
 
@@ -560,6 +616,75 @@ function AdminSettingsPage() {
               <p style={{ fontSize: "12px", color: "var(--muted-foreground)", marginTop: "8px" }}>
                 Once your Kora account is approved, add your public key here to activate Kora checkout.
               </p>
+            </div>
+          )}
+
+          {/* Moolre config */}
+          {settings.paymentGateway === "moolre" && (
+            <div style={{ padding: "18px", background: "rgba(245,158,11,0.05)", borderRadius: "10px", border: "1px solid rgba(245,158,11,0.3)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px", flexWrap: "wrap", gap: "8px" }}>
+                <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--foreground)" }}>
+                  🟡 Moolre Gateway Configuration
+                </div>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.moolreTestMode}
+                    onChange={(e) => setSettings(s => ({ ...s, moolreTestMode: e.target.checked }))}
+                    style={{ width: "16px", height: "16px", accentColor: "#f59e0b", cursor: "pointer" }}
+                  />
+                  <div>
+                    <div style={{ fontSize: "13px", fontWeight: 600, color: settings.moolreTestMode ? "#d97706" : "#22c55e", display: "flex", alignItems: "center", gap: "5px" }}>
+                      {settings.moolreTestMode
+                        ? "⚡ Test Mode (Sandbox)"
+                        : "✓ Live Mode"
+                      }
+                    </div>
+                    <div style={{ fontSize: "11px", color: "var(--muted-foreground)" }}>
+                      {settings.moolreTestMode ? "Payments & SMS simulated — test credentials" : "Real MoMo pushes & SMS will be sent"}
+                    </div>
+                  </div>
+                </label>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+                {field("API Username (X-API-USER)", "moolreApiUser", "text", "your Moolre username")}
+                {field("SMS Sender ID", "moolreSenderId", "text", "e.g. A1TIPS")}
+                {field("Public Key (X-API-PUBKEY)", "moolrePubKey", "text", "pub_...")}
+                {field("Secret Key (X-API-KEY)", "moolreSecretKey", "password", "sk_...")}
+              </div>
+              <div style={{ marginTop: "12px", padding: "12px 14px", background: "rgba(245,158,11,0.07)", borderRadius: "8px", border: "1px solid rgba(245,158,11,0.2)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+                  <p style={{ fontSize: "12px", color: "var(--muted-foreground)", margin: 0, lineHeight: 1.6 }}>
+                    <strong style={{ color: "#d97706" }}>⚡ Production Webhook Callback URL:</strong><br />
+                    Paste this into your Moolre portal under <em>API & Webhooks → Callback URL</em> for automated instant settlement & ticket delivery:
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText("https://sswhabqzmjrmbulrzbkr.supabase.co/functions/v1/moolre-webhook");
+                      toast.success("Webhook URL copied to clipboard!");
+                    }}
+                    style={{
+                      padding: "5px 10px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--border)",
+                      background: "var(--card)",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      color: "var(--foreground)",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px"
+                    }}
+                  >
+                    <Copy size={11} /> Copy Webhook URL
+                  </button>
+                </div>
+                <code style={{ fontSize: "11px", color: "var(--foreground)", background: "var(--card)", padding: "4px 8px", borderRadius: "4px", display: "inline-block", marginTop: "8px", wordBreak: "break-all", border: "1px solid var(--border)" }}>
+                  https://sswhabqzmjrmbulrzbkr.supabase.co/functions/v1/moolre-webhook
+                </code>
+              </div>
             </div>
           )}
         </SectionCard>

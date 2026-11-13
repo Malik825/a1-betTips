@@ -5,7 +5,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { supabase } from "@/lib/supabase";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
-import { Check, X, Ticket, ExternalLink, Clock, RotateCcw, Upload, AlertCircle, Trash2, Camera, ShieldCheck, Bell, BellRing, BadgeCheck, Repeat, CreditCard, Copy, Crown } from "lucide-react";
+import { Check, X, Ticket, ExternalLink, Clock, RotateCcw, Upload, AlertCircle, Trash2, Camera, ShieldCheck, Bell, BellRing, BadgeCheck, Repeat, CreditCard, Copy, Crown, Zap } from "lucide-react";
 import { isTicketValidForPackage, hasUserPurchasedPackage } from "@/lib/ticket-utils";
 import { toast } from "sonner";
 
@@ -256,7 +256,23 @@ function DashboardPage() {
   const [subProofPreview, setSubProofPreview] = useState<string | null>(null);
   const [uploadingSubProof, setUploadingSubProof] = useState(false);
 
-  const activePendingPayments = userPendingPayments.filter((p: any) => p.status === "pending");
+  const isMoolre = (p: any) => {
+    if (!p) return false;
+    const ref = (p.reference_code || "").toLowerCase();
+    const net = (p.network || "").toLowerCase();
+    const tx = (p.transaction_id || "").toLowerCase();
+    return ref.includes("moolre") || net.includes("moolre") || tx.includes("moolre") || tx.startsWith("9375");
+  };
+
+  const activePendingPayments = userPendingPayments.filter((p: any) => {
+    if (p.status !== "pending") return false;
+    // Moolre automated USSD prompts expire within 15 mins on telecom network
+    if (isMoolre(p)) {
+      const ageMs = Date.now() - new Date(p.created_at).getTime();
+      if (ageMs > 15 * 60 * 1000) return false;
+    }
+    return true;
+  });
 
 
   const { data: vipPackages = [] } = useQuery({
@@ -706,104 +722,69 @@ function DashboardPage() {
             </div>
           </div>
         ) : (
-          <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in duration-200">
-            <div className="flex items-start sm:items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
-                <Repeat className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="font-extrabold text-sm text-slate-900 dark:text-white m-0 flex items-center gap-2">
-                  Upgrade to a Monthly VIP Subscription
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400/20 text-amber-700 dark:text-amber-400 border border-amber-400/30">
-                    Save More
-                  </span>
-                </p>
-                <p className="text-[12px] text-slate-500 dark:text-slate-400 m-0 mt-0.5">
-                  Get automatic continuous access to all VIP packages and booking codes without purchasing per-ticket.
-                </p>
-              </div>
+          <div className="mb-5 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Repeat className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <p className="text-xs text-slate-700 dark:text-slate-300 m-0">
+                <strong className="text-slate-900 dark:text-white font-bold">Monthly VIP Passes available:</strong> Get continuous access to all VIP packages and daily codes.
+              </p>
             </div>
             <Link
               to="/subscriptions"
-              className="shrink-0 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 no-underline"
+              className="shrink-0 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[11px] transition-all shadow-sm flex items-center justify-center gap-1 no-underline self-end sm:self-auto"
             >
               View Plans →
             </Link>
           </div>
         )}
 
-        {/* ── Recovery Package Notification Banner ───────────────────── */}
-        {recoveryPackage && recoveryPackage.availability_status === "available" && (
-          <div className={`mb-6 p-5 rounded-2xl border transition-all animate-in fade-in duration-200 ${
+        {/* ── Recovery Package Notification Banner (Only shown if user actually qualifies or has claims) ── */}
+        {recoveryPackage && recoveryPackage.availability_status === "available" && (unclaimedLostTickets.length > 0 || pendingRecoveryClaims.length > 0 || approvedRecoveryClaims.length > 0) && (
+          <div className={`mb-6 p-4 rounded-xl border transition-all animate-in fade-in duration-200 ${
             unclaimedLostTickets.length > 0
               ? "bg-gradient-to-r from-emerald-500/15 via-emerald-500/10 to-teal-500/10 border-emerald-500/40 shadow-sm"
               : pendingRecoveryClaims.length > 0
               ? "bg-amber-500/10 border-amber-500/30"
-              : approvedRecoveryClaims.length > 0
-              ? "bg-emerald-500/10 border-emerald-500/30"
-              : "bg-slate-100/80 dark:bg-slate-900/60 border-slate-200 dark:border-white/10"
+              : "bg-emerald-500/10 border-emerald-500/30"
           }`}>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-start gap-3.5">
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
+              <div className="flex items-start gap-3">
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
                   unclaimedLostTickets.length > 0
                     ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
                     : pendingRecoveryClaims.length > 0
                     ? "bg-amber-500/20 text-amber-500"
-                    : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300"
+                    : "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
                 }`}>
-                  <RotateCcw className="w-5 h-5" />
+                  <RotateCcw className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <p className="font-extrabold text-base text-slate-900 dark:text-white m-0">
-                      🔄 Recovery Package Available!
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-extrabold text-sm text-slate-900 dark:text-white m-0">
+                      Recovery Replacement Available
                     </p>
-                    {/* Qualification Badge */}
                     {unclaimedLostTickets.length > 0 ? (
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500 text-white shadow-sm flex items-center gap-1">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500 text-white shadow-sm flex items-center gap-1">
                         <Check className="w-3 h-3" strokeWidth={3} /> You Qualify ({unclaimedLostTickets.length} Spoilt Ticket{unclaimedLostTickets.length > 1 ? "s" : ""})
                       </span>
                     ) : pendingRecoveryClaims.length > 0 ? (
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500 text-white flex items-center gap-1">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500 text-white flex items-center gap-1">
                         <Clock className="w-3 h-3 animate-pulse" /> Claim Pending Review
                       </span>
-                    ) : approvedRecoveryClaims.length > 0 ? (
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-green-600 text-white flex items-center gap-1">
-                        <ShieldCheck className="w-3 h-3" /> Replacement Unlocked
-                      </span>
-                    ) : userTickets.length > 0 ? (
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-white/10">
-                        Eligibility: Spoilt Tickets Only
-                      </span>
                     ) : (
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-white/10">
-                        VIP Members Only
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-green-600 text-white flex items-center gap-1">
+                        <ShieldCheck className="w-3 h-3" /> Replacement Unlocked
                       </span>
                     )}
                   </div>
 
-                  <p className="text-[12px] text-slate-600 dark:text-slate-300 m-0 mt-1 leading-relaxed">
+                  <p className="text-[12px] text-slate-600 dark:text-slate-300 m-0 mt-0.5 leading-relaxed">
                     {unclaimedLostTickets.length > 0 ? (
-                      <>
-                        A recovery package is now active. If any of your games were spoilt, scroll down to your ticket and claim your replacement. (Note: Only members with spoilt VIP tickets qualify — it is not completely free for unaffected slips).
-                      </>
+                      <>One or more of your games were spoilt. Claim your replacement predictions below.</>
                     ) : pendingRecoveryClaims.length > 0 ? (
-                      <>
-                        Your replacement recovery claim has been received and is being verified by admin. Once approved, your replacement booking code will appear below.
-                      </>
-                    ) : approvedRecoveryClaims.length > 0 ? (
-                      <>
-                        Your recovery package has been approved! Scroll down to view your unlocked replacement predictions and booking code.
-                      </>
-                    ) : userTickets.length > 0 ? (
-                      <>
-                        A recovery package is active for members whose games were spoilt. None of your current tickets have spoilt games, so this replacement does not apply to your account (recovery is reserved for spoilt slips, not completely free for everyone).
-                      </>
+                      <>Your replacement claim is under review by admin. Once approved, your booking code will appear below.</>
                     ) : (
-                      <>
-                        A recovery package is active. Recovery replacements are exclusively available for members whose purchased VIP tickets were spoilt (it is a replacement policy, not completely free for non-ticket holders).
-                      </>
+                      <>Your replacement booking code is unlocked below!</>
                     )}
                   </p>
                 </div>
@@ -814,7 +795,7 @@ function DashboardPage() {
                   onClick={() => {
                     document.getElementById(`ticket-${unclaimedLostTickets[0].id}`)?.scrollIntoView({ behavior: "smooth" });
                   }}
-                  className="shrink-0 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs transition-all shadow-sm flex items-center gap-1.5 cursor-pointer border-none"
+                  className="shrink-0 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs transition-all shadow-sm flex items-center gap-1.5 cursor-pointer border-none"
                 >
                   Claim Replacement ↓
                 </button>
@@ -823,33 +804,44 @@ function DashboardPage() {
           </div>
         )}
 
-        {/* ── Pending Manual Payments Banner ──────────────────────────── */}
+        {/* ── Pending Payments Banner ──────────────────────────── */}
         {activePendingPayments.length > 0 && (
-          <div className="mb-8 p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 shadow-sm animate-in fade-in duration-200">
-            <div className="flex items-center gap-2.5 mb-2">
-              <Clock className="w-5 h-5 text-amber-500 animate-pulse" />
-              <h3 className="font-extrabold text-sm text-slate-900 dark:text-white m-0">
+          <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 shadow-sm animate-in fade-in duration-200">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
+              <h3 className="font-extrabold text-xs text-slate-900 dark:text-white m-0">
                 Payment Verification in Progress ({activePendingPayments.length})
               </h3>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
-              We received your Mobile Money transfer details. Once confirmed by our admin team (usually within 5-15 minutes), your package access and booking codes will unlock automatically.
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 mb-3">
+              {activePendingPayments.some((p: any) => isMoolre(p))
+                ? "Your USSD payment prompt has been sent to your phone. Enter your MoMo PIN to authorize. Access unlocks automatically once confirmed."
+                : "We received your transfer details. Access will unlock once confirmed by our team."}
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
               {activePendingPayments.map((p: any) => {
                 const pkg = vipPackages.find((pkgItem: any) => pkgItem.id === p.package_id);
+                const isAuto = isMoolre(p);
+                const cleanRef = p.reference_code?.startsWith("moolre_")
+                  ? `#${p.reference_code.slice(-6).toUpperCase()}`
+                  : (p.reference_code?.length > 16 ? `#${p.reference_code.slice(0, 10)}...` : p.reference_code);
+
                 return (
-                  <div key={p.id} className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-amber-500/20 shadow-sm flex items-center justify-between">
-                    <div>
-                      <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                  <div key={p.id} className="p-3 rounded-lg bg-white dark:bg-slate-900 border border-amber-500/20 shadow-sm flex items-center justify-between gap-2 overflow-hidden">
+                    <div className="min-w-0 flex-1">
+                      <span className="font-bold text-xs text-slate-900 dark:text-white truncate block">
                         {pkg?.name || p.package_id}
                       </span>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Ref: <strong className="font-mono text-green-600 dark:text-green-400">{p.reference_code}</strong> • GHS {Number(p.amount).toFixed(2)}
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate block">
+                        Ref: <strong className="font-mono text-emerald-600 dark:text-emerald-400">{cleanRef}</strong> • GH₵ {Number(p.amount).toFixed(2)}
                       </span>
                     </div>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                      Pending
+                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase whitespace-nowrap ${
+                      isAuto
+                        ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-border"
+                    }`}>
+                      {isAuto ? <><Zap size={9} className="fill-amber-500" /> Awaiting PIN</> : "Pending"}
                     </span>
                   </div>
                 );
