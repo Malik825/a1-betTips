@@ -1,4 +1,4 @@
-﻿/**
+/**
  * src/lib/revenue.ts
  * Unified revenue and transaction calculation engine for A1-TipsDeck.
  * Ensures 100% consistency between Dashboard Overview (/admin) and Payments Control (/admin/payments).
