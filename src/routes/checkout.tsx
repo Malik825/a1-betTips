@@ -230,8 +230,13 @@ function CheckoutPage() {
   const isMoolreActive = adminSettings?.payment_gateway === "moolre";
   const isMoolreTest = adminSettings?.moolre_test_mode !== false;
 
-  // Set default mode based on gateway setting
+  // Set default mode based on gateway setting AND country selection
+  // Nigeria always uses manual bank transfer — Moolre is Ghana-only (MoMo)
   useEffect(() => {
+    if (activeMerchant === "nigeria") {
+      setPaymentMode("manual");
+      return;
+    }
     if (adminSettings?.payment_gateway) {
       if (adminSettings.payment_gateway === "moolre") {
         setPaymentMode("moolre");
@@ -239,7 +244,23 @@ function CheckoutPage() {
         setPaymentMode("manual");
       }
     }
-  }, [adminSettings?.payment_gateway]);
+  }, [adminSettings?.payment_gateway, activeMerchant]);
+
+  // When user picks Nigeria, force manual mode immediately
+  const handleMerchantChange = (key: MerchantKey) => {
+    setActiveMerchant(key);
+    if (key === "nigeria") {
+      setPaymentMode("manual");
+    } else if (isMoolreActive) {
+      setPaymentMode("moolre");
+    } else {
+      setPaymentMode("manual");
+    }
+    // Reset proof & sender state on country switch
+    setProofFile(null);
+    setProofPreview(null);
+    setSenderName(user?.user_metadata?.full_name || "");
+  };
 
   // Fixed GHS → NGN conversion rate
   const exchangeRate = 115;
@@ -774,18 +795,20 @@ function CheckoutPage() {
             <div>
               <h1 className="text-2xl font-black text-slate-900 dark:text-white">Secure Checkout</h1>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                {isMoolreActive
-                  ? "Instant USSD Mobile Money checkout — authorize directly on your phone."
-                  : "Pay via Mobile Money and upload your proof — we verify within 15 minutes."}
+                {activeMerchant === "nigeria"
+                  ? "Pay via Moniepoint bank transfer and upload your proof — we verify within 15 minutes."
+                  : isMoolreActive
+                    ? "Instant USSD Mobile Money checkout — authorize directly on your phone."
+                    : "Pay via Mobile Money and upload your proof — we verify within 15 minutes."}
               </p>
             </div>
 
           </div>
 
           {/* ═════════════════════════════════════════════════════════════════════ */}
-          {/* OPTION A: MOOLRE AUTOMATED USSD PROMPT CHECKOUT                    */}
+          {/* OPTION A: MOOLRE AUTOMATED USSD PROMPT CHECKOUT (Ghana only)       */}
           {/* ═════════════════════════════════════════════════════════════════════ */}
-          {isMoolreActive ? (
+          {isMoolreActive && activeMerchant !== "nigeria" ? (
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-6 items-start">
               
               {/* Left Column: Summary & Network Selector */}
@@ -1097,7 +1120,8 @@ function CheckoutPage() {
             </div>
           ) : (
             /* ═══════════════════════════════════════════════════════════════════ */
-            /* OPTION B: MANUAL TRANSFER & PROOF UPLOAD (LIVE BACKUP)             */
+            /* OPTION B: MANUAL TRANSFER & PROOF UPLOAD                           */
+            /* Nigeria → Moniepoint Bank Transfer | Ghana → MoMo Manual           */
             /* ═══════════════════════════════════════════════════════════════════ */
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-6 items-start">
 
@@ -1113,7 +1137,10 @@ function CheckoutPage() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-[10px] text-slate-500 uppercase tracking-wider">Amount</p>
-                      <p className="text-2xl font-black text-green-400">GHS {priceGHS.toFixed(2)}</p>
+                      <p className="text-2xl font-black text-green-400">{displayAmount}</p>
+                      {activeMerchant === "nigeria" && (
+                        <p className="text-[10px] text-slate-500 mt-0.5">(GHS {priceGHS.toFixed(2)} × 115)</p>
+                      )}
                     </div>
                   </div>
 
@@ -1127,7 +1154,7 @@ function CheckoutPage() {
                         const m = MERCHANTS[key];
                         const active = activeMerchant === key;
                         return (
-                          <button key={key} type="button" onClick={() => setActiveMerchant(key)}
+                          <button key={key} type="button" onClick={() => handleMerchantChange(key)}
                             className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border transition-all text-left cursor-pointer ${active
                                 ? "bg-white text-slate-900 border-white shadow-lg"
                                 : "bg-white/5 text-slate-400 border-white/10 hover:bg-white/10 hover:text-white"
@@ -1225,7 +1252,7 @@ function CheckoutPage() {
                       Full Name <span className="text-red-500">*</span>
                     </label>
                     <input type="text" required
-                      placeholder="Your name as it appears on your MoMo account"
+                      placeholder={activeMerchant === "nigeria" ? "Your name as it appears on your bank account" : "Your name as it appears on your MoMo account"}
                       value={senderName}
                       onChange={(e) => setSenderName(e.target.value)}
                       className="w-full px-3 py-2.5 text-sm rounded-md border border-slate-300 dark:border-white/15 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500 placeholder:text-slate-400 transition-colors"

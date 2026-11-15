@@ -87,6 +87,7 @@ function AdminPaymentsPage() {
   const { user: currentAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [activeMainTab, setActiveMainTab] = useState<"payments" | "recovery" | "subscriptions">("payments");
+  const [countryView, setCountryView] = useState<"ghana" | "nigeria">("ghana");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const [showManualArchive, setShowManualArchive] = useState(false);
@@ -550,6 +551,29 @@ function AdminPaymentsPage() {
   const moolrePayments = payments.filter((p: any) => isMoolre(p));
   const manualPayments = payments.filter((p: any) => !isMoolre(p));
 
+  // Identify Nigerian bank transfer payments (Moniepoint / NGN / 🇳🇬)
+  const isNigerianPayment = (p: any) => {
+    if (isMoolre(p)) return false; // Moolre is Ghana-only
+    const net = (p.network || "").toLowerCase();
+    const ref = (p.reference_code || "").toLowerCase();
+    return (
+      net.includes("nigeria") ||
+      net.includes("moniepoint") ||
+      net.includes("🇳🇬") ||
+      ref.startsWith("momo-") === false && net.includes("ngn") ||
+      // Nigerian bank slip deposits tend to have amounts ≥ 500 (NGN equivalent values)
+      net.includes("bank transfer") && !net.includes("ghana") ||
+      // If the network field explicitly carries a Nigerian flag or Moniepoint
+      net.includes("ngn")
+    );
+  };
+
+  const nigerianPayments = manualPayments.filter((p: any) => isNigerianPayment(p));
+  // Ghana manual = all manuals that are NOT identified as Nigerian
+  const ghanaManualPayments = manualPayments.filter((p: any) => !isNigerianPayment(p));
+
+  const nigerianPendingCount = nigerianPayments.filter((p: any) => p.status === "pending").length;
+
   // Moolre Automated Stats (Live Production Gateway)
   const moolreApprovedPayments = moolrePayments.filter((p: any) => p.status === "approved");
   const moolreRevenue = moolreApprovedPayments.reduce((sum: number, p: any) => {
@@ -611,6 +635,27 @@ function AdminPaymentsPage() {
 
   // Manual Transfer Archive Filtering
   const filteredManualPayments = manualPayments.filter((p: any) => {
+    if (statusFilter !== "all" && p.status !== statusFilter) return false;
+    if (!search.trim()) return true;
+
+    const term = search.toLowerCase();
+    const pkg = vipPackages.find((pkgItem: any) => pkgItem.id === p.package_id);
+    const userProfile = profiles.find((prof: any) => prof.id === p.user_id);
+
+    return (
+      (p.reference_code || "").toLowerCase().includes(term) ||
+      (p.sender_phone || "").toLowerCase().includes(term) ||
+      (p.sender_name || "").toLowerCase().includes(term) ||
+      (p.transaction_id || "").toLowerCase().includes(term) ||
+      (p.network || "").toLowerCase().includes(term) ||
+      (pkg?.name || "").toLowerCase().includes(term) ||
+      (userProfile?.email || "").toLowerCase().includes(term) ||
+      (userProfile?.username || "").toLowerCase().includes(term)
+    );
+  });
+
+  // Nigeria-specific filtered list (uses same statusFilter + search)
+  const filteredNigerianPayments = nigerianPayments.filter((p: any) => {
     if (statusFilter !== "all" && p.status !== statusFilter) return false;
     if (!search.trim()) return true;
 
@@ -727,6 +772,353 @@ function AdminPaymentsPage() {
 
       {activeMainTab === "payments" && (
         <>
+          {/* ── Country Switcher ── */}
+          <div className="flex items-center gap-2 p-1 bg-section/40 border border-border rounded-xl self-start w-fit">
+            <button
+              type="button"
+              onClick={() => { setCountryView("ghana"); setSearch(""); setStatusFilter("all"); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition-all cursor-pointer border-none ${
+                countryView === "ghana"
+                  ? "bg-amber-500 text-black shadow-xs"
+                  : "text-muted-foreground hover:text-foreground hover:bg-card bg-transparent"
+              }`}
+            >
+              <span>🇬🇭</span> Ghana
+              <span className="opacity-70 font-normal">(Moolre)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setCountryView("nigeria"); setSearch(""); setStatusFilter("all"); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition-all cursor-pointer border-none ${
+                countryView === "nigeria"
+                  ? "bg-purple-600 text-white shadow-xs"
+                  : "text-muted-foreground hover:text-foreground hover:bg-card bg-transparent"
+              }`}
+            >
+              <span>🇳🇬</span> Nigeria
+              <span className="opacity-70 font-normal">(Manual Bank)</span>
+              {nigerianPendingCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-white text-purple-700 font-extrabold animate-pulse">
+                  {nigerianPendingCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════
+              NIGERIA VIEW: Bank Transfer Approval Table
+              ═══════════════════════════════════════════════════════ */}
+          {countryView === "nigeria" ? (
+            <>
+              {/* Nigeria Stats */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-card p-4 rounded-xl border border-purple-500/30 flex items-center justify-between shadow-xs">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Nigeria Pending</p>
+                    <h3 className="text-2xl font-black text-foreground mt-1">{nigerianPendingCount}</h3>
+                    <p className="text-xs text-purple-500 font-semibold mt-0.5">Awaiting manual approval</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-500 flex items-center justify-center shrink-0">
+                    <Clock size={18} />
+                  </div>
+                </div>
+                <div className="bg-card p-4 rounded-xl border border-border flex items-center justify-between shadow-xs">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Approved Transfers</p>
+                    <h3 className="text-2xl font-black text-foreground mt-1">
+                      {nigerianPayments.filter((p: any) => p.status === "approved").length}
+                    </h3>
+                    <p className="text-xs text-emerald-500 font-semibold mt-0.5">Bank slips verified</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0">
+                    <CheckCircle2 size={18} />
+                  </div>
+                </div>
+                <div className="bg-card p-4 rounded-xl border border-border flex items-center justify-between shadow-xs">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Total NGN Revenue</p>
+                    <h3 className="text-2xl font-black text-foreground mt-1">
+                      ₦{nigerianPayments.filter((p: any) => p.status === "approved").reduce((s: number, p: any) => s + Number(p.amount || 0), 0).toLocaleString()}
+                    </h3>
+                    <p className="text-xs text-muted-foreground font-semibold mt-0.5">Moniepoint collections</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-500 flex items-center justify-center shrink-0">
+                    <CreditCard size={18} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Nigeria Bank Slip Approval Table */}
+              <div className="rounded-xl border border-purple-500/30 bg-card overflow-hidden shadow-sm">
+                {/* Header */}
+                <div className="p-4 border-b border-border flex flex-wrap items-center justify-between gap-3 bg-purple-500/5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-500 flex items-center justify-center shrink-0">
+                      <span className="text-base">🇳🇬</span>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-sm font-bold text-foreground">Nigeria Bank Transfer Approvals</h2>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-500/15 text-purple-500 border border-purple-500/30">
+                          Moniepoint MFB
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Review bank transfer receipts from Nigerian customers. Approve to grant VIP access.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Filter + Search */}
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <div className="flex gap-1 bg-background p-0.5 rounded-lg border border-border">
+                      {(["all", "pending", "approved", "rejected"] as const).map((tab) => (
+                        <button
+                          key={tab}
+                          onClick={() => setStatusFilter(tab)}
+                          className={`px-3 py-1 text-xs font-bold capitalize transition-all cursor-pointer rounded-md border-none ${
+                            statusFilter === tab
+                              ? "bg-foreground text-background shadow-xs font-black"
+                              : "text-muted-foreground hover:text-foreground bg-transparent"
+                          }`}
+                        >
+                          {tab}
+                          {tab === "pending" && nigerianPendingCount > 0 && (
+                            <span className="ml-1 text-[10px] opacity-80">({nigerianPendingCount})</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="relative w-full sm:w-56">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="Search customer, ref, name..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-purple-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mobile Card list */}
+                <div className="sm:hidden divide-y divide-border/60">
+                  {paymentsLoading ? (
+                    <div className="flex flex-col items-center justify-center py-16 text-muted-foreground text-sm gap-2">
+                      <RefreshCw className="w-5 h-5 animate-spin opacity-50" /> Loading...
+                    </div>
+                  ) : filteredNigerianPayments.length === 0 ? (
+                    <div className="text-center text-muted-foreground py-16 text-sm px-4">
+                      {nigerianPayments.length === 0
+                        ? "No Nigerian bank transfer payments yet. They appear here as soon as a Nigerian user completes checkout."
+                        : "No payments match your filter."}
+                    </div>
+                  ) : filteredNigerianPayments.map((payment: any) => {
+                    const pkg = vipPackages.find((p: any) => p.id === payment.package_id);
+                    const userProfile = profiles.find((prof: any) => prof.id === payment.user_id);
+                    const userDisplay = payment.sender_name || userProfile?.username || userProfile?.email?.split("@")[0] || "Customer";
+                    const isProcessing = processingId === payment.id;
+                    const dateStr = new Date(payment.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+                    return (
+                      <div key={payment.id} onClick={() => setViewModalPayment(payment)} className="p-4 space-y-3 hover:bg-section/30 transition-colors cursor-pointer">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-xs text-foreground">{userDisplay}</span>
+                          {payment.status === "pending" ? (
+                            <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-warning/15 border border-warning/30 text-warning">
+                              <Clock className="w-2.5 h-2.5" /> Pending
+                            </span>
+                          ) : payment.status === "approved" ? (
+                            <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-500">
+                              <Check className="w-2.5 h-2.5" /> Approved
+                            </span>
+                          ) : (
+                            <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-destructive/15 border border-destructive/30 text-destructive">
+                              <XCircle className="w-2.5 h-2.5" /> Rejected
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <div>
+                            <p className="text-muted-foreground">{pkg?.name || payment.package_id}</p>
+                            <p className="font-mono text-[11px] text-muted-foreground mt-0.5">{(payment.network || "Moniepoint").split("(")[0].trim()}</p>
+                          </div>
+                          <p className="font-black text-foreground">₦{Number(payment.amount || 0).toLocaleString()}</p>
+                        </div>
+                        {payment.proof_url && (
+                          <div className="rounded-lg overflow-hidden border border-border h-20">
+                            <ProofImage url={payment.proof_url} alt="Payment slip" className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/40">
+                          <span className="text-[11px] text-muted-foreground">{dateStr}</span>
+                          {payment.status !== "approved" && (
+                            <div className="flex gap-2">
+                              <button type="button" disabled={isProcessing}
+                                onClick={(e) => { e.stopPropagation(); setApproveModalPayment(payment); }}
+                                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1 transition-colors disabled:opacity-50 cursor-pointer border-none">
+                                <Check size={11} /> Approve
+                              </button>
+                              <button type="button" disabled={isProcessing}
+                                onClick={(e) => { e.stopPropagation(); setRejectModalPayment(payment); }}
+                                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-destructive hover:opacity-90 text-destructive-foreground flex items-center gap-1 transition-colors disabled:opacity-50 cursor-pointer border-none">
+                                <X size={11} /> Reject
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop Table */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full border-collapse text-left">
+                    <thead>
+                      <tr className="border-b border-border bg-section/70 text-[11px] font-bold tracking-wider text-muted-foreground uppercase select-none">
+                        <th className="py-3.5 px-4">CUSTOMER</th>
+                        <th className="py-3.5 px-4">PACKAGE</th>
+                        <th className="py-3.5 px-4">AMOUNT (NGN)</th>
+                        <th className="py-3.5 px-4">PROOF SLIP</th>
+                        <th className="py-3.5 px-4">BANK / REF</th>
+                        <th className="py-3.5 px-4">DATE</th>
+                        <th className="py-3.5 px-4">STATUS</th>
+                        <th className="py-3.5 px-4 text-right">ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/60">
+                      {paymentsLoading ? (
+                        <tr>
+                          <td colSpan={8} className="text-center text-muted-foreground py-16 text-sm">
+                            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 opacity-50" />
+                            Loading Nigeria payments...
+                          </td>
+                        </tr>
+                      ) : filteredNigerianPayments.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="text-center py-16 px-4">
+                            <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                              <span className="text-4xl">🇳🇬</span>
+                              <p className="text-sm font-bold text-foreground">No Nigerian payments yet</p>
+                              <p className="text-xs max-w-xs text-center">
+                                Nigerian bank transfer payments will appear here as soon as a Nigerian user completes checkout via Moniepoint.
+                              </p>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : filteredNigerianPayments.map((payment: any) => {
+                        const pkg = vipPackages.find((p: any) => p.id === payment.package_id);
+                        const userProfile = profiles.find((prof: any) => prof.id === payment.user_id);
+                        const userDisplay = payment.sender_name || userProfile?.username || userProfile?.email?.split("@")[0] || "Customer";
+                        const userEmail = userProfile?.email || `ID: ${payment.user_id?.substring(0, 8)}...`;
+                        const isProcessing = processingId === payment.id;
+                        const dateInfo = formatPaymentDate(payment.created_at);
+                        const networkDisplay = (payment.network || "Moniepoint MFB").split("(")[0].trim();
+                        const refDisplay = payment.reference_code || payment.transaction_id || payment.id;
+
+                        return (
+                          <tr key={payment.id} onClick={() => setViewModalPayment(payment)} className="hover:bg-section/50 transition-colors cursor-pointer group">
+                            {/* CUSTOMER */}
+                            <td className="py-3.5 px-4">
+                              <div className="font-bold text-xs text-foreground">{userDisplay}</div>
+                              <div className="text-[11px] text-muted-foreground font-mono mt-0.5">{userEmail}</div>
+                            </td>
+                            {/* PACKAGE */}
+                            <td className="py-3.5 px-4">
+                              <div className="flex items-center gap-1.5">
+                                <Crown size={11} className="text-purple-500 shrink-0" />
+                                <span className="font-bold text-xs text-foreground">{pkg?.name || payment.package_id}</span>
+                              </div>
+                            </td>
+                            {/* AMOUNT */}
+                            <td className="py-3.5 px-4">
+                              <div className="font-black text-sm text-foreground">
+                                ₦{Number(payment.amount || 0).toLocaleString()}
+                              </div>
+                              <div className="text-[11px] font-semibold text-muted-foreground">
+                                ≈ GH₵{(Number(payment.amount || 0) / 115).toFixed(2)}
+                              </div>
+                            </td>
+                            {/* PROOF */}
+                            <td className="py-3.5 px-4">
+                              {payment.proof_url ? (
+                                <button type="button" onClick={(e) => { e.stopPropagation(); setModalProofSrc(payment.proof_url); }}
+                                  className="w-16 h-12 rounded-lg overflow-hidden border border-border block hover:border-purple-500 transition-colors cursor-pointer p-0 bg-transparent">
+                                  <ProofImage url={payment.proof_url} alt="Receipt" className="w-full h-full object-cover" />
+                                </button>
+                              ) : (
+                                <span className="text-[11px] text-muted-foreground italic">No receipt</span>
+                              )}
+                            </td>
+                            {/* BANK / REF */}
+                            <td className="py-3.5 px-4">
+                              <div className="text-xs font-bold text-foreground">{networkDisplay}</div>
+                              <div className="font-mono text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                                {truncateRef(refDisplay, 14)}
+                                <button type="button" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(refDisplay); toast.success("Ref copied!"); }}
+                                  className="p-0.5 text-muted-foreground hover:text-foreground rounded cursor-pointer opacity-70 hover:opacity-100">
+                                  <Copy size={10} />
+                                </button>
+                              </div>
+                            </td>
+                            {/* DATE */}
+                            <td className="py-3.5 px-4">
+                              <div className="text-xs font-bold text-foreground">{dateInfo.top}</div>
+                              <div className="text-[11px] text-muted-foreground">{dateInfo.bottom}</div>
+                            </td>
+                            {/* STATUS */}
+                            <td className="py-3.5 px-4">
+                              {payment.status === "approved" ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-500">
+                                  <CheckCircle2 size={11} /> Approved
+                                </span>
+                              ) : payment.status === "pending" ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-warning/15 border border-warning/30 text-warning">
+                                  <Clock size={11} /> Pending
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-destructive/15 border border-destructive/30 text-destructive">
+                                  <XCircle size={11} /> Rejected
+                                </span>
+                              )}
+                            </td>
+                            {/* ACTIONS */}
+                            <td className="py-3.5 px-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button type="button" onClick={(e) => { e.stopPropagation(); setViewModalPayment(payment); }}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground hover:bg-section transition-colors cursor-pointer shadow-xs">
+                                  <Eye size={11} className="text-muted-foreground" /> View
+                                </button>
+                                {payment.status !== "approved" && (
+                                  <button type="button" disabled={isProcessing}
+                                    onClick={(e) => { e.stopPropagation(); setApproveModalPayment(payment); }}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-50 cursor-pointer shadow-xs border-none">
+                                    <Check size={11} /> Approve
+                                  </button>
+                                )}
+                                {payment.status !== "rejected" && (
+                                  <button type="button" disabled={isProcessing}
+                                    onClick={(e) => { e.stopPropagation(); setRejectModalPayment(payment); }}
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-destructive hover:opacity-90 text-destructive-foreground transition-colors disabled:opacity-50 cursor-pointer shadow-xs border-none">
+                                    <X size={11} /> Reject
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          ) : (
+            /* ════════════════════════════════════════════════════════
+               GHANA VIEW: Moolre Automated + Manual Archive (original)
+               ════════════════════════════════════════════════════════ */
+            <>
           {/* Stats Cards: 100% Focused on Moolre Automated Metrics */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             
@@ -1335,8 +1727,12 @@ function AdminPaymentsPage() {
               </div>
             )}
           </div>
-    </>
-  )}
+            {/* END Ghana view */}
+            </>
+          )}
+          {/* END countryView ternary */}
+        </>
+      )}
 
   {/* ───────────────────────────────────────────────────────────── 
       RECOVERY CLAIMS VIEW
