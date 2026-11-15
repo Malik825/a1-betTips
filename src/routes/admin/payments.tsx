@@ -20,6 +20,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/admin/payments")({
+  validateSearch: (search: Record<string, unknown>): { country?: string | undefined; tab?: string | undefined } => ({
+    country: (search.country as string) || (search.bypass as string) || undefined,
+    tab: (search.tab as string) || undefined,
+  }),
   component: AdminPaymentsPage,
 });
 
@@ -84,10 +88,39 @@ const REJECTION_REASON_PRESETS = [
 ];
 
 function AdminPaymentsPage() {
+  const { country, tab } = Route.useSearch();
   const { user: currentAdmin } = useAuth();
   const queryClient = useQueryClient();
-  const [activeMainTab, setActiveMainTab] = useState<"payments" | "recovery" | "subscriptions">("payments");
-  const [countryView, setCountryView] = useState<"ghana" | "nigeria">("ghana");
+  const [activeMainTab, setActiveMainTab] = useState<"payments" | "recovery" | "subscriptions">(() => {
+    if (tab === "recovery" || tab === "subscriptions" || tab === "payments") return tab;
+    return "payments";
+  });
+  const [countryView, setCountryView] = useState<"ghana" | "nigeria">(() => {
+    try {
+      const c = (country || "").toLowerCase();
+      if (c === "nigeria" || c === "ng") return "nigeria";
+      if (c === "ghana" || c === "gh") return "ghana";
+      const saved = localStorage.getItem("admin_payment_country");
+      if (saved === "nigeria" || saved === "ghana") return saved;
+    } catch {}
+    return "ghana";
+  });
+
+  const handleCountryViewChange = (v: "ghana" | "nigeria") => {
+    setCountryView(v);
+    try {
+      localStorage.setItem("admin_payment_country", v);
+    } catch {}
+    setSearch("");
+    setStatusFilter("all");
+  };
+
+  useEffect(() => {
+    const c = (country || "").toLowerCase();
+    if (c === "nigeria" || c === "ng") setCountryView("nigeria");
+    if (c === "ghana" || c === "gh") setCountryView("ghana");
+    if (tab === "recovery" || tab === "subscriptions" || tab === "payments") setActiveMainTab(tab);
+  }, [country, tab]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const [showManualArchive, setShowManualArchive] = useState(false);
@@ -776,10 +809,10 @@ function AdminPaymentsPage() {
           <div className="flex items-center gap-2 p-1 bg-section/40 border border-border rounded-xl self-start w-fit">
             <button
               type="button"
-              onClick={() => { setCountryView("ghana"); setSearch(""); setStatusFilter("all"); }}
+              onClick={() => handleCountryViewChange("ghana")}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition-all cursor-pointer border-none ${
                 countryView === "ghana"
-                  ? "bg-amber-500 text-black shadow-xs"
+                  ? "bg-amber-500 text-black shadow-xs font-black"
                   : "text-muted-foreground hover:text-foreground hover:bg-card bg-transparent"
               }`}
             >
@@ -788,10 +821,10 @@ function AdminPaymentsPage() {
             </button>
             <button
               type="button"
-              onClick={() => { setCountryView("nigeria"); setSearch(""); setStatusFilter("all"); }}
+              onClick={() => handleCountryViewChange("nigeria")}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition-all cursor-pointer border-none ${
                 countryView === "nigeria"
-                  ? "bg-purple-600 text-white shadow-xs"
+                  ? "bg-purple-600 text-white shadow-xs font-black"
                   : "text-muted-foreground hover:text-foreground hover:bg-card bg-transparent"
               }`}
             >

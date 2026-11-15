@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { SiteHeader } from "@/components/site-header";
+import { detectUserCurrency } from "@/lib/currency";
 import {
   InputOTP,
   InputOTPGroup,
@@ -25,8 +26,10 @@ import {
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/checkout")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { pkgId: string; country?: string | undefined; mode?: string | undefined } => ({
     pkgId: (search.pkgId as string) || "",
+    country: (search.country as string) || (search.bypass as string) || undefined,
+    mode: (search.mode as string) || undefined,
   }),
   head: () => ({
     meta: [
@@ -70,13 +73,38 @@ const MOCO_CHANNELS = [
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 function CheckoutPage() {
-  const { pkgId } = useSearch({ from: "/checkout" });
+  const { pkgId, country, mode } = useSearch({ from: "/checkout" });
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [activeMerchant, setActiveMerchant] = useState<MerchantKey>("ghana");
+  // Auto-detect or restore preferred country with bypass support
+  const [activeMerchant, setActiveMerchant] = useState<MerchantKey>(() => {
+    try {
+      // 1. Explicit bypass via URL parameter (?country=nigeria or ?bypass=nigeria or ?country=ghana)
+      const c = (country || "").toLowerCase();
+      if (c === "nigeria" || c === "ng") return "nigeria";
+      if (c === "ghana" || c === "gh") return "ghana";
+
+      // 2. Previously selected tester/user choice
+      const saved = localStorage.getItem("a1_checkout_country");
+      if (saved === "nigeria" || saved === "ghana") return saved;
+
+      const prefCurr = localStorage.getItem("a1_preferred_currency");
+      if (prefCurr === "NGN") return "nigeria";
+      if (prefCurr === "GHS") return "ghana";
+
+      // 3. Timezone detection (Africa/Lagos is Nigeria)
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz === "Africa/Lagos") return "nigeria";
+
+      // 4. Browser languages (e.g. en-NG)
+      const langs = navigator.languages || [navigator.language || ""];
+      if (langs.some((l) => l.toLowerCase().includes("-ng"))) return "nigeria";
+    } catch {}
+    return "ghana";
+  });
   const [senderName, setSenderName] = useState("");
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
@@ -228,12 +256,39 @@ function CheckoutPage() {
   });
 
   const isMoolreActive = adminSettings?.payment_gateway === "moolre";
-  const isMoolreTest = adminSettings?.moolre_test_mode !== false;
+  // NEVER show sandbox mode in production — only in local dev if explicitly enabled in admin settings
+  const isMoolreTest = !import.meta.env.PROD && adminSettings?.moolre_test_mode === true;
 
-  // Set default mode based on gateway setting AND country selection
+  // Real-time IP geolocation auto-detection if not explicitly bypassed
+  useEffect(() => {
+    const c = (country || "").toLowerCase();
+    if (c === "nigeria" || c === "ghana" || c === "ng" || c === "gh") return; // URL bypass active
+    const saved = localStorage.getItem("a1_checkout_country");
+    if (saved) return; // Explicit user choice preserved
+
+    detectUserCurrency().then((curr) => {
+      if (curr === "NGN") {
+        setActiveMerchant("nigeria");
+        setPaymentMode("manual");
+      } else if (curr === "GHS") {
+        setActiveMerchant("ghana");
+      }
+    });
+  }, [country]);
+
+  // Set default mode based on gateway setting AND country selection / query params
   // Nigeria always uses manual bank transfer — Moolre is Ghana-only (MoMo)
   useEffect(() => {
-    if (activeMerchant === "nigeria") {
+    const c = (country || "").toLowerCase();
+    if (c === "nigeria" || c === "ng") {
+      setActiveMerchant("nigeria");
+      setPaymentMode("manual");
+      return;
+    }
+    if (c === "ghana" || c === "gh") {
+      setActiveMerchant("ghana");
+    }
+    if (mode === "manual" || activeMerchant === "nigeria") {
       setPaymentMode("manual");
       return;
     }
@@ -244,11 +299,14 @@ function CheckoutPage() {
         setPaymentMode("manual");
       }
     }
-  }, [adminSettings?.payment_gateway, activeMerchant]);
+  }, [adminSettings?.payment_gateway, activeMerchant, country, mode]);
 
-  // When user picks Nigeria, force manual mode immediately
+  // When user picks Nigeria or Ghana, handle mode and persist choice
   const handleMerchantChange = (key: MerchantKey) => {
     setActiveMerchant(key);
+    try {
+      localStorage.setItem("a1_checkout_country", key);
+    } catch {}
     if (key === "nigeria") {
       setPaymentMode("manual");
     } else if (isMoolreActive) {
@@ -797,18 +855,48 @@ function CheckoutPage() {
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                 {activeMerchant === "nigeria"
                   ? "Pay via Moniepoint bank transfer and upload your proof — we verify within 15 minutes."
-                  : isMoolreActive
-                    ? "Instant USSD Mobile Money checkout — authorize directly on your phone."
-                    : "Pay via Mobile Money and upload your proof — we verify within 15 minutes."}
+                  : paymentMode === "manual"
+                    ? "Pay via direct Mobile Money transfer and upload your proof — we verify within 15 minutes."
+                    : isMoolreActive
+                      ? "Instant USSD Mobile Money checkout — authorize directly on your phone."
+                      : "Pay via Mobile Money and upload your proof — we verify within 15 minutes."}
               </p>
             </div>
 
+            {/* Country / Payment Mode Switcher (Always accessible) */}
+            <div className="flex items-center gap-1.5 p-1 bg-slate-200/80 dark:bg-white/10 border border-slate-300 dark:border-white/10 rounded-xl self-start sm:self-auto shadow-xs">
+              <button
+                type="button"
+                onClick={() => handleMerchantChange("ghana")}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-bold text-xs transition-all cursor-pointer border-none ${
+                  activeMerchant === "ghana"
+                    ? "bg-amber-500 text-black shadow-xs font-black"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-transparent"
+                }`}
+              >
+                <span>🇬🇭</span>
+                <span>Ghana (MoMo)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleMerchantChange("nigeria")}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-bold text-xs transition-all cursor-pointer border-none ${
+                  activeMerchant === "nigeria"
+                    ? "bg-purple-600 text-white shadow-xs font-black"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-transparent"
+                }`}
+              >
+                <span>🇳🇬</span>
+                <span>Nigeria (Manual Bank)</span>
+              </button>
+            </div>
           </div>
 
           {/* ═════════════════════════════════════════════════════════════════════ */}
-          {/* OPTION A: MOOLRE AUTOMATED USSD PROMPT CHECKOUT (Ghana only)       */}
+          {/* OPTION A: MOOLRE AUTOMATED USSD PROMPT CHECKOUT (Ghana automated)   */}
           {/* ═════════════════════════════════════════════════════════════════════ */}
-          {isMoolreActive && activeMerchant !== "nigeria" ? (
+          {isMoolreActive && activeMerchant !== "nigeria" && paymentMode === "moolre" ? (
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-6 items-start">
               
               {/* Left Column: Summary & Network Selector */}
