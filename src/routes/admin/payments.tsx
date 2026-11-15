@@ -5,7 +5,7 @@ import {
   Smartphone, AlertCircle, ArrowUpRight, CheckCircle2, 
   XCircle, Filter, ChevronDown, MoreVertical, Eye,
   ExternalLink, Calendar, User, Hash, FileText, Image as ImageIcon,
-  RotateCcw, Bell, Copy, Crown, Zap, ShieldCheck
+  RotateCcw, Bell, Copy, Crown, Zap, ShieldCheck, Trash2
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -147,6 +147,8 @@ function AdminPaymentsPage() {
   const [approveModalSub, setApproveModalSub] = useState<any | null>(null);
   const [rejectModalSub, setRejectModalSub] = useState<any | null>(null);
   const [subRejectReason, setSubRejectReason] = useState("");
+  const [clearModalOpen, setClearModalOpen] = useState(false);
+  const [clearingScope, setClearingScope] = useState<"nigeria" | "all_manual">("nigeria");
 
   // 1. Fetch manual payments
   const { data: payments = [], isLoading: paymentsLoading } = useQuery({
@@ -553,6 +555,44 @@ function AdminPaymentsPage() {
     },
   });
 
+  // Clear Manual Payments Mutation (Starts fresh)
+  const clearManualPaymentsMutation = useMutation({
+    mutationFn: async (scope: "nigeria" | "all_manual") => {
+      let targetIds: string[] = [];
+      if (scope === "nigeria") {
+        targetIds = nigerianPayments.map((p: any) => p.id);
+      } else {
+        targetIds = manualPayments.map((p: any) => p.id);
+      }
+
+      if (targetIds.length === 0) {
+        throw new Error("No manual payment records found to delete in this category.");
+      }
+
+      // Delete in batches of 50 to prevent request size issues
+      const batchSize = 50;
+      for (let i = 0; i < targetIds.length; i += batchSize) {
+        const batch = targetIds.slice(i, i + batchSize);
+        const { error } = await supabase
+          .from("manual_payments")
+          .delete()
+          .in("id", batch);
+        if (error) throw error;
+      }
+
+      return targetIds.length;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ["admin_manual_payments"] });
+      queryClient.invalidateQueries({ queryKey: ["user_manual_payments"] });
+      toast.success(`Cleared ${count} manual payment record(s). Ready for fresh submissions!`);
+      setClearModalOpen(false);
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to clear manual payment records");
+    },
+  });
+
   const isMoolre = (p: any) => {
     if (!p) return false;
     const ref = (p.reference_code || "").toLowerCase();
@@ -736,15 +776,26 @@ function AdminPaymentsPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            queryClient.invalidateQueries({ queryKey: ["admin_manual_payments"] });
-            queryClient.invalidateQueries({ queryKey: ["admin_recovery_requests"] });
-          }}
-          className="flex items-center gap-2 text-xs py-2 px-3.5 rounded-lg border border-border bg-card text-foreground hover:bg-section transition-colors cursor-pointer"
-        >
-          <RefreshCw size={13} /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setClearModalOpen(true)}
+            className="flex items-center gap-1.5 text-xs py-2 px-3 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors cursor-pointer"
+            title="Clear manual payment data to start fresh"
+          >
+            <Trash2 size={13} /> Clear Manual Data
+          </button>
+
+          <button
+            onClick={() => {
+              queryClient.invalidateQueries({ queryKey: ["admin_manual_payments"] });
+              queryClient.invalidateQueries({ queryKey: ["admin_recovery_requests"] });
+            }}
+            className="flex items-center gap-2 text-xs py-2 px-3.5 rounded-lg border border-border bg-card text-foreground hover:bg-section transition-colors cursor-pointer"
+          >
+            <RefreshCw size={13} /> Refresh
+          </button>
+        </div>
       </div>
 
       {/* Main Tab Switcher */}
@@ -932,6 +983,15 @@ function AdminPaymentsPage() {
                         className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-purple-500"
                       />
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => { setClearingScope("nigeria"); setClearModalOpen(true); }}
+                      className="px-2.5 py-1.5 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20 text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shadow-xs"
+                      title="Clear Nigerian manual payments"
+                    >
+                      <Trash2 size={12} /> Clear Nigeria Slips
+                    </button>
                   </div>
                 </div>
 
@@ -4030,6 +4090,114 @@ function AdminPaymentsPage() {
           </div>
         );
       })()}
+
+      {/* ── Clear Manual Data Confirmation Modal ── */}
+      {clearModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setClearModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-card border border-border p-6 space-y-5 shadow-2xl text-foreground"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-destructive/15 text-destructive flex items-center justify-center shrink-0">
+                <Trash2 size={20} />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-foreground">
+                  Clear Manual Payment Data
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Start fresh with empty manual queues for clean testing.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-destructive/10 border border-destructive/20 text-xs text-destructive space-y-1">
+              <p className="font-bold flex items-center gap-1.5">
+                <AlertCircle size={14} /> Warning: This action cannot be undone
+              </p>
+              <p className="text-[11px] opacity-90">
+                This will delete manual payment records from the database so you can start fresh. Live automated Moolre transactions will remain safe.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-foreground block">
+                Select Scope to Clear:
+              </label>
+
+              <button
+                type="button"
+                onClick={() => setClearingScope("nigeria")}
+                className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                  clearingScope === "nigeria"
+                    ? "border-purple-500 bg-purple-500/10 text-foreground font-bold shadow-xs"
+                    : "border-border bg-card text-muted-foreground hover:bg-section"
+                }`}
+              >
+                <div>
+                  <span className="text-sm font-bold text-foreground block">
+                    🇳🇬 Clear Nigeria Slips Only
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Deletes {nigerianPayments.length} Nigerian bank transfer record(s)
+                  </span>
+                </div>
+                {clearingScope === "nigeria" && <Check size={16} className="text-purple-500" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setClearingScope("all_manual")}
+                className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                  clearingScope === "all_manual"
+                    ? "border-destructive bg-destructive/10 text-foreground font-bold shadow-xs"
+                    : "border-border bg-card text-muted-foreground hover:bg-section"
+                }`}
+              >
+                <div>
+                  <span className="text-sm font-bold text-foreground block">
+                    🗑️ Clear All Offline Manual Payments
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Deletes {manualPayments.length} offline slip record(s) (Ghana & Nigeria manual)
+                  </span>
+                </div>
+                {clearingScope === "all_manual" && <Check size={16} className="text-destructive" />}
+              </button>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setClearModalOpen(false)}
+                className="px-4 py-2 text-xs font-bold rounded-lg border border-border text-foreground hover:bg-section transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={clearManualPaymentsMutation.isPending}
+                onClick={() => clearManualPaymentsMutation.mutate(clearingScope)}
+                className="px-4 py-2 text-xs font-bold rounded-lg bg-destructive hover:opacity-90 text-destructive-foreground transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 border-none shadow-sm"
+              >
+                {clearManualPaymentsMutation.isPending ? (
+                  <>
+                    <RefreshCw size={13} className="animate-spin" /> Clearing...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={13} /> Confirm & Clear Fresh
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
