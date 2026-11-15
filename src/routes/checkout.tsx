@@ -67,8 +67,8 @@ type MerchantKey = keyof typeof MERCHANTS;
 
 const MOCO_CHANNELS = [
   { id: 13, name: "MTN Mobile Money", color: "#f59e0b", short: "MTN MoMo" },
-  { id: 6,  name: "Telecel Cash",      color: "#ef4444", short: "Telecel" },
-  { id: 7,  name: "AT Money (AirtelTigo)", color: "#3b82f6", short: "AT Money" },
+  { id: 6, name: "Telecel Cash", color: "#ef4444", short: "Telecel" },
+  { id: 7, name: "AT Money (AirtelTigo)", color: "#3b82f6", short: "AT Money" },
 ];
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -102,7 +102,7 @@ function CheckoutPage() {
       // 4. Browser languages (e.g. en-NG)
       const langs = navigator.languages || [navigator.language || ""];
       if (langs.some((l) => l.toLowerCase().includes("-ng"))) return "nigeria";
-    } catch {}
+    } catch { }
     return "ghana";
   });
   const [senderName, setSenderName] = useState("");
@@ -190,21 +190,21 @@ function CheckoutPage() {
 
   // Local subscription package config
   const SUBSCRIPTION_PACKAGES: Record<string, { id: string; name: string; price: number }> = {
-    sub_all_access:   { id: "sub_all_access",   name: "All-Access VIP Monthly Pass",          price: 350 },
-    sub_supreme_vvip: { id: "sub_supreme_vvip", name: "Supreme VVIP Monthly Pass 👑",        price: 280 },
-    sub_supreme:      { id: "sub_supreme",      name: "Supreme VVIP Monthly Pass 👑",        price: 280 },
-    sub_vvip_combo:   { id: "sub_vvip_combo",   name: "VVIP Combo Monthly Pass (VVIP 1 & 2)", price: 220 },
-    sub_vip_combo:    { id: "sub_vip_combo",    name: "VIP Combo Monthly Pass (VIP 1 & 2)",   price: 120 },
-    sub_vip_1:        { id: "sub_vip_1",        name: "VIP 1 Monthly Pass",                   price: 70  },
-    sub_vip_2:        { id: "sub_vip_2",        name: "VIP 2 Monthly Pass",                   price: 70  },
-    sub_vvip_1:       { id: "sub_vvip_1",       name: "VVIP 1 Monthly Pass",                  price: 130 },
-    sub_vvip_2:       { id: "sub_vvip_2",       name: "VVIP 2 Monthly Pass",                  price: 130 },
-    sub_silver:       { id: "sub_silver",       name: "Silver VIP Monthly Subscription",      price: 100 },
-    sub_gold:         { id: "sub_gold",         name: "Gold VIP Monthly Subscription",        price: 180 },
-    sub_platinum:     { id: "sub_platinum",     name: "Platinum VIP Monthly Subscription",    price: 250 },
-    sub_vip1:         { id: "sub_vip1",         name: "VIP 1 Monthly Subscription",           price: 70  },
-    sub_vip2:         { id: "sub_vip2",         name: "VIP 2 Monthly Subscription",           price: 70  },
-    sub_vip3:         { id: "sub_vip3",         name: "VIP 3 Monthly Subscription",           price: 70  },
+    sub_all_access: { id: "sub_all_access", name: "All-Access VIP Monthly Pass", price: 350 },
+    sub_supreme_vvip: { id: "sub_supreme_vvip", name: "Supreme VVIP Monthly Pass 👑", price: 280 },
+    sub_supreme: { id: "sub_supreme", name: "Supreme VVIP Monthly Pass 👑", price: 280 },
+    sub_vvip_combo: { id: "sub_vvip_combo", name: "VVIP Combo Monthly Pass (VVIP 1 & 2)", price: 220 },
+    sub_vip_combo: { id: "sub_vip_combo", name: "VIP Combo Monthly Pass (VIP 1 & 2)", price: 120 },
+    sub_vip_1: { id: "sub_vip_1", name: "VIP 1 Monthly Pass", price: 70 },
+    sub_vip_2: { id: "sub_vip_2", name: "VIP 2 Monthly Pass", price: 70 },
+    sub_vvip_1: { id: "sub_vvip_1", name: "VVIP 1 Monthly Pass", price: 130 },
+    sub_vvip_2: { id: "sub_vvip_2", name: "VVIP 2 Monthly Pass", price: 130 },
+    sub_silver: { id: "sub_silver", name: "Silver VIP Monthly Subscription", price: 100 },
+    sub_gold: { id: "sub_gold", name: "Gold VIP Monthly Subscription", price: 180 },
+    sub_platinum: { id: "sub_platinum", name: "Platinum VIP Monthly Subscription", price: 250 },
+    sub_vip1: { id: "sub_vip1", name: "VIP 1 Monthly Subscription", price: 70 },
+    sub_vip2: { id: "sub_vip2", name: "VIP 2 Monthly Subscription", price: 70 },
+    sub_vip3: { id: "sub_vip3", name: "VIP 3 Monthly Subscription", price: 70 },
   };
   const isSubscription = pkgId?.startsWith("sub_");
 
@@ -306,7 +306,7 @@ function CheckoutPage() {
     setActiveMerchant(key);
     try {
       localStorage.setItem("a1_checkout_country", key);
-    } catch {}
+    } catch { }
     if (key === "nigeria") {
       setPaymentMode("manual");
     } else if (isMoolreActive) {
@@ -422,8 +422,8 @@ function CheckoutPage() {
             tip: moolreChannel === 13
               ? "Tip for MTN: Dial *170# -> 6. My Wallet -> 3. My Approvals to authorize if the popup prompt was missed."
               : moolreChannel === 6
-              ? "Tip for Telecel: Dial *110# -> Pending Approvals to authorize."
-              : "Tip for AT Money: Dial *110# to approve pending transactions.",
+                ? "Tip for Telecel: Dial *110# -> Pending Approvals to authorize."
+                : "Tip for AT Money: Dial *110# to approve pending transactions.",
             primaryLabel: "Check Status Again",
             onPrimary: () => checkPaymentStatus(true),
             secondaryLabel: "Wait on This Screen",
@@ -550,7 +550,7 @@ function CheckoutPage() {
       if (data.reference) setActiveRef(data.reference);
       try {
         localStorage.setItem("a1_momo_phone", moolrePhone.trim());
-      } catch {}
+      } catch { }
       showModal({
         type: "prompt_sent",
         title: "USSD Prompt Dispatched!",
@@ -612,7 +612,7 @@ function CheckoutPage() {
       if (data.reference) setActiveRef(data.reference);
       try {
         localStorage.setItem("a1_momo_phone", moolrePhone.trim());
-      } catch {}
+      } catch { }
       showModal({
         type: "prompt_sent",
         title: "Phone Verified & Prompt Sent!",
@@ -637,7 +637,7 @@ function CheckoutPage() {
   const simulateApprovalMutation = useMutation({
     mutationFn: async () => {
       if (!activeRef || !user || !pkg) throw new Error("No active reference");
-      
+
       // Update manual payment to approved
       await supabase
         .from("manual_payments")
@@ -868,11 +868,10 @@ function CheckoutPage() {
               <button
                 type="button"
                 onClick={() => handleMerchantChange("ghana")}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-bold text-xs transition-all cursor-pointer border-none ${
-                  activeMerchant === "ghana"
-                    ? "bg-amber-500 text-black shadow-xs font-black"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-transparent"
-                }`}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-bold text-xs transition-all cursor-pointer border-none ${activeMerchant === "ghana"
+                  ? "bg-amber-500 text-black shadow-xs font-black"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-transparent"
+                  }`}
               >
                 <span>🇬🇭</span>
                 <span>Ghana (MoMo)</span>
@@ -881,11 +880,10 @@ function CheckoutPage() {
               <button
                 type="button"
                 onClick={() => handleMerchantChange("nigeria")}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-bold text-xs transition-all cursor-pointer border-none ${
-                  activeMerchant === "nigeria"
-                    ? "bg-purple-600 text-white shadow-xs font-black"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-transparent"
-                }`}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-bold text-xs transition-all cursor-pointer border-none ${activeMerchant === "nigeria"
+                  ? "bg-purple-600 text-white shadow-xs font-black"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-transparent"
+                  }`}
               >
                 <span>🇳🇬</span>
                 <span>Nigeria (Manual Bank)</span>
@@ -898,10 +896,10 @@ function CheckoutPage() {
           {/* ═════════════════════════════════════════════════════════════════════ */}
           {isMoolreActive && activeMerchant !== "nigeria" && paymentMode === "moolre" ? (
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-6 items-start">
-              
+
               {/* Left Column: Summary & Network Selector */}
               <div className="rounded-2xl overflow-hidden shadow-xl shadow-slate-200/60 dark:shadow-black/40 border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0e1117]">
-                
+
                 {/* Dark Header */}
                 <div className="bg-slate-900 p-6 space-y-4 text-white">
                   <div className="flex items-start justify-between gap-4">
@@ -939,11 +937,10 @@ function CheckoutPage() {
                             key={ch.id}
                             type="button"
                             onClick={() => setMoolreChannel(ch.id)}
-                            className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
-                              active
-                                ? "border-amber-500 bg-amber-500/10 text-slate-900 dark:text-white font-black shadow-sm"
-                                : "border-slate-200 dark:border-white/10 hover:border-slate-300 text-slate-600 dark:text-slate-400 font-medium"
-                            }`}
+                            className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${active
+                              ? "border-amber-500 bg-amber-500/10 text-slate-900 dark:text-white font-black shadow-sm"
+                              : "border-slate-200 dark:border-white/10 hover:border-slate-300 text-slate-600 dark:text-slate-400 font-medium"
+                              }`}
                           >
                             <div className="w-2.5 h-2.5 rounded-full mx-auto mb-1.5" style={{ background: ch.color }} />
                             <div className="text-xs">{ch.short}</div>
@@ -1244,8 +1241,8 @@ function CheckoutPage() {
                         return (
                           <button key={key} type="button" onClick={() => handleMerchantChange(key)}
                             className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border transition-all text-left cursor-pointer ${active
-                                ? "bg-white text-slate-900 border-white shadow-lg"
-                                : "bg-white/5 text-slate-400 border-white/10 hover:bg-white/10 hover:text-white"
+                              ? "bg-white text-slate-900 border-white shadow-lg"
+                              : "bg-white/5 text-slate-400 border-white/10 hover:bg-white/10 hover:text-white"
                               }`}
                           >
                             <span className="text-2xl">{m.flag}</span>
@@ -1372,8 +1369,8 @@ function CheckoutPage() {
                         onDrop={(e) => { e.preventDefault(); setIsDragging(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
                         onClick={() => fileInputRef.current?.click()}
                         className={`rounded-md border border-dashed cursor-pointer transition-all p-5 flex flex-col items-center gap-2 text-center ${isDragging
-                            ? "border-green-500 bg-green-50 dark:bg-green-500/10"
-                            : "border-slate-300 dark:border-white/15 hover:border-green-400 hover:bg-green-50/30 bg-white dark:bg-white/5"
+                          ? "border-green-500 bg-green-50 dark:bg-green-500/10"
+                          : "border-slate-300 dark:border-white/15 hover:border-green-400 hover:bg-green-50/30 bg-white dark:bg-white/5"
                           }`}
                       >
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDragging ? "bg-green-500" : "bg-slate-100 dark:bg-white/10"}`}>
@@ -1504,9 +1501,9 @@ function CopyBtn({ text, label, copiedField, onCopy, variant = "default" }: {
   return (
     <button type="button" onClick={() => onCopy(text, label)}
       className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-bold transition-all cursor-pointer ${variant === "green"
-          ? active ? "bg-green-600 text-white" : "bg-green-600 hover:bg-green-700 text-white"
-          : active ? "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-500/30"
-            : "bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/20"
+        ? active ? "bg-green-600 text-white" : "bg-green-600 hover:bg-green-700 text-white"
+        : active ? "bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-500/30"
+          : "bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/20"
         }`}>
       {active ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
       {active ? "Copied!" : "Copy"}
