@@ -5,7 +5,6 @@ import {
   ArrowRight, Loader2, BadgeCheck, Upload, ImageIcon,
   Lock, AlertCircle, ArrowLeft, Zap, CheckCircle2, RotateCw,
 } from "lucide-react";
-import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -16,6 +15,14 @@ import {
   InputOTPSlot,
   InputOTPSeparator,
 } from "@/components/ui/input-otp";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/checkout")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -87,6 +94,41 @@ function CheckoutPage() {
   const [otpRequired, setOtpRequired] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [resendCooldown, setResendCooldown] = useState(60);
+
+  // Modal Dialog Notification State (replacing transient toasts)
+  const [checkoutModal, setCheckoutModal] = useState<{
+    isOpen: boolean;
+    type: "success" | "error" | "info" | "pending" | "prompt_sent";
+    title: string;
+    message: string;
+    tip?: string | undefined;
+    primaryLabel?: string | undefined;
+    onPrimary?: (() => void) | undefined;
+    secondaryLabel?: string | undefined;
+    onSecondary?: (() => void) | undefined;
+  }>({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
+
+  const showModal = useCallback((modal: {
+    type: "success" | "error" | "info" | "pending" | "prompt_sent";
+    title: string;
+    message: string;
+    tip?: string | undefined;
+    primaryLabel?: string | undefined;
+    onPrimary?: (() => void) | undefined;
+    secondaryLabel?: string | undefined;
+    onSecondary?: (() => void) | undefined;
+  }) => {
+    setCheckoutModal({ ...modal, isOpen: true });
+  }, []);
+
+  const closeModal = useCallback(() => {
+    setCheckoutModal((prev) => ({ ...prev, isOpen: false }));
+  }, []);
 
   // Countdown timer for OTP resend
   useEffect(() => {
@@ -234,7 +276,13 @@ function CheckoutPage() {
         .maybeSingle();
 
       if (ticket) {
-        toast.success("Payment confirmed! Access granted.");
+        showModal({
+          type: "success",
+          title: "Payment Confirmed!",
+          message: `Your payment was verified successfully. Access to ${pkg?.name || "your VIP package"} has been unlocked.`,
+          primaryLabel: "Go to Dashboard",
+          onPrimary: () => navigate({ to: "/dashboard" }),
+        });
         setSuccess(true);
         if (manual) setIsCheckingStatus(false);
         return true;
@@ -247,7 +295,13 @@ function CheckoutPage() {
         .maybeSingle();
 
       if (payment?.status === "approved") {
-        toast.success("Payment confirmed! Access granted.");
+        showModal({
+          type: "success",
+          title: "Payment Confirmed!",
+          message: `Your payment was verified successfully. Access to ${pkg?.name || "your VIP package"} has been unlocked.`,
+          primaryLabel: "Go to Dashboard",
+          onPrimary: () => navigate({ to: "/dashboard" }),
+        });
         setSuccess(true);
         if (manual) setIsCheckingStatus(false);
         return true;
@@ -271,22 +325,48 @@ function CheckoutPage() {
 
         const data = await res.json();
         if (data?.approved) {
-          toast.success("Payment confirmed! Access granted.");
+          showModal({
+            type: "success",
+            title: "Payment Confirmed!",
+            message: `Your payment was verified successfully. Access to ${pkg?.name || "your VIP package"} has been unlocked.`,
+            primaryLabel: "Go to Dashboard",
+            onPrimary: () => navigate({ to: "/dashboard" }),
+          });
           setSuccess(true);
           if (manual) setIsCheckingStatus(false);
           return true;
         } else if (manual) {
-          toast.info("Payment not yet confirmed. If you just approved on your phone, please wait a few seconds and check again.");
+          showModal({
+            type: "pending",
+            title: "Payment Awaiting Authorization",
+            message: "We haven't received your PIN authorization from the network yet. If you just approved on your phone, please wait a few seconds and check again.",
+            tip: moolreChannel === 13
+              ? "Tip for MTN: Dial *170# -> 6. My Wallet -> 3. My Approvals to authorize if the popup prompt was missed."
+              : moolreChannel === 6
+              ? "Tip for Telecel: Dial *110# -> Pending Approvals to authorize."
+              : "Tip for AT Money: Dial *110# to approve pending transactions.",
+            primaryLabel: "Check Status Again",
+            onPrimary: () => checkPaymentStatus(true),
+            secondaryLabel: "Wait on This Screen",
+          });
         }
       }
     } catch (err: any) {
-      if (manual) toast.error("Could not check status. Please try again.");
+      if (manual) {
+        showModal({
+          type: "error",
+          title: "Unable to Check Status",
+          message: "Could not reach the payment verification server. Please verify your connection and try again.",
+          primaryLabel: "Try Again",
+          onPrimary: () => checkPaymentStatus(true),
+        });
+      }
     } finally {
       if (manual) setIsCheckingStatus(false);
     }
 
     return false;
-  }, [activeRef]);
+  }, [activeRef, moolreChannel, pkg?.name, navigate, showModal]);
 
   // ── Polling for automated payment approval ─────────────────────────────────
   useEffect(() => {
@@ -313,13 +393,26 @@ function CheckoutPage() {
   const copy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(label);
-    toast.success(`${label} copied!`);
     setTimeout(() => setCopiedField(null), 2000);
   };
 
   const handleFile = (file: File) => {
-    if (!file.type.startsWith("image/")) { toast.error("Please upload an image file."); return; }
-    if (file.size > 5 * 1024 * 1024) { toast.error("Max file size is 5 MB."); return; }
+    if (!file.type.startsWith("image/")) {
+      showModal({
+        type: "error",
+        title: "Invalid File Type",
+        message: "Please upload an image file (PNG, JPG, JPEG, or WebP) of your transfer receipt.",
+      });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showModal({
+        type: "error",
+        title: "File Size Too Large",
+        message: "The uploaded file exceeds the 5MB size limit. Please upload a smaller screenshot.",
+      });
+      return;
+    }
     setProofFile(file);
     const reader = new FileReader();
     reader.onload = (e) => setProofPreview(e.target?.result as string);
@@ -365,17 +458,38 @@ function CheckoutPage() {
       if (data.otpRequired) {
         setOtpRequired(true);
         if (data.reference) setActiveRef(data.reference);
-        toast.info(data.message || "Please enter the verification code sent to your phone via SMS.");
+        showModal({
+          type: "info",
+          title: "SMS Verification Required",
+          message: data.message || `Moolre sent a 6-digit verification code to ${moolrePhone}. Please enter it below to authorize your payment prompt.`,
+          primaryLabel: "Enter Code",
+        });
         return;
       }
       setOtpRequired(false);
       setPromptSent(true);
       if (data.reference) setActiveRef(data.reference);
-      toast.success(data.message || "USSD prompt triggered! Check your phone.");
+      try {
+        localStorage.setItem("a1_momo_phone", moolrePhone.trim());
+      } catch {}
+      showModal({
+        type: "prompt_sent",
+        title: "USSD Prompt Dispatched!",
+        message: `A payment prompt has been sent to ${moolrePhone}. Check your phone screen now and enter your Mobile Money PIN to authorize GH₵ ${priceGHS.toFixed(2)}.`,
+        tip: moolreChannel === 13
+          ? "Tip for MTN: If popup didn't show, dial *170# -> 6. My Wallet -> 3. My Approvals."
+          : undefined,
+        primaryLabel: "I've Got My Phone Ready",
+      });
     },
     onError: (err: any) => {
       setIsWaitingPrompt(false);
-      toast.error(err.message || "Could not trigger payment prompt.");
+      showModal({
+        type: "error",
+        title: "Could Not Send Prompt",
+        message: err.message || "Could not trigger Mobile Money prompt. Please check your phone number and try again.",
+        primaryLabel: "Review Details",
+      });
     },
   });
 
@@ -420,10 +534,23 @@ function CheckoutPage() {
       try {
         localStorage.setItem("a1_momo_phone", moolrePhone.trim());
       } catch {}
-      toast.success("Phone verified! Enter your PIN on your phone screen now.");
+      showModal({
+        type: "prompt_sent",
+        title: "Phone Verified & Prompt Sent!",
+        message: `Your phone number was verified! A USSD prompt has been sent to ${moolrePhone}. Please enter your MoMo PIN on your phone screen to complete authorization.`,
+        tip: moolreChannel === 13
+          ? "Tip for MTN: Dial *170# -> 6. My Wallet -> 3. My Approvals if the popup didn't display."
+          : undefined,
+        primaryLabel: "I'll Enter My PIN Now",
+      });
     },
     onError: (err: any) => {
-      toast.error(err.message || "Invalid verification code. Please check your SMS.");
+      showModal({
+        type: "error",
+        title: "Verification Failed",
+        message: err.message || "Invalid verification code. Please check your SMS and try again.",
+        primaryLabel: "Try Again",
+      });
     },
   });
 
@@ -463,10 +590,22 @@ function CheckoutPage() {
       }
     },
     onSuccess: () => {
-      toast.success("Test Payment Approved! Unlocking access...");
+      showModal({
+        type: "success",
+        title: "Test Payment Approved!",
+        message: "Sandbox test payment simulated successfully. Your package is now activated.",
+        primaryLabel: "Go to Dashboard",
+        onPrimary: () => navigate({ to: "/dashboard" }),
+      });
       setSuccess(true);
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => {
+      showModal({
+        type: "error",
+        title: "Simulation Failed",
+        message: err.message || "Failed to simulate approval.",
+      });
+    },
   });
 
   // ── Manual Submit ─────────────────────────────────────────────────────────
@@ -536,7 +675,14 @@ function CheckoutPage() {
       setSuccess(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
-    onError: (err: any) => toast.error(err.message || "Submission failed. Please try again."),
+    onError: (err: any) => {
+      showModal({
+        type: "error",
+        title: "Submission Failed",
+        message: err.message || "We could not submit your payment slip. Please check your network and try again.",
+        primaryLabel: "Review & Resubmit",
+      });
+    },
   });
 
   // ── Loading ───────────────────────────────────────────────────────────────
@@ -797,7 +943,12 @@ function CheckoutPage() {
                               if (resendCooldown === 0) {
                                 moolreMutation.mutate();
                                 setResendCooldown(60);
-                                toast.info("Resending SMS verification code...");
+                                showModal({
+                                  type: "info",
+                                  title: "Resending SMS Code",
+                                  message: `A fresh 6-digit verification code is being dispatched to ${moolrePhone}.`,
+                                  primaryLabel: "Got It",
+                                });
                               }
                             }}
                             disabled={resendCooldown > 0 || moolreMutation.isPending}
@@ -1145,6 +1296,85 @@ function CheckoutPage() {
             </div>
           )}
         </div>
+
+        {/* ── Central Checkout Notification Modal (Replacing Toasts) ─────────────── */}
+        <Dialog open={checkoutModal.isOpen} onOpenChange={(open) => !open && closeModal()}>
+          <DialogContent className="max-w-[420px] w-[92%] p-6 sm:p-7 rounded-3xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 shadow-2xl">
+            <div className="flex flex-col items-center text-center gap-4 py-1">
+              {/* Type Icon Badge */}
+              <div
+                className={cn(
+                  "w-16 h-16 rounded-2xl flex items-center justify-center transition-all",
+                  checkoutModal.type === "success" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 ring-8 ring-emerald-500/10",
+                  checkoutModal.type === "prompt_sent" && "bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-8 ring-amber-500/10",
+                  checkoutModal.type === "pending" && "bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-8 ring-amber-500/10",
+                  checkoutModal.type === "error" && "bg-rose-500/15 text-rose-600 dark:text-rose-400 ring-8 ring-rose-500/10",
+                  checkoutModal.type === "info" && "bg-sky-500/15 text-sky-600 dark:text-sky-400 ring-8 ring-sky-500/10"
+                )}
+              >
+                {checkoutModal.type === "success" && <BadgeCheck className="w-9 h-9 stroke-[2.2]" />}
+                {checkoutModal.type === "prompt_sent" && <Smartphone className="w-8 h-8 animate-bounce" />}
+                {checkoutModal.type === "pending" && <Clock className="w-8 h-8 animate-spin" />}
+                {checkoutModal.type === "error" && <AlertCircle className="w-9 h-9" />}
+                {checkoutModal.type === "info" && <ShieldCheck className="w-9 h-9" />}
+              </div>
+
+              <div className="space-y-1.5 w-full">
+                <DialogTitle className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                  {checkoutModal.title}
+                </DialogTitle>
+                <DialogDescription className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+                  {checkoutModal.message}
+                </DialogDescription>
+              </div>
+
+              {/* Optional Contextual Tip Box */}
+              {checkoutModal.tip && (
+                <div className="w-full p-3.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-700 dark:text-slate-300 font-mono text-left leading-relaxed flex items-start gap-2">
+                  <Smartphone className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <span>{checkoutModal.tip}</span>
+                </div>
+              )}
+
+              {/* Modal Actions */}
+              <div className="w-full flex flex-col gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (checkoutModal.onPrimary) {
+                      checkoutModal.onPrimary();
+                    }
+                    closeModal();
+                  }}
+                  className={cn(
+                    "w-full py-3.5 px-4 rounded-xl font-extrabold text-xs transition-all shadow-md cursor-pointer flex items-center justify-center gap-2",
+                    checkoutModal.type === "success" && "bg-emerald-600 hover:bg-emerald-500 text-white",
+                    (checkoutModal.type === "prompt_sent" || checkoutModal.type === "pending") && "bg-amber-500 hover:bg-amber-400 text-slate-950",
+                    checkoutModal.type === "error" && "bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-950",
+                    checkoutModal.type === "info" && "bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-950"
+                  )}
+                >
+                  {checkoutModal.primaryLabel || "Got It"}
+                </button>
+
+                {checkoutModal.secondaryLabel && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (checkoutModal.onSecondary) {
+                        checkoutModal.onSecondary();
+                      }
+                      closeModal();
+                    }}
+                    className="w-full py-2 px-4 rounded-xl font-bold text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer bg-transparent border-none"
+                  >
+                    {checkoutModal.secondaryLabel}
+                  </button>
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

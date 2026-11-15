@@ -11,8 +11,8 @@ const MOOLRE_API_BASE = "https://api.moolre.com";
 
 // Moolre response codes
 const OTP_REQUIRED_CODE = "TP14";  // OTP SMS sent to payer
-const OTP_VERIFIED_CODE = "TP17";  // Phone verification successful — need follow-up call
-const SUCCESS_CODES = ["TR099", "TR00"]; // USSD prompt dispatched
+const OTP_VERIFIED_CODE = "TP17";  // Phone verification successful / prompt dispatched
+const SUCCESS_CODES = ["TR099", "TR00", "TP17"]; // USSD prompt dispatched / verified
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -275,18 +275,6 @@ Deno.serve(async (req: Request) => {
     // ── Call Moolre ─────────────────────────────────────────────────────────────
     let moolreData = await callMoolre(requestBody);
 
-    // ── Handle TP17: Phone Verified → make follow-up call WITHOUT OTP ──────────
-    if (moolreData?.code === OTP_VERIFIED_CODE || moolreData?.code === "TP17") {
-      console.log("TP17 received — phone verified. Making follow-up call to trigger USSD prompt...");
-
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const followUpBody = { ...baseRequestBody };
-      moolreData = await callMoolre(followUpBody);
-
-      console.log("Follow-up Moolre response:", JSON.stringify(moolreData));
-    }
-
     // ── OTP Required (TP14) ───────────────────────────────────────────────────
     if (
       moolreData.code === OTP_REQUIRED_CODE ||
@@ -304,9 +292,19 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── Moolre success check ───────────────────────────────────────────────────
+    // TP17 = Phone verified & USSD prompt dispatched
+    // TP13 = External ref already registered on Moolre (transaction already initiated)
+    const isAlreadyInitiated =
+      moolreData?.code === "TP13" ||
+      (typeof moolreData?.message === "string" && moolreData.message.toLowerCase().includes("must be unique"));
+
     const moolreOk =
-      moolreData.status === 1 || moolreData.status === "1" ||
-      SUCCESS_CODES.includes(moolreData.code);
+      moolreData.status === 1 ||
+      moolreData.status === "1" ||
+      moolreData.code === OTP_VERIFIED_CODE ||
+      moolreData.code === "TP17" ||
+      SUCCESS_CODES.includes(moolreData.code) ||
+      isAlreadyInitiated;
 
     if (!moolreOk) {
       console.error("Moolre API error response:", JSON.stringify(moolreData));
@@ -318,6 +316,9 @@ Deno.serve(async (req: Request) => {
           error: errMsg,
           details: moolreData,
         }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

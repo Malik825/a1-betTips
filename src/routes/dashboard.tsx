@@ -5,7 +5,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { supabase } from "@/lib/supabase";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
-import { Check, X, Ticket, ExternalLink, Clock, RotateCcw, Upload, AlertCircle, Trash2, Camera, ShieldCheck, Bell, BellRing, BadgeCheck, Repeat, CreditCard, Copy, Crown, Zap } from "lucide-react";
+import { Check, X, Ticket, ExternalLink, Clock, RotateCcw, Upload, AlertCircle, Trash2, Camera, ShieldCheck, Bell, BellRing, BadgeCheck, Repeat, CreditCard, Copy, Crown, Zap, Loader2 } from "lucide-react";
 import { isTicketValidForPackage, hasUserPurchasedPackage } from "@/lib/ticket-utils";
 import { toast } from "sonner";
 
@@ -239,9 +239,25 @@ function DashboardPage() {
     (s: any) => (s.status === "pending" || s.status === "cancelled") && (!s.proof_url || s.status === "cancelled")
   );
 
-  // Rejected payments that haven't been re-attempted (most recent per package type)
+  const isMoolre = (p: any) => {
+    if (!p) return false;
+    const ref = (p.reference_code || "").toLowerCase();
+    const net = (p.network || "").toLowerCase();
+    const tx = (p.transaction_id || "").toLowerCase();
+    return ref.includes("moolre") || net.includes("moolre") || tx.includes("moolre") || tx.startsWith("9375");
+  };
+
+  // State to allow user to dismiss rejected notices or pending cards
+  const [dismissedRejectedIds, setDismissedRejectedIds] = useState<string[]>([]);
+  const [dismissedPendingIds, setDismissedPendingIds] = useState<string[]>([]);
+  const [verifyingPaymentId, setVerifyingPaymentId] = useState<string | null>(null);
+
+  // Rejected payments: ONLY for actual manual slip reviews, excluding automated Moolre & test artifacts
   const rejectedPayments = userPendingPayments.filter((p: any) => {
     if (p.status !== "rejected") return false;
+    if (dismissedRejectedIds.includes(p.id)) return false;
+    // Exclude automated gateway payments and test artifacts from manual slip rejection notices
+    if (isMoolre(p) || Number(p.amount) >= 5000) return false;
     // Don't show if a newer pending or approved payment exists for same package
     const newer = userPendingPayments.find(
       (q: any) => q.package_id === p.package_id && q.id !== p.id &&
@@ -256,16 +272,9 @@ function DashboardPage() {
   const [subProofPreview, setSubProofPreview] = useState<string | null>(null);
   const [uploadingSubProof, setUploadingSubProof] = useState(false);
 
-  const isMoolre = (p: any) => {
-    if (!p) return false;
-    const ref = (p.reference_code || "").toLowerCase();
-    const net = (p.network || "").toLowerCase();
-    const tx = (p.transaction_id || "").toLowerCase();
-    return ref.includes("moolre") || net.includes("moolre") || tx.includes("moolre") || tx.startsWith("9375");
-  };
-
   const activePendingPayments = userPendingPayments.filter((p: any) => {
     if (p.status !== "pending") return false;
+    if (dismissedPendingIds.includes(p.id)) return false;
     // Moolre automated USSD prompts expire within 15 mins on telecom network
     if (isMoolre(p)) {
       const ageMs = Date.now() - new Date(p.created_at).getTime();
@@ -273,6 +282,51 @@ function DashboardPage() {
     }
     return true;
   });
+
+  // Verify pending Moolre payment status directly from dashboard
+  const verifyMoolreStatus = async (payment: any) => {
+    if (!payment?.reference_code) return;
+    setVerifyingPaymentId(payment.id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Please log in again.");
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const res = await fetch(`${supabaseUrl}/functions/v1/moolre-payment`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          action: "check_status",
+          reference: payment.reference_code,
+        }),
+      });
+
+      const data = await res.json();
+      if (data?.approved) {
+        toast.success("Payment confirmed! Your VIP package is unlocked.");
+        queryClient.invalidateQueries({ queryKey: ["user_manual_payments"] });
+        queryClient.invalidateQueries({ queryKey: ["user_tickets"] });
+        queryClient.invalidateQueries({ queryKey: ["vip_packages"] });
+      } else {
+        toast.info("Payment not yet confirmed by network. If you just approved on your phone, wait a moment and try again.");
+      }
+    } catch (err: any) {
+      toast.error("Could not check status. Please try again.");
+    } finally {
+      setVerifyingPaymentId(null);
+    }
+  };
+
+  // Auto-check recent pending Moolre payments once on dashboard load
+  useEffect(() => {
+    const recentMoolre = activePendingPayments.find((p: any) => isMoolre(p));
+    if (recentMoolre) {
+      verifyMoolreStatus(recentMoolre);
+    }
+  }, []);
 
 
   const { data: vipPackages = [] } = useQuery({
@@ -827,22 +881,49 @@ function DashboardPage() {
                   : (p.reference_code?.length > 16 ? `#${p.reference_code.slice(0, 10)}...` : p.reference_code);
 
                 return (
-                  <div key={p.id} className="p-3 rounded-lg bg-white dark:bg-slate-900 border border-amber-500/20 shadow-sm flex items-center justify-between gap-2 overflow-hidden">
+                  <div key={p.id} className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-amber-500/20 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 overflow-hidden">
                     <div className="min-w-0 flex-1">
-                      <span className="font-bold text-xs text-slate-900 dark:text-white truncate block">
-                        {pkg?.name || p.package_id}
-                      </span>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate block">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-slate-900 dark:text-white truncate block">
+                          {pkg?.name || p.package_id}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase whitespace-nowrap ${
+                          isAuto
+                            ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1"
+                            : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-border"
+                        }`}>
+                          {isAuto ? <><Zap size={9} className="fill-amber-500" /> Awaiting PIN</> : "Pending"}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
                         Ref: <strong className="font-mono text-emerald-600 dark:text-emerald-400">{cleanRef}</strong> • GH₵ {Number(p.amount).toFixed(2)}
                       </span>
                     </div>
-                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase whitespace-nowrap ${
-                      isAuto
-                        ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1"
-                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-border"
-                    }`}>
-                      {isAuto ? <><Zap size={9} className="fill-amber-500" /> Awaiting PIN</> : "Pending"}
-                    </span>
+
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                      {isAuto && (
+                        <button
+                          type="button"
+                          onClick={() => verifyMoolreStatus(p)}
+                          disabled={verifyingPaymentId === p.id}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-[11px] shadow-sm transition-all flex items-center gap-1 cursor-pointer border-none"
+                        >
+                          {verifyingPaymentId === p.id ? (
+                            <><Loader2 className="w-3 h-3 animate-spin" /> Checking…</>
+                          ) : (
+                            <><Check className="w-3 h-3" strokeWidth={3} /> I've Paid — Unlock</>
+                          )}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setDismissedPendingIds((prev) => [...prev, p.id])}
+                        title="Dismiss"
+                        className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer bg-transparent border-none"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -879,13 +960,23 @@ function DashboardPage() {
                         Ref: <strong className="font-mono">{p.reference_code}</strong> • GHS {Number(p.amount).toFixed(2)}
                       </span>
                     </div>
-                    <Link
-                      to="/checkout"
-                      search={{ pkgId: p.package_id }}
-                      className="shrink-0 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 no-underline shadow-sm"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" /> Resubmit Details
-                    </Link>
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                      <Link
+                        to="/checkout"
+                        search={{ pkgId: p.package_id }}
+                        className="shrink-0 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 no-underline shadow-sm"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" /> Resubmit Details
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => setDismissedRejectedIds((prev) => [...prev, p.id])}
+                        title="Dismiss notice"
+                        className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer bg-transparent border-none"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
