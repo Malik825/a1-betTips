@@ -717,12 +717,14 @@ function CheckoutPage() {
       }
 
       const amountPaid = activeMerchant === "nigeria" && priceNGN ? priceNGN : priceGHS;
-      const refCode = `MOMO-${Date.now().toString(36).toUpperCase()}`;
+      const refCode = activeMerchant === "nigeria"
+        ? `NG-${Date.now().toString(36).toUpperCase()}`
+        : `MOMO-${Date.now().toString(36).toUpperCase()}`;
 
       const { error } = await supabase.from("manual_payments").insert({
         user_id: user.id,
         package_id: pkg.id,
-        amount: priceGHS,
+        amount: amountPaid,
         sender_name: senderName.trim(),
         sender_phone: "N/A",
         reference_code: refCode,
@@ -739,7 +741,7 @@ function CheckoutPage() {
           user_id: user.id,
           subscription_type: subscriptionType,
           status: "pending",
-          amount_paid: priceGHS,
+          amount_paid: amountPaid,
           payment_ref: refCode,
           proof_url: proofUrl,
         });
@@ -1319,8 +1321,8 @@ function CheckoutPage() {
 
               {/* ── RIGHT: Submit proof ── */}
               <div className="rounded-2xl bg-white dark:bg-[#0e1117] border border-slate-200 dark:border-white/10 shadow-xl shadow-slate-200/60 dark:shadow-black/40 p-6">
-                <div className="mb-6">
-                  <div className="flex items-center gap-2.5 mb-3">
+                <div className="mb-5">
+                  <div className="flex items-center gap-2.5 mb-2">
                     <div className="w-8 h-8 rounded-lg bg-green-600 flex items-center justify-center">
                       <Smartphone className="w-4 h-4 text-white" />
                     </div>
@@ -1331,7 +1333,54 @@ function CheckoutPage() {
                   </p>
                 </div>
 
+                {/* Official Checkout Price Verification Card */}
+                <div className="mb-5 p-4 rounded-xl bg-slate-900 border border-slate-800 text-white space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Required Checkout Price
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      Must Match Proof
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <div className="text-2xl font-black text-emerald-400 tracking-tight">
+                      {displayAmount}
+                    </div>
+                    <div className="text-xs font-bold text-slate-300">
+                      {pkg?.name}
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate-400 border-t border-slate-800 pt-2 m-0">
+                    Your transfer receipt must clearly show <strong className="text-white">{displayAmount}</strong> sent to {networkLabel}. Transfers with mismatched amounts will be rejected.
+                  </p>
+                </div>
+
                 <form onSubmit={(e) => { e.preventDefault(); submitMutation.mutate(); }} className="space-y-4">
+                  {/* Verified Amount Confirmation Field */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                      <span>Amount Transferred <span className="text-red-500">*</span></span>
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                        <Check className="w-3 h-3" /> Matches Checkout Price
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        readOnly
+                        value={displayAmount}
+                        className="w-full px-3 py-2.5 text-sm font-black rounded-md border border-emerald-500/40 bg-emerald-500/5 text-slate-900 dark:text-white cursor-not-allowed select-none"
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Lock className="w-3.5 h-3.5 text-emerald-500" />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Fixed to official package price. Receipt must match this exact figure.
+                    </p>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                       Full Name <span className="text-red-500">*</span>
@@ -1386,7 +1435,7 @@ function CheckoutPage() {
 
                   <div className="flex gap-2.5 p-3.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl text-xs text-amber-800 dark:text-amber-300">
                     <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
-                    <span>Make sure the <strong>sender name</strong> matches your payment. We verify payments using your name and proof screenshot.</span>
+                    <span>Make sure the <strong>amount ({displayAmount})</strong> and <strong>sender name</strong> match your bank receipt. We verify payments using your receipt details.</span>
                   </div>
 
                   <button
